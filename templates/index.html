@@ -327,9 +327,30 @@
     </div>
     <h2>MIST<span>RAL</span></h2>
     <div class="sub">Defense Command Center</div>
-    <div class="field">
-      <label>Логин</label>
-      <input type="text" id="login-user" placeholder="operator" autocomplete="off" />
+    
+    <div id="connection-step">
+      <div class="field">
+        <label>Server URL</label>
+        <input type="text" id="server-url" placeholder="http://localhost:8080" value="http://localhost:8080" />
+      </div>
+      <button onclick="checkServer()">Connect</button>
+    </div>
+
+    <div id="login-step" class="hidden">
+      <div class="field">
+        <label>Логин</label>
+        <input type="text" id="login-user" placeholder="operator" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label>Пароль</label>
+        <input type="password" id="login-pass" placeholder="••••••••" />
+      </div>
+      <button onclick="doLogin()">Login</button>
+    </div>
+    
+    <div id="login-error" class="error"></div>
+  </div>
+</div>
     </div>
     <div class="field">
       <label>Пароль</label>
@@ -718,45 +739,95 @@
 //  AUTH
 // ═══════════════════════════════════════════════════════════════════════════
 const AUTH_KEY = 'mistral_auth';
+const SERVER_URL_KEY = 'mistral_server_url';
+
 function checkAuth() {
-  const s = sessionStorage.getItem(AUTH_KEY) || localStorage.getItem(AUTH_KEY);
-  if (s) {
-    document.getElementById('login-overlay').classList.add('hidden');
-    connectWS();
+  const token = sessionStorage.getItem(AUTH_KEY) || localStorage.getItem(AUTH_KEY);
+  const savedUrl = sessionStorage.getItem(SERVER_URL_KEY) || localStorage.getItem(SERVER_URL_KEY);
+  if (token && savedUrl) {
+    // Restore saved server URL into proxy config and skip login
+    fetch('/api/set-server', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: savedUrl }),
+    }).then(() => {
+      document.getElementById('login-overlay').classList.add('hidden');
+      connectWS();
+    }).catch(() => {
+      // If set-server fails, show login again
+      sessionStorage.removeItem(AUTH_KEY);
+      sessionStorage.removeItem(SERVER_URL_KEY);
+    });
   }
 }
+
+function checkServer() {
+  const url = document.getElementById('server-url').value.trim();
+  const err = document.getElementById('login-error');
+  const btn = document.querySelector('#connection-step button');
+  if (!url) { err.textContent = 'Введите адрес сервера'; return; }
+  err.textContent = 'Проверка соединения...';
+  btn.disabled = true;
+
+  // Проксируем через client-server чтобы избежать CORS/CSP в Electron
+  fetch('/api/check-server', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+  })
+  .then(r => r.json())
+  .then(data => {
+    btn.disabled = false;
+    if (data.ok) {
+      sessionStorage.setItem(SERVER_URL_KEY, url);
+      localStorage.setItem(SERVER_URL_KEY, url);
+      document.getElementById('connection-step').classList.add('hidden');
+      document.getElementById('login-step').classList.remove('hidden');
+      err.textContent = '';
+      document.getElementById('login-user').focus();
+    } else {
+      err.textContent = data.error || 'Сервер недоступен по этому адресу';
+    }
+  })
+  .catch(() => { btn.disabled = false; err.textContent = 'Ошибка соединения'; });
+}
+
 function doLogin() {
   const user = document.getElementById('login-user').value.trim();
   const pass = document.getElementById('login-pass').value;
   const err = document.getElementById('login-error');
-  const btn = document.getElementById('login-btn');
-  err.textContent = '';
+  const btn = document.querySelector('#login-step button');
   if (!user || !pass) { err.textContent = 'Введите логин и пароль'; return; }
+  err.textContent = 'Авторизация...';
   btn.disabled = true;
 
-  fetch('/api/login', {
+  fetch('/api/proxy-login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username: user, password: pass }),
   })
   .then(r => r.json())
   .then(data => {
+    btn.disabled = false;
     if (data.success && data.token) {
       sessionStorage.setItem(AUTH_KEY, data.token);
+      localStorage.setItem(AUTH_KEY, data.token);
       document.getElementById('login-overlay').classList.add('hidden');
       connectWS();
     } else {
       err.textContent = 'Неверный логин или пароль';
     }
-    btn.disabled = false;
   })
-  .catch(() => {
-    err.textContent = 'Сервер недоступен';
-    btn.disabled = false;
-  });
+  .catch(() => { btn.disabled = false; err.textContent = 'Ошибка соединения с сервером'; });
 }
-document.getElementById('login-pass').addEventListener('keypress', e => { if (e.key === 'Enter') doLogin(); });
-// ═══════════════════════════════════════════════════════════════════════════
+
+document.addEventListener('DOMContentLoaded', () => {
+  checkAuth();
+  const passEl = document.getElementById('login-pass');
+  if (passEl) passEl.addEventListener('keypress', e => { if (e.key === 'Enter') doLogin(); });
+  const urlEl = document.getElementById('server-url');
+  if (urlEl) urlEl.addEventListener('keypress', e => { if (e.key === 'Enter') checkServer(); });
+});// ═══════════════════════════════════════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════════════════════════════════════
 const MAX_POINTS = 50;
@@ -816,9 +887,8 @@ function sendWS(event, data) {
   if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ event, data }));
 }
 
-// Check auth on load
-window.addEventListener('DOMContentLoaded', checkAuth);
-
+// ═══════════════════════════════════════════════════════════════════════════
+//  STATE
 // ═══════════════════════════════════════════════════════════════════════════
 //  WS MESSAGE HANDLER
 // ═══════════════════════════════════════════════════════════════════════════function handleWSMessage(msg) {

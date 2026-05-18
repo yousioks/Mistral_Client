@@ -19,13 +19,36 @@ const {
 } = process.env;
 
 // --- Resolve paths for Electron -------------------------------------------
-const isElectron = process.versions && process.versions.electron;
-const basePath = isElectron
-  ? path.join(process.resourcesPath, 'app')
-  : __dirname;
+// Dev:      __dirname = project root, templates/ and static/ are siblings
+// Packaged: files are in app.asar, extraResources land at process.resourcesPath
+//           so templates/ = process.resourcesPath/templates
+const isElectron = !!(process.versions && process.versions.electron);
+
+// process.resourcesPath exists in both dev electron and packaged
+// In dev it points to node_modules/electron/dist/resources — no templates there
+// Detect packaged by checking if app.asar exists in resourcesPath
+let basePath;
+if (isElectron && process.resourcesPath) {
+  const asarPath = path.join(process.resourcesPath, 'app.asar');
+  if (fs.existsSync(asarPath)) {
+    // Packaged — extraResources are at resourcesPath level
+    basePath = process.resourcesPath;
+  } else {
+    // Dev electron (npm start)
+    basePath = __dirname;
+  }
+} else {
+  basePath = __dirname;
+}
+
+// --- Writable data dir (APPDATA on Windows, home on Linux/Mac) ------------
+// Never write to Program Files — no permissions there
+const appDataDir = process.env.APPDATA
+  ? path.join(process.env.APPDATA, 'MISTRAL Defense')
+  : path.join(require('os').homedir(), '.mistral-defense');
 
 // --- Logging --------------------------------------------------------------
-const logDir = path.join(basePath, 'logs');
+const logDir = path.join(appDataDir, 'logs');
 if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
 
 const logFormat = winston.format.combine(
@@ -117,6 +140,52 @@ app.post('/api/login', (req, res) => {
     return res.json({ success: true, token });
   }
   res.status(401).json({ success: false, error: 'Invalid credentials' });
+});
+
+// ── Server URL config (set from browser during login) ──
+let configuredServerUrl = '';
+
+app.post('/api/set-server', (req, res) => {
+  const { url } = req.body || {};
+  if (url) configuredServerUrl = url;
+  res.json({ ok: true, url: configuredServerUrl });
+});
+
+app.post('/api/check-server', async (req, res) => {
+  const { url } = req.body || {};
+  if (!url) return res.status(400).json({ ok: false, error: 'No URL provided' });
+  try {
+    const fetch = (await import('node-fetch')).default;
+    const response = await fetch(`${url.replace(/\/$/, '')}/api/health`, { timeout: 5000 });
+    const data = await response.json();
+    if (data.status === 'ok') {
+      configuredServerUrl = url;
+      res.json({ ok: true, url });
+    } else {
+      res.json({ ok: false, error: 'Server responded but not ok' });
+    }
+  } catch (err) {
+    logger.error('check-server error', { error: err.message });
+    res.json({ ok: false, error: 'Server unreachable: ' + err.message });
+  }
+});
+
+// Proxy login to actual server
+app.post('/api/proxy-login', async (req, res) => {
+  const serverUrl = configuredServerUrl || `http://${SERVER_HOST}:${SERVER_API_PORT}`;
+  try {
+    const fetch = (await import('node-fetch')).default;
+    const response = await fetch(`${serverUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+    const data = await response.json();
+    res.status(response.status).json(data);
+  } catch (err) {
+    logger.error('proxy-login error', { error: err.message });
+    res.status(502).json({ success: false, error: 'Server unreachable' });
+  }
 });
 
 // Proxy to server REST API
