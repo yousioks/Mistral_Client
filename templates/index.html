@@ -853,30 +853,39 @@ let pageVisible = true;
 //  WEBSOCKET (Browser ←→ Client Server)
 // ═══════════════════════════════════════════════════════════════════════════
 function connectWS() {
-  const url = `ws://${location.host}/client-ws`;
-  try { ws = new WebSocket(url); } catch(e) { scheduleReconnect(); return; }
+  const savedUrl = localStorage.getItem(SERVER_URL_KEY);
+  if (!savedUrl) return;
+  
+  const urlObj = new URL(savedUrl);
+  fetch('/api/connect-ws', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ host: urlObj.hostname, port: 8443 }),
+  }).then(() => {
+    const url = `ws://${location.host}/client-ws`;
+    try { ws = new WebSocket(url); } catch(e) { scheduleReconnect(); return; }
 
-  ws.onopen = () => {
-    reconnectAttempts = 0;
-    updateConnStatus(true);
-    ws.send(JSON.stringify({ event: 'get_stats' }));
-    ws.send(JSON.stringify({ event: 'get_incidents' }));
-    ws.send(JSON.stringify({ event: 'get_logs', data: { type: 'server', limit: 300 } }));
-    ws.send(JSON.stringify({ event: 'get_review' }));
-    ws.send(JSON.stringify({ event: 'get_ai_results' }));
-  };
+    ws.onopen = () => {
+      reconnectAttempts = 0;
+      updateConnStatus(true);
+      ws.send(JSON.stringify({ event: 'get_stats' }));
+      ws.send(JSON.stringify({ event: 'get_incidents' }));
+      ws.send(JSON.stringify({ event: 'get_logs', data: { type: 'server', limit: 300 } }));
+      ws.send(JSON.stringify({ event: 'get_review' }));
+      ws.send(JSON.stringify({ event: 'get_ai_results' }));
+    };
 
-  ws.onmessage = (ev) => {
-    try {
-      const msg = JSON.parse(ev.data);
-      handleWSMessage(msg);
-    } catch(err) {}
-  };
+    ws.onmessage = (ev) => {
+      try {
+        const msg = JSON.parse(ev.data);
+        handleWSMessage(msg);
+      } catch(err) {}
+    };
 
-  ws.onclose = () => { updateConnStatus(false); scheduleReconnect(); };
-  ws.onerror = () => { updateConnStatus(false); };
+    ws.onclose = () => { updateConnStatus(false); scheduleReconnect(); };
+    ws.onerror = () => { updateConnStatus(false); };
+  });
 }
-
 function scheduleReconnect() {
   if (reconnectTimer) return;
   const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);

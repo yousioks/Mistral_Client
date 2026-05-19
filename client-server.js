@@ -220,6 +220,10 @@ let reconnectAttempts = 0;
 const MAX_RECONNECT_DELAY = 30000;
 
 function connectToServer(host, port = 8443) {
+  if (!host || host === 'undefined') {
+    logger.warn('Connection attempt with undefined host, skipping');
+    return;
+  }
   const wssUrl = `wss://${host}:${port}/ws`;
   logger.info(`Connecting to Mistral Server at ${wssUrl}`);
 
