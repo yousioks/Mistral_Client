@@ -812,15 +812,23 @@ function doLogin() {
     if (data.success && data.token) {
       sessionStorage.setItem(AUTH_KEY, data.token);
       localStorage.setItem(AUTH_KEY, data.token);
-      document.getElementById('login-overlay').classList.add('hidden');
-      connectWS();
+      
+      // Connect WS via proxy
+      const urlObj = new URL(SERVER_URL);
+      fetch('/api/connect-ws', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ host: urlObj.hostname, port: 8443 }),
+      }).then(() => {
+        document.getElementById('login-overlay').classList.add('hidden');
+        connectWS();
+      });
     } else {
       err.textContent = 'Неверный логин или пароль';
     }
   })
   .catch(() => { btn.disabled = false; err.textContent = 'Ошибка соединения с сервером'; });
 }
-
 document.addEventListener('DOMContentLoaded', () => {
   checkAuth();
   const passEl = document.getElementById('login-pass');

@@ -188,6 +188,12 @@ app.post('/api/proxy-login', async (req, res) => {
   }
 });
 
+app.post('/api/connect-ws', (req, res) => {
+  const { host, port } = req.body;
+  connectToServer(host, port);
+  res.json({ ok: true });
+});
+
 // Proxy to server REST API
 app.all('/api/proxy/*', async (req, res) => {
   try {
@@ -213,8 +219,8 @@ let reconnectTimer = null;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_DELAY = 30000;
 
-function connectToServer() {
-  const wssUrl = `wss://${SERVER_HOST}:${SERVER_WSS_PORT}/ws`;
+function connectToServer(host, port = 8443) {
+  const wssUrl = `wss://${host}:${port}/ws`;
   logger.info(`Connecting to Mistral Server at ${wssUrl}`);
 
   try {
@@ -223,7 +229,6 @@ function connectToServer() {
     });
   } catch (err) {
     logger.error('WS creation failed', { error: err.message });
-    scheduleReconnect();
     return;
   }
 
