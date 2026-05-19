@@ -744,23 +744,14 @@ const SERVER_URL_KEY = 'mistral_server_url';
 function checkAuth() {
   const token = sessionStorage.getItem(AUTH_KEY) || localStorage.getItem(AUTH_KEY);
   const savedUrl = sessionStorage.getItem(SERVER_URL_KEY) || localStorage.getItem(SERVER_URL_KEY);
+  
   if (token && savedUrl) {
-    // Restore saved server URL into proxy config and skip login
-    fetch('/api/set-server', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: savedUrl }),
-    }).then(() => {
-      document.getElementById('login-overlay').classList.add('hidden');
-      connectWS();
-    }).catch(() => {
-      // If set-server fails, show login again
-      sessionStorage.removeItem(AUTH_KEY);
-      sessionStorage.removeItem(SERVER_URL_KEY);
-    });
+    document.getElementById('login-overlay').classList.add('hidden');
+    connectWS();
+  } else {
+    document.getElementById('login-overlay').classList.remove('hidden');
   }
 }
-
 function checkServer() {
   const url = document.getElementById('server-url').value.trim();
   const err = document.getElementById('login-error');
