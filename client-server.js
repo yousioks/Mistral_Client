@@ -1,4 +1,5 @@
-require('dotenv').config();
+// MISTRAL Defense Client — автономный, без .env
+// Пользователь вводит IP/порт/логин/пароль прямо в интерфейсе
 
 const fs = require('fs');
 const path = require('path');
@@ -9,14 +10,8 @@ const helmet = require('helmet');
 const winston = require('winston');
 const DailyRotateFile = require('winston-daily-rotate-file');
 
-const {
-  SERVER_HOST = 'localhost',
-  SERVER_WSS_PORT = 8443,
-  SERVER_API_PORT = 8080,
-  CLIENT_PORT = 3001,
-  WSS_SECRET_TOKEN = 'dev-token',
-  LOG_LEVEL = 'info',
-} = process.env;
+const CLIENT_PORT = process.env.CLIENT_PORT || 3001;
+const LOG_LEVEL = process.env.LOG_LEVEL || 'info';
 
 // --- Resolve paths for Electron -------------------------------------------
 // Dev:      __dirname = project root, templates/ and static/ are siblings
@@ -127,80 +122,31 @@ app.get('/api/cache/metrics', (_req, res) => res.json(cache.metrics || {}));
 app.get('/api/cache/review', (_req, res) => res.json({ logs: cache.reviewQueue, cves: cache.cveReviewQueue }));
 app.get('/api/cache/ai-results', (_req, res) => res.json(cache.aiResults.slice(-50)));
 
-// ── Auth endpoint for client login ──
-const { CLIENT_LOGIN, CLIENT_PASSWORD } = process.env;
-app.post('/api/login', (req, res) => {
-  const { username, password } = req.body || {};
-  if (!CLIENT_LOGIN || !CLIENT_PASSWORD) {
-    // Fallback: allow any if not configured (dev mode)
-    return res.json({ success: true, token: 'dev-token' });
-  }
-  if (username === CLIENT_LOGIN && password === CLIENT_PASSWORD) {
-    const token = Buffer.from(`${username}:${Date.now()}:${Math.random().toString(36).slice(2)}`).toString('base64');
-    return res.json({ success: true, token });
-  }
-  res.status(401).json({ success: false, error: 'Invalid credentials' });
-});
-
-// ── Server URL config (set from browser during login) ──
+// ── Динамический URL сервера (задаётся из браузера при логине) ──────────────
 let configuredServerUrl = '';
+let configuredServerHost = '';
+let configuredServerPort = 8080;
+let configuredToken = '';
 
-app.post('/api/set-server', (req, res) => {
-  const { url } = req.body || {};
+// Браузер логинится напрямую на сервер, потом сообщает нам токен и URL
+app.post('/api/set-connection', (req, res) => {
+  const { url, host, port, token } = req.body || {};
   if (url) configuredServerUrl = url;
-  res.json({ ok: true, url: configuredServerUrl });
-});
-
-app.post('/api/check-server', async (req, res) => {
-  const { url } = req.body || {};
-  if (!url) return res.status(400).json({ ok: false, error: 'No URL provided' });
-  try {
-    const fetch = (await import('node-fetch')).default;
-    const response = await fetch(`${url.replace(/\/$/, '')}/api/health`, { timeout: 5000 });
-    const data = await response.json();
-    if (data.status === 'ok') {
-      configuredServerUrl = url;
-      res.json({ ok: true, url });
-    } else {
-      res.json({ ok: false, error: 'Server responded but not ok' });
-    }
-  } catch (err) {
-    logger.error('check-server error', { error: err.message });
-    res.json({ ok: false, error: 'Server unreachable: ' + err.message });
-  }
-});
-
-// Proxy login to actual server
-app.post('/api/proxy-login', async (req, res) => {
-  const serverUrl = configuredServerUrl || `http://${SERVER_HOST}:${SERVER_API_PORT}`;
-  try {
-    const fetch = (await import('node-fetch')).default;
-    const response = await fetch(`${serverUrl}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req.body),
-    });
-    const data = await response.json();
-    res.status(response.status).json(data);
-  } catch (err) {
-    logger.error('proxy-login error', { error: err.message });
-    res.status(502).json({ success: false, error: 'Server unreachable' });
-  }
-});
-
-app.post('/api/connect-ws', (req, res) => {
-  const { host, port } = req.body;
-  connectToServer(host, port);
+  if (host) configuredServerHost = host;
+  if (port) configuredServerPort = Number(port);
+  if (token) configuredToken = token;
+  // Подключаем WS к серверу с полученным токеном
+  connectToServer(configuredServerHost, configuredServerPort, configuredToken);
   res.json({ ok: true });
 });
 
-// Proxy to server REST API
+// Proxy к REST API сервера (для запросов из браузера)
 app.all('/api/proxy/*', async (req, res) => {
+  if (!configuredServerUrl) return res.status(503).json({ error: 'Not connected to server' });
   try {
-    const serverPath = req.path.replace('/api/proxy', '');
-    const serverUrl = `http://${SERVER_HOST}:${SERVER_API_PORT}${serverPath}`;
     const fetch = (await import('node-fetch')).default;
-    const response = await fetch(serverUrl, {
+    const serverPath = req.path.replace('/api/proxy', '');
+    const response = await fetch(`${configuredServerUrl}${serverPath}`, {
       method: req.method,
       headers: { 'Content-Type': 'application/json' },
       body: req.method !== 'GET' && req.method !== 'HEAD' ? JSON.stringify(req.body) : undefined,
@@ -219,31 +165,36 @@ let reconnectTimer = null;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_DELAY = 30000;
 
-function connectToServer(host, port = 8443) {
+function connectToServer(host, port, token) {
   if (!host || host === 'undefined') {
-    logger.warn('Connection attempt with undefined host, skipping');
+    logger.warn('connectToServer: no host, skipping');
     return;
   }
-  const wssUrl = `wss://${host}:${port}/ws`;
-  logger.info(`Connecting to Mistral Server at ${wssUrl}`);
+  if (wsClient) { try { wsClient.terminate(); } catch(_) {} wsClient = null; }
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+
+  // Пробуем WSS, при ошибке — WS
+  const proto = configuredServerUrl.startsWith('https') ? 'wss' : 'ws';
+  const wsUrl = `${proto}://${host}:${port}/ws`;
+  logger.info(`Connecting to Mistral Server at ${wsUrl}`);
 
   try {
-    wsClient = new WebSocket(wssUrl, {
-      rejectUnauthorized: false,
-    });
+    wsClient = new WebSocket(wsUrl, { rejectUnauthorized: false });
   } catch (err) {
     logger.error('WS creation failed', { error: err.message });
+    scheduleReconnect();
     return;
   }
+
+  const authToken = token || configuredToken;
 
   wsClient.on('open', () => {
     logger.info('Connected to Mistral Server');
     reconnectAttempts = 0;
     cache.connectedAt = new Date().toISOString();
-    // Authenticate immediately
     wsClient.send(JSON.stringify({
       event: 'auth',
-      data: { token: WSS_SECRET_TOKEN, nonce: Date.now().toString(36) + Math.random().toString(36).slice(2, 8) }
+      data: { token: authToken, nonce: Date.now().toString(36) + Math.random().toString(36).slice(2, 8) }
     }));
     wsClient.send(JSON.stringify({ event: 'get_stats' }));
     wsClient.send(JSON.stringify({ event: 'get_incidents' }));
@@ -352,12 +303,13 @@ function connectToServer(host, port = 8443) {
 
 function scheduleReconnect() {
   if (reconnectTimer) return;
+  if (!configuredServerHost) return; // нет хоста — не переподключаемся
   const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), MAX_RECONNECT_DELAY);
   reconnectAttempts++;
   logger.info(`Reconnecting in ${delay}ms (attempt ${reconnectAttempts})`);
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
-    connectToServer();
+    connectToServer(configuredServerHost, configuredServerPort, configuredToken);
   }, delay);
 }
 
@@ -458,7 +410,7 @@ function startClientServer(callback) {
     logger.info(`MISTRAL Client dashboard HTTP on http://localhost:${CLIENT_PORT}`);
     browserWss = startBrowserWSS(clientServer);
     logger.info(`Browser WebSocket endpoint: ws://localhost:${CLIENT_PORT}/client-ws`);
-    connectToServer();
+    // Не подключаемся к серверу автоматически — ждём логина из браузера
     if (callback) callback();
   });
 
