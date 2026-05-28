@@ -79,14 +79,18 @@
         }
 
         .login-box {
-            background: transparent;
-            border: none;
-            padding: 0;
-            width: 600px;
+            background: rgba(20, 20, 20, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 16px !important;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7) !important;
+            padding: 50px;
+            width: 500px;
             max-width: 90vw;
             display: flex;
             flex-direction: column;
-            gap: 30px;
+            gap: 25px;
             position: relative;
             z-index: 10;
         }
@@ -143,19 +147,21 @@
 
         .field-group input {
             width: 100%;
-            background: transparent;
-            border: 2px solid var(--border);
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px !important;
             padding: 16px;
             color: var(--text);
             font-size: 16px;
             font-family: var(--font-mono);
             outline: none;
-            transition: all 0.1s;
+            transition: all 0.2s;
         }
 
         .field-group input:focus {
             border-color: var(--red);
-            background: var(--bg2);
+            background: rgba(20, 20, 20, 0.9);
+            box-shadow: 0 0 15px rgba(195, 21, 28, 0.2) !important;
         }
 
         .field-group input::placeholder {
@@ -170,26 +176,30 @@
         }
 
         .btn-login {
-            background: var(--red);
-            color: var(--bg);
+            background: linear-gradient(135deg, var(--red) 0%, #8b0000 100%);
+            color: var(--text);
             border: none;
-            padding: 20px;
-            font-size: 32px;
+            border-radius: 8px !important;
+            padding: 18px;
+            font-size: 28px;
             font-family: var(--font-display);
             cursor: pointer;
-            letter-spacing: 4px;
-            transition: all 0.1s;
-            margin-top: 20px;
+            letter-spacing: 3px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            margin-top: 10px;
             line-height: 1;
+            box-shadow: 0 8px 20px rgba(195, 21, 28, 0.3) !important;
         }
 
         .btn-login:hover {
-            background: var(--text);
-            color: var(--red);
+            transform: translateY(-2px);
+            box-shadow: 0 12px 25px rgba(195, 21, 28, 0.5) !important;
+            filter: brightness(1.1);
         }
 
         .btn-login:active {
-            transform: translateY(2px);
+            transform: scale(0.98);
+            box-shadow: 0 4px 10px rgba(195, 21, 28, 0.4) !important;
         }
 
         .btn-login:disabled {
@@ -960,15 +970,15 @@
     <!-- ══ LOGIN SCREEN ══════════════════════════════════════════════════════════ -->
     <div id="login-screen">
         <div class="login-box">
-            <div class="login-logo">
-                <img src="/static/logo.svg" style="width: 120px; height: 120px; margin-bottom: 20px;" alt="MISTRAL">
-                <h1>MIST<span>RAL</span></h1>
-                <p>DEFENSE COMMAND</p>
+            <div class="login-logo" style="text-align: center;">
+                <img src="/static/logo.svg" style="width: 80px; height: 80px; margin-bottom: 10px; filter: drop-shadow(0 0 10px rgba(195,21,28,0.5));" alt="MISTRAL">
+                <h1 style="font-size: 80px; margin-left: 0; text-align: center;">MIST<span>RAL</span></h1>
+                <p style="text-align: center;">DEFENSE COMMAND</p>
             </div>
             <div class="row2">
                 <div class="field-group">
                     <label>IP / ХОСТ СЕРВЕРА</label>
-                    <input id="inp-host" type="text" placeholder="192.168.1.100" value="">
+                    <input id="inp-host" type="text" placeholder="IP адрес (без http://)" value="">
                 </div>
                 <div class="field-group">
                     <label>ПОРТ</label>
@@ -984,7 +994,7 @@
                 <input id="inp-pass" type="password" placeholder="••••••••">
             </div>
             <div id="login-error"></div>
-            <button class="btn-login" id="btn-login" onclick="doLogin()">ПОДКЛЮЧИТЬСЯ</button>
+            <button class="btn-login" id="btn-login" onclick="doLogin()">ВОЙТИ В СИСТЕМУ</button>
             <div id="login-status"></div>
         </div>
     </div>
@@ -1398,11 +1408,7 @@ function addDangerousCard(inc, prepend, container) {
   
   if (prepend) container.insertBefore(div, container.firstChild);
   else container.appendChild(div);
-}`;
-            div.innerHTML = `<span class="inc-sev ${inc.severity}">${inc.severity}</span><div class="inc-body"><div class="inc-type">${esc(inc.type || '')}</div><div class="inc-desc">${esc(inc.description || '')}</div><div class="inc-meta">${esc(inc.monitor || '')} · ${(inc.timestamp || '').slice(0, 19).replace('T', ' ')}</div></div>`;
-            if (prepend) el.insertBefore(div, el.firstChild);
-            else el.appendChild(div);
-        }
+}
 
         // ══ Logs ══════════════════════════════════════════════════════════════════
         function renderLogs(list) {
