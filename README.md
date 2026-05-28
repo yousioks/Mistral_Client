@@ -11,13 +11,12 @@ npm install
 npm start
 ```
 
-Или через `start.bat` на Windows:
-```cmd
-start.bat
-```
+Или запустите переносную сборку **MISTRAL-Defense-Portable-1.1.0.exe** из папки `dist/`.
 
-## Архитектура
+## Архитектура и Нововведения (1.1.0)
 
+- **Новый UI/UX Дизайн**: Улучшенные шрифты, стили, и переработанные иконки. Добавлена новая вкладка для просмотра опасных участков (Dangerous tab).
+- **Portable сборка**: Приложение полностью скомпилировано в EXE (NSIS portable) для быстрого запуска на любом Windows-ПК без установки зависимостей.
 - **main.js** — точка входа Electron, запускает client-server.js перед открытием окна
 - **client-server.js** — встроенный Node.js сервер (Express + WebSocket proxy)
 - **preload.js** — безопасный IPC-мост между main и renderer
@@ -28,38 +27,11 @@ start.bat
 - 📊 Дашборд с метриками CPU/RAM/диск/сеть в реальном времени
 - 🚨 Инциденты с фильтрацией по severity и статусу
 - 📝 Логи сервера, бота и CVE
-- 🤖 Управление нейросетями (DeepSeek V4 PRO, Kimi K2.6, Claude Sonnet 4.6)
+- 🤖 Управление нейросетями (Изоляция опасных блоков для ручного выбора ИИ)
 - 📡 Мониторинг Docker, systemd, nginx
-- 📥 Очередь на рассмотрение
-- 📈 Генерация отчётов
-- ⚙️ Настройки порогов и уведомлений
-
-## Переменные окружения
-
-См. `.env.example` — подключение к серверу, порт клиента, WSS-токен.
 
 ## Сборка
 
 ```bash
-npm run build:win      # NSIS + portable
-npm run build:portable # Только portable
-```
-
-## Структура
-
-```
-.
-├── main.js
-├── client-server.js
-├── preload.js
-├── package.json
-├── .env.example
-├── LICENSE.txt
-├── start.bat
-├── ssh-tunnel.bat
-├── static/
-│   ├── icon.png
-│   └── logo.svg
-└── templates/
-    └── index.html
+npm run build:portable # Создает Portable EXE в папке dist/
 ```
