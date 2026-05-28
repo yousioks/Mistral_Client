@@ -1,1536 +1,862 @@
 <!DOCTYPE html>
 <html lang="ru">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MISTRAL Defense Command Center</title>
+    <title>MISTRAL Enterprise Security</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Anton&family=Roboto+Mono:wght@400;700&display=swap');
-
-        /* STRICT BRUTALIST RESET */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            border-radius: 0 !important;
-            /* STRICTLY NO ROUNDED CORNERS */
-            box-shadow: none !important;
-            /* NO SHADOWS */
-        }
-
         :root {
-            --red: #C3151C;
-            /* Iron Claw Poster Red */
-            --bg: #0C0C0C;
-            /* Charcoal Black */
-            --bg2: #141414;
-            /* Slightly lighter for contrast panels */
-            --bg3: #1C1C1C;
-            --border: #333333;
-            /* Hard grid lines */
-            --text: #F0F0F0;
-            /* Off-white */
-            --muted: #666666;
-            /* Dark grey for secondary text */
-
-            /* Functional colors kept strict and flat */
-            --green: #4CAF50;
-            --yellow: #FDD835;
-            --orange: #FB8C00;
-
-            --font-display: 'Anton', sans-serif;
-            --font-mono: 'Roboto Mono', monospace;
-        }
-
-        body {
-            background-color: var(--bg);
-            /* STRICT HALFTONE DOT PATTERN */
-            background-image: radial-gradient(var(--border) 2px, transparent 2px);
-            background-size: 24px 24px;
-            background-position: 0 0;
-            color: var(--text);
-            font-family: var(--font-mono);
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            -webkit-font-smoothing: antialiased;
-            text-transform: uppercase;
-            position: relative;
-        }
-
-        /* ── Login Screen ── */
-        #login-screen {
-            position: fixed;
-            inset: 0;
-            background-color: var(--bg);
-            background-image: radial-gradient(var(--border) 2px, transparent 2px);
-            background-size: 24px 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            flex-direction: column;
-        }
-
-        #login-screen.hidden {
-            display: none;
-        }
-
-        .login-box {
-            background: rgba(20, 20, 20, 0.85);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 16px !important;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7) !important;
-            padding: 50px;
-            width: 500px;
-            max-width: 90vw;
-            display: flex;
-            flex-direction: column;
-            gap: 25px;
-            position: relative;
-            z-index: 10;
-        }
-
-        .login-logo {
-            text-align: left;
-            margin-bottom: 20px;
-        }
-
-        .login-logo .icon {
-            display: none;
-        }
-
-        /* Hide emoji */
-        .login-logo h1 {
-            font-family: var(--font-display);
-            font-size: 140px;
-            font-weight: 400;
-            letter-spacing: -2px;
-            line-height: 0.8;
-            color: var(--red);
-            text-transform: uppercase;
-            margin-left: -5px;
-            /* Visual optical alignment */
-        }
-
-        .login-logo h1 span {
-            color: transparent;
-            -webkit-text-stroke: 2px var(--red);
-            /* Hollow text effect like overlapping letters */
-        }
-
-        .login-logo p {
-            color: var(--text);
-            font-size: 16px;
-            letter-spacing: 8px;
-            margin-top: 15px;
-            font-weight: 700;
-        }
-
-        .field-group {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            width: 100%;
-        }
-
-        .field-group label {
-            font-size: 12px;
-            color: var(--muted);
-            letter-spacing: 2px;
-            font-weight: 700;
-        }
-
-        .field-group input {
-            width: 100%;
-            background: rgba(0, 0, 0, 0.4);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px !important;
-            padding: 16px;
-            color: var(--text);
-            font-size: 16px;
-            font-family: var(--font-mono);
-            outline: none;
-            transition: all 0.2s;
-        }
-
-        .field-group input:focus {
-            border-color: var(--red);
-            background: rgba(20, 20, 20, 0.9);
-            box-shadow: 0 0 15px rgba(195, 21, 28, 0.2) !important;
-        }
-
-        .field-group input::placeholder {
-            color: #444;
-        }
-
-        .row2 {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            width: 100%;
-        }
-
-        .btn-login {
-            background: linear-gradient(135deg, var(--red) 0%, #8b0000 100%);
-            color: var(--text);
-            border: none;
-            border-radius: 8px !important;
-            padding: 18px;
-            font-size: 28px;
-            font-family: var(--font-display);
-            cursor: pointer;
-            letter-spacing: 3px;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            margin-top: 10px;
-            line-height: 1;
-            box-shadow: 0 8px 20px rgba(195, 21, 28, 0.3) !important;
-        }
-
-        .btn-login:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 25px rgba(195, 21, 28, 0.5) !important;
-            filter: brightness(1.1);
-        }
-
-        .btn-login:active {
-            transform: scale(0.98);
-            box-shadow: 0 4px 10px rgba(195, 21, 28, 0.4) !important;
-        }
-
-        .btn-login:disabled {
-            background: var(--border);
-            color: #000;
-            cursor: not-allowed;
-        }
-
-        #login-error {
-            color: var(--red);
-            font-size: 14px;
-            text-align: left;
-            min-height: 20px;
-            font-weight: 700;
-        }
-
-        #login-status {
-            color: var(--muted);
-            font-size: 12px;
-            text-align: left;
-        }
-
-        /* ── Main Layout ── */
-        #app {
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            position: relative;
-            z-index: 10;
-        }
-
-        #app.hidden {
-            display: none;
-        }
-
-        header {
-            background: var(--bg);
-            border-bottom: 2px solid var(--border);
-            padding: 0 30px;
-            height: 80px;
-            display: flex;
-            align-items: center;
-            gap: 30px;
-            flex-shrink: 0;
-        }
-
-        .header-logo {
-            font-family: var(--font-display);
-            font-size: 42px;
-            letter-spacing: 1px;
-            color: var(--text);
-            line-height: 1;
-            margin-top: 5px;
-        }
-
-        .header-logo span {
-            color: transparent;
-            -webkit-text-stroke: 1.5px var(--red);
-        }
-
-        .header-sep {
-            width: 2px;
-            height: 40px;
-            background: var(--border);
-        }
-
-        .conn-badge {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-size: 14px;
-            color: var(--muted);
-            font-weight: 700;
-        }
-
-        .conn-dot {
-            width: 16px;
-            height: 16px;
-            background: #333;
-            border: 2px solid #333;
-        }
-
-        .conn-dot.connected {
-            background: var(--green);
-            border-color: var(--green);
-        }
-
-        .conn-dot.connecting {
-            background: transparent;
-            border-color: var(--yellow);
-            animation: blink 1s step-end infinite;
-        }
-
-        .conn-dot.error {
-            background: var(--red);
-            border-color: var(--red);
-        }
-
-        @keyframes blink {
-
-            0%,
-            100% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0;
-            }
-        }
-
-        .header-right {
-            margin-left: auto;
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-
-        .model-badge {
-            background: transparent;
-            border: 2px solid var(--border);
-            padding: 8px 16px;
-            font-size: 14px;
-            color: var(--text);
-            font-weight: 700;
-        }
-
-        .btn-logout {
-            background: transparent;
-            border: 2px solid var(--border);
-            color: var(--text);
-            padding: 8px 24px;
-            font-size: 16px;
-            font-family: var(--font-display);
-            letter-spacing: 2px;
-            cursor: pointer;
-            transition: all 0.1s;
-        }
-
-        .btn-logout:hover {
-            background: var(--red);
-            border-color: var(--red);
-            color: var(--bg);
-        }
-
-        /* ── Tabs ── */
-        .tabs {
-            display: flex;
-            gap: 0;
-            background: var(--bg);
-            border-bottom: 2px solid var(--border);
-            padding: 0 30px;
-            flex-shrink: 0;
-        }
-
-        .tab {
-            padding: 20px 30px;
-            font-size: 24px;
-            font-family: var(--font-display);
-            color: var(--muted);
-            cursor: pointer;
-            border-bottom: 4px solid transparent;
-            transition: all 0.1s;
-            user-select: none;
-            letter-spacing: 1px;
-            line-height: 1;
-        }
-
-        .tab:hover {
-            color: var(--text);
-        }
-
-        .tab.active {
-            color: var(--red);
-            border-bottom-color: var(--red);
-        }
-
-        /* ── Content ── */
-        .content {
-            flex: 1;
-            overflow: hidden;
-            display: flex;
-        }
-
-        .panel {
-            display: none;
-            flex: 1;
-            overflow: hidden;
-            flex-direction: column;
-        }
-
-        .panel.active {
-            display: flex;
-        }
-
-        /* ── Stats Bar ── */
-        .stats-bar {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 0;
-            border-bottom: 2px solid var(--border);
-            flex-shrink: 0;
-        }
-
-        .stat-card {
-            background: var(--bg);
-            border-right: 2px solid var(--border);
-            padding: 30px;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end;
-        }
-
-        .stat-card:last-child {
-            border-right: none;
-        }
-
-        .stat-card.critical .value {
-            color: var(--red);
-        }
-
-        .stat-card.high .value {
-            color: transparent;
-            -webkit-text-stroke: 2px var(--text);
-        }
-
-        .stat-card.medium .value {
-            color: var(--muted);
-        }
-
-        .stat-card.low .value {
-            color: #333;
-        }
-
-        .stat-card .label {
-            font-size: 14px;
-            color: var(--muted);
-            letter-spacing: 2px;
-            margin-bottom: 10px;
-            font-weight: 700;
-        }
-
-        .stat-card .value {
-            font-size: 100px;
-            font-family: var(--font-display);
-            line-height: 0.8;
-            letter-spacing: -2px;
-        }
-
-        /* ── Live Feed ── */
-        .live-feed {
-            flex: 1;
-            overflow-y: auto;
-            padding: 0 30px 30px;
-            display: flex;
-            flex-direction: column;
-            gap: 0;
-        }
-
-        .feed-header {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            padding: 24px 0;
-            font-size: 20px;
-            font-family: var(--font-display);
-            color: var(--text);
-            letter-spacing: 2px;
-            flex-shrink: 0;
-        }
-
-        .feed-dot {
-            width: 16px;
-            height: 16px;
-            background: var(--green);
-            animation: blink 1s step-end infinite;
-        }
-
-        .log-entry {
-            background: transparent;
-            border-bottom: 1px solid var(--border);
-            padding: 16px 0;
-            font-size: 14px;
-            display: flex;
-            gap: 24px;
-            align-items: flex-start;
-        }
-
-        .log-entry:hover {
-            background: var(--bg2);
-            padding-left: 10px;
-            padding-right: 10px;
-            margin: 0 -10px;
-            border-bottom-color: transparent;
-        }
-
-        .log-time {
-            color: var(--muted);
-            white-space: nowrap;
-            flex-shrink: 0;
-        }
-
-        .log-level {
-            font-family: var(--font-display);
-            font-size: 18px;
-            flex-shrink: 0;
-            min-width: 80px;
-            letter-spacing: 1px;
-        }
-
-        .log-level.error {
-            color: var(--red);
-        }
-
-        .log-level.warn {
-            color: var(--orange);
-        }
-
-        .log-level.info {
-            color: var(--green);
-        }
-
-        .log-level.debug {
-            color: var(--muted);
-        }
-
-        .log-msg {
-            color: var(--text);
-            word-break: break-word;
-            line-height: 1.4;
-            text-transform: none;
-        }
-
-        .log-monitor {
-            color: var(--bg);
-            background: var(--muted);
-            font-size: 12px;
-            font-weight: 700;
-            margin-left: auto;
-            flex-shrink: 0;
-            padding: 4px 10px;
-        }
-
-        /* ── Incidents ── */
-        .incidents-list {
-            flex: 1;
-            overflow-y: auto;
-            padding: 0 30px 30px;
-            display: flex;
-            flex-direction: column;
-            gap: 0;
-        }
-
-        .incident-card {
-            background: transparent;
-            border-bottom: 2px solid var(--border);
-            padding: 24px 0;
-            display: flex;
-            gap: 30px;
-            align-items: flex-start;
-        }
-
-        .inc-sev {
-            font-size: 24px;
-            font-family: var(--font-display);
-            padding: 8px 16px;
-            flex-shrink: 0;
-            letter-spacing: 2px;
-            width: 140px;
-            text-align: center;
-        }
-
-        .inc-sev.CRITICAL {
-            background: var(--red);
-            color: var(--bg);
-        }
-
-        .inc-sev.HIGH {
-            background: transparent;
-            color: var(--text);
-            border: 2px solid var(--text);
-        }
-
-        .inc-sev.MEDIUM {
-            background: var(--border);
-            color: var(--text);
-        }
-
-        .inc-sev.LOW {
-            background: transparent;
-            color: var(--muted);
-            border: 2px solid var(--border);
-        }
-
-        .inc-body {
-            flex: 1;
-        }
-
-        .inc-type {
-            font-family: var(--font-display);
-            font-size: 32px;
-            margin-bottom: 8px;
-            color: var(--text);
-            letter-spacing: 1px;
-            line-height: 1;
-        }
-
-        .inc-desc {
-            font-size: 16px;
-            color: var(--muted);
-            line-height: 1.5;
-            text-transform: none;
-        }
-
-        .inc-meta {
-            font-size: 12px;
-            color: #555;
-            margin-top: 16px;
-            font-weight: 700;
-        }
-
-        /* ── AI Panel ── */
-        .ai-panel {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            padding: 30px;
-            gap: 30px;
-            overflow: hidden;
-        }
-
-        .ai-models {
-            display: flex;
-            gap: 0;
-            flex-shrink: 0;
-            border-bottom: 2px solid var(--border);
-            padding-bottom: 20px;
-        }
-
-        .model-btn {
-            background: transparent;
-            border: none;
-            border-right: 2px solid var(--border);
-            padding: 0 24px;
-            color: var(--muted);
-            font-size: 24px;
-            font-family: var(--font-display);
-            cursor: pointer;
-        }
-
-        .model-btn:last-child {
-            border-right: none;
-        }
-
-        .model-btn:hover {
-            color: var(--text);
-        }
-
-        .model-btn.active {
-            color: var(--red);
-        }
-
-        .ai-output {
-            flex: 1;
-            background: transparent;
-            border: 2px solid var(--border);
-            padding: 30px;
-            overflow-y: auto;
-            font-size: 16px;
-            white-space: pre-wrap;
-            color: var(--text);
-            line-height: 1.6;
-            text-transform: none;
-        }
-
-        .ai-input-row {
-            display: flex;
-            gap: 20px;
-            flex-shrink: 0;
-        }
-
-        .ai-input-row textarea {
-            flex: 1;
-            background: transparent;
-            border: 2px solid var(--border);
-            padding: 20px;
-            color: var(--text);
-            font-size: 18px;
-            resize: none;
-            height: 120px;
-            outline: none;
-            font-family: var(--font-mono);
-            text-transform: none;
-        }
-
-        .ai-input-row textarea:focus {
-            border-color: var(--red);
-        }
-
-        .btn-send {
-            background: var(--red);
-            color: var(--bg);
-            border: none;
-            padding: 0 40px;
-            font-size: 32px;
-            font-family: var(--font-display);
-            cursor: pointer;
-            flex-shrink: 0;
-            letter-spacing: 2px;
-        }
-
-        .btn-send:hover {
-            background: var(--text);
-            color: var(--red);
-        }
-
-        .btn-send:disabled {
-            background: var(--border);
-            color: #000;
-            cursor: not-allowed;
-        }
-
-        /* ── Metrics ── */
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 0;
-            border-bottom: 2px solid var(--border);
-            flex-shrink: 0;
-        }
-
-        .metric-card {
-            background: transparent;
-            border-right: 2px solid var(--border);
-            padding: 30px;
-        }
-
-        .metric-card:last-child {
-            border-right: none;
-        }
-
-        .metric-card .m-label {
-            font-size: 20px;
-            font-family: var(--font-display);
-            color: var(--muted);
-            letter-spacing: 2px;
-            margin-bottom: 20px;
-        }
-
-        .metric-bar {
-            height: 30px;
-            background: transparent;
-            border: 2px solid var(--border);
-            margin-bottom: 20px;
-        }
-
-        .metric-bar-fill {
-            height: 100%;
-            transition: width 0.1s linear;
-            background: var(--text);
-        }
-
-        .metric-bar-fill.warn {
-            background: var(--yellow);
-        }
-
-        .metric-bar-fill.danger {
-            background: var(--red);
-        }
-
-        .metric-val {
-            font-size: 60px;
-            font-family: var(--font-display);
-            line-height: 1;
-        }
-
-        /* ── Users ── */
-        .users-panel {
-            flex: 1;
-            overflow-y: auto;
-            padding: 0 30px 30px;
-            display: flex;
-            flex-direction: column;
-            gap: 0;
-        }
-
-        .user-card {
-            background: transparent;
-            border-bottom: 1px solid var(--border);
-            padding: 24px 0;
-            display: flex;
-            align-items: center;
-            gap: 24px;
-        }
-
-        .user-card:hover {
-            padding-left: 10px;
-            padding-right: 10px;
-            margin: 0 -10px;
-            background: var(--bg2);
-            border-bottom-color: transparent;
-        }
-
-        .user-avatar {
-            width: 60px;
-            height: 60px;
-            background: var(--text);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 36px;
-            flex-shrink: 0;
-            color: var(--bg);
-            font-family: var(--font-display);
-        }
-
-        .user-info .name {
-            font-family: var(--font-display);
-            font-size: 32px;
-            letter-spacing: 1px;
-        }
-
-        .user-info .role {
-            font-size: 14px;
-            color: var(--red);
-            letter-spacing: 2px;
-            margin-top: 4px;
-            font-weight: 700;
-        }
-
-        .user-tg {
-            margin-left: auto;
-            font-size: 14px;
-            color: var(--bg);
-            background: var(--text);
-            font-weight: 700;
-            padding: 8px 16px;
-        }
-
-        /* ── Add user form ── */
-        .add-user-form {
-            background: transparent;
-            border-bottom: 2px solid var(--border);
-            padding: 30px;
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-            align-items: flex-end;
-            flex-shrink: 0;
-        }
-
-        .add-user-form .field {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            flex: 1;
-            min-width: 140px;
-        }
-
-        .add-user-form label {
-            font-size: 14px;
-            font-weight: 700;
-            color: var(--muted);
-            letter-spacing: 2px;
-        }
-
-        .add-user-form input,
-        .add-user-form select {
-            background: transparent;
-            border: 2px solid var(--border);
-            padding: 16px;
-            color: var(--text);
-            font-size: 16px;
-            outline: none;
-            font-family: var(--font-mono);
-        }
-
-        .add-user-form input:focus,
-        .add-user-form select:focus {
-            border-color: var(--red);
-        }
-
-        .add-user-form select option {
-            background: var(--bg);
-            color: var(--text);
-        }
-
-        .btn-add {
-            background: var(--text);
-            color: var(--bg);
-            border: none;
-            padding: 18px 40px;
-            font-size: 24px;
-            font-family: var(--font-display);
-            cursor: pointer;
-            white-space: nowrap;
-            letter-spacing: 2px;
-        }
-
-        .btn-add:hover {
-            background: var(--red);
-            color: var(--text);
-        }
-
-        /* ── Alert banner ── */
-        #alert-banner {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            background: var(--red);
-            color: var(--bg);
-            padding: 24px;
-            font-family: var(--font-display);
-            font-size: 32px;
-            text-align: center;
-            z-index: 9999;
-            display: none;
-            letter-spacing: 2px;
-        }
-
-        /* ── Select inside Logs ── */
-        #log-type {
-            background: transparent;
-            border: 2px solid var(--border);
-            color: var(--text);
-            padding: 16px 30px;
-            font-size: 18px;
-            font-family: var(--font-display);
-            outline: none;
-            cursor: pointer;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        #log-type:focus {
-            border-color: var(--red);
-        }
-
-        #log-type option {
-            background: var(--bg2);
-        }
-
-        /* ── Scrollbar ── */
-        ::-webkit-scrollbar {
-            width: 12px;
-            height: 12px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: var(--bg);
-            border-left: 2px solid var(--border);
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: var(--border);
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--red);
-        }
+            --bg: #0A0D12;
+            --bg2: #0F1319;
+            --bg3: #151B24;
+            --bg4: #1A222D;
+            --border: #1E2736;
+            --border2: #2A3545;
+            --text: #E8EDF4;
+            --muted: #6B7A90;
+            --dim: #3D4C5E;
+            --red: #EF4444;
+            --red-dark: #991B1B;
+            --green: #22C55E;
+            --green-dark: #166534;
+            --orange: #F59E0B;
+            --orange-dark: #92400E;
+            --blue: #3B82F6;
+            --purple: #A855F7;
+            --cyan: #06B6D4;
+            --pink: #EC4899;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+        /* ═══ LOGIN ═══ */
+        #login-screen { position: fixed; inset: 0; background: radial-gradient(ellipse at 30% 40%, rgba(59,130,246,0.06), transparent 60%), radial-gradient(ellipse at 70% 60%, rgba(239,68,68,0.06), transparent 60%), var(--bg); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+        #login-screen.hidden { display: none; }
+        .login-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 16px; padding: 48px 44px; width: 460px; display: flex; flex-direction: column; gap: 22px; box-shadow: 0 40px 100px rgba(0,0,0,0.8); }
+        .login-logo { text-align: center; }
+        .login-logo img { width: 56px; height: 56px; margin-bottom: 8px; filter: drop-shadow(0 0 12px rgba(239,68,68,0.5)); }
+        .login-logo h1 { font-size: 48px; font-weight: 900; color: #fff; letter-spacing: -2px; }
+        .login-logo h1 span { background: linear-gradient(135deg, var(--red), var(--orange)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .login-logo p { font-size: 11px; letter-spacing: 5px; color: var(--muted); font-weight: 600; margin-top: 6px; text-transform: uppercase; }
+        .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .field-group { display: flex; flex-direction: column; gap: 6px; }
+        .field-group label { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+        .field-group input, .field-group select { background: rgba(0,0,0,0.5); border: 1px solid var(--border); padding: 13px 14px; color: #fff; border-radius: 8px; outline: none; font-size: 14px; font-family: inherit; transition: 0.2s; }
+        .field-group input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+        .btn-login { background: linear-gradient(135deg, var(--red), #b91c1c); color: #fff; border: none; padding: 15px; font-size: 14px; font-weight: 800; border-radius: 8px; cursor: pointer; letter-spacing: 2px; text-transform: uppercase; box-shadow: 0 8px 30px rgba(239,68,68,0.35); transition: 0.2s; }
+        .btn-login:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 12px 40px rgba(239,68,68,0.5); }
+        .btn-login:disabled { opacity: 0.5; cursor: not-allowed; }
+        #login-error { color: var(--red); font-size: 13px; text-align: center; min-height: 18px; }
+        #login-status { color: var(--muted); font-size: 12px; text-align: center; }
+
+        /* ═══ APP SHELL ═══ */
+        #app { display: flex; flex-direction: column; height: 100vh; }
+        #app.hidden { display: none; }
+        header { background: var(--bg2); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 20px; height: 52px; gap: 0; flex-shrink: 0; }
+        .hdr-logo { font-size: 16px; font-weight: 900; color: #fff; margin-right: 28px; display: flex; align-items: center; gap: 8px; }
+        .hdr-logo img { width: 24px; height: 24px; }
+        .hdr-logo span { background: linear-gradient(135deg, var(--red), var(--orange)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .tabs { display: flex; gap: 0; height: 100%; flex: 1; }
+        .tab { font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer; letter-spacing: 0.3px; height: 100%; display: flex; align-items: center; padding: 0 16px; border-bottom: 2px solid transparent; transition: 0.15s; white-space: nowrap; }
+        .tab:hover { color: var(--text); }
+        .tab.active { color: #fff; border-bottom-color: var(--red); }
+        .hdr-right { display: flex; align-items: center; gap: 12px; margin-left: auto; }
+        .conn-badge { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+        .conn-dot { width: 7px; height: 7px; border-radius: 50%; background: #555; }
+        .conn-dot.connected { background: var(--green); box-shadow: 0 0 8px var(--green); }
+        .conn-dot.error { background: var(--red); box-shadow: 0 0 8px var(--red); }
+        .conn-dot.connecting { background: var(--orange); animation: blink 1s infinite; }
+        @keyframes blink { 0%,100%{opacity:1}50%{opacity:.3} }
+        #model-badge { font-size: 10px; font-weight: 700; background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.25); color: var(--blue); padding: 4px 10px; border-radius: 20px; }
+        .btn-logout { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 5px 12px; border-radius: 5px; cursor: pointer; font-size: 11px; font-weight: 700; transition: 0.15s; }
+        .btn-logout:hover { color: #fff; border-color: var(--text); }
+
+        /* ═══ CONTENT ═══ */
+        .content { flex: 1; overflow: hidden; padding: 16px; }
+        .panel { display: none; height: 100%; overflow-y: auto; }
+        .panel.active { display: block; }
+
+        /* Cards */
+        .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+        .card-hdr { font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 16px; letter-spacing: 0.5px; text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
+        .card-hdr .cd { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+
+        /* ═══ DASHBOARD ═══ */
+        .dash-grid { display: grid; grid-template-columns: 300px 1fr 320px; grid-template-rows: auto 1fr; gap: 16px; height: 100%; }
+
+        /* Gauge */
+        .gauge-card { grid-row: 1/3; display: flex; flex-direction: column; gap: 16px; }
+        .gauge-wrap { position: relative; width: 100%; display: flex; justify-content: center; align-items: center; }
+        .gauge-center { position: absolute; text-align: center; top: 50%; left: 50%; transform: translate(-50%,-20%); }
+        .gauge-val { font-size: 56px; font-weight: 900; line-height: 1; }
+        .gauge-lbl { font-size: 12px; font-weight: 800; letter-spacing: 3px; margin-top: 4px; text-transform: uppercase; }
+
+        /* Stats row */
+        .stats-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
+        .stat-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; position: relative; overflow: hidden; }
+        .stat-box::before { content: ''; position: absolute; top: 0; right: 0; width: 80px; height: 80px; border-radius: 50%; filter: blur(40px); opacity: 0.3; }
+        .stat-box.s-red::before { background: var(--red); }
+        .stat-box.s-orange::before { background: var(--orange); }
+        .stat-box.s-blue::before { background: var(--blue); }
+        .stat-icon { font-size: 18px; margin-bottom: 8px; }
+        .stat-val { font-size: 40px; font-weight: 900; color: #fff; line-height: 1; margin-bottom: 4px; }
+        .stat-lbl { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        /* Charts */
+        .chart-box { position: relative; height: 100%; min-height: 120px; }
+
+        /* Right column panels */
+        .right-col { grid-column: 3; grid-row: 1/3; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; }
+        .mini-table { width: 100%; font-size: 12px; border-collapse: collapse; }
+        .mini-table th { text-align: left; padding: 6px 8px; color: var(--muted); font-weight: 600; font-size: 10px; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+        .mini-table td { padding: 8px 8px; border-bottom: 1px solid rgba(255,255,255,0.03); color: var(--text); }
+        .mini-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+        /* System Health progress */
+        .hp { display: flex; flex-direction: column; gap: 14px; }
+        .hp-item { display: flex; flex-direction: column; gap: 5px; }
+        .hp-row { display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; }
+        .hp-row .lbl { color: var(--muted); }
+        .hp-row .val { color: #fff; }
+        .hp-bar { height: 5px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
+        .hp-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+
+        /* Risk Level table */
+        .risk-tbl { width: 100%; font-size: 12px; }
+        .risk-tbl td { padding: 5px 4px; }
+        .risk-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+
+        /* Live Feed */
+        .live-feed { display: flex; flex-direction: column; gap: 1px; max-height: 220px; overflow-y: auto; }
+        .log-entry { font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.03); display: flex; gap: 10px; align-items: baseline; }
+        .log-time { color: var(--dim); min-width: 70px; }
+        .log-level { font-weight: 600; min-width: 48px; }
+        .log-level.info { color: var(--blue); }
+        .log-level.warn, .log-level.warning { color: var(--orange); }
+        .log-level.error { color: var(--red); }
+        .log-level.debug { color: var(--muted); }
+        .log-msg { color: #9AA8BD; flex: 1; word-break: break-all; }
+        .log-monitor { color: var(--dim); font-size: 10px; }
+
+        /* ═══ NETWORK / QUARANTINE ═══ */
+        .net-grid { display: flex; flex-direction: column; gap: 16px; height: 100%; }
+        table.full-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .full-tbl thead th { padding: 10px 12px; text-align: left; border-bottom: 2px solid var(--border); color: var(--muted); font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; }
+        .full-tbl tbody td { padding: 11px 12px; border-bottom: 1px solid rgba(255,255,255,0.03); }
+        .full-tbl tbody tr:hover td { background: var(--bg3); }
+        .ip-chip { background: rgba(0,0,0,0.4); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+        .btn-sm { border: 1px solid var(--border); color: #fff; padding: 5px 12px; border-radius: 5px; cursor: pointer; font-size: 10px; font-weight: 700; background: transparent; transition: 0.15s; letter-spacing: 0.3px; }
+        .btn-sm:hover { background: var(--bg4); }
+        .btn-q { border-color: rgba(239,68,68,0.4); color: var(--red); }
+        .btn-q:hover { background: rgba(239,68,68,0.15); }
+        .btn-unq { border-color: rgba(34,197,94,0.4); color: var(--green); }
+        .btn-unq:hover { background: rgba(34,197,94,0.15); }
+        .empty-td { color: var(--dim); font-style: italic; text-align: center; padding: 20px !important; }
+
+        /* ═══ INCIDENTS ═══ */
+        .inc-list { display: flex; flex-direction: column; gap: 10px; }
+        .inc-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; display: flex; gap: 14px; border-left: 3px solid var(--dim); transition: 0.15s; }
+        .inc-card:hover { border-color: var(--border2); }
+        .inc-card.CRITICAL { border-left-color: var(--red); }
+        .inc-card.HIGH { border-left-color: var(--orange); }
+        .inc-card.MEDIUM { border-left-color: var(--blue); }
+        .inc-sev { padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: 800; white-space: nowrap; height: fit-content; letter-spacing: 0.3px; }
+        .inc-sev.CRITICAL { background: rgba(239,68,68,0.12); color: var(--red); }
+        .inc-sev.HIGH { background: rgba(245,158,11,0.12); color: var(--orange); }
+        .inc-sev.MEDIUM { background: rgba(59,130,246,0.12); color: var(--blue); }
+        .inc-sev.LOW { background: rgba(107,122,144,0.12); color: var(--muted); }
+        .inc-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+        .inc-type { font-weight: 700; font-size: 14px; color: #fff; }
+        .inc-desc { color: var(--muted); font-size: 12px; }
+        .inc-ctx { background: rgba(0,0,0,0.4); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); max-height: 120px; overflow-y: auto; white-space: pre-wrap; }
+        .inc-ctrls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        .inc-sel { background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: #fff; padding: 5px 8px; border-radius: 5px; font-size: 11px; outline: none; cursor: pointer; }
+        .inc-sel option { background: var(--bg); }
+        .btn-ai { background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); color: var(--blue); padding: 5px 12px; border-radius: 5px; cursor: pointer; font-size: 10px; font-weight: 700; transition: 0.15s; }
+        .btn-ai:hover { background: var(--blue); color: #fff; }
+        .inc-meta { font-size: 10px; color: var(--dim); font-family: 'JetBrains Mono', monospace; }
+
+        /* ═══ METRICS ═══ */
+        .metrics-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-bottom: 16px; }
+        .m-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; text-align: center; }
+        .m-label { font-size: 14px; font-weight: 700; color: var(--muted); letter-spacing: 1px; margin-bottom: 12px; text-transform: uppercase; }
+        .m-bar { height: 8px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; margin-bottom: 12px; }
+        .m-fill { height: 100%; border-radius: 4px; transition: width 0.3s; background: var(--green); }
+        .m-fill.warn { background: var(--orange); }
+        .m-fill.danger { background: var(--red); }
+        .m-val { font-size: 36px; font-weight: 900; color: #fff; }
+
+        /* ═══ AI ═══ */
+        .ai-wrap { display: flex; flex-direction: column; gap: 14px; height: 100%; }
+        .ai-models { display: flex; gap: 8px; flex-wrap: wrap; }
+        .model-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 7px 16px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 700; transition: 0.2s; }
+        .model-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+        .model-btn:hover:not(.active) { color: #fff; border-color: var(--border2); }
+        .ai-output { flex: 1; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 10px; padding: 18px; font-family: 'JetBrains Mono', monospace; font-size: 12px; white-space: pre-wrap; overflow-y: auto; color: var(--muted); line-height: 1.7; }
+        .ai-input-row { display: flex; gap: 10px; }
+        .ai-input-row textarea { flex: 1; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 12px; resize: none; height: 72px; outline: none; transition: 0.2s; }
+        .ai-input-row textarea:focus { border-color: var(--blue); }
+        .ai-send { background: linear-gradient(135deg, var(--red), #b91c1c); color: #fff; border: none; border-radius: 10px; padding: 0 28px; font-weight: 800; cursor: pointer; font-size: 12px; letter-spacing: 1px; transition: 0.15s; }
+        .ai-send:hover:not(:disabled) { filter: brightness(1.15); }
+        .ai-send:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* ═══ USERS ═══ */
+        .user-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 14px 18px; display: flex; align-items: center; gap: 14px; transition: 0.15s; }
+        .user-card:hover { background: var(--bg4); }
+        .user-avatar { width: 40px; height: 40px; border-radius: 8px; background: linear-gradient(135deg, var(--red), var(--orange)); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 18px; flex-shrink: 0; }
+        .user-info .name { font-weight: 700; font-size: 14px; }
+        .user-info .role { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-top: 2px; }
+        .role-admin { color: var(--red); }
+        .role-operator { color: var(--blue); }
+        .user-tg { margin-left: auto; font-size: 10px; font-weight: 700; background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.3); color: var(--cyan); padding: 3px 10px; border-radius: 20px; }
+        .add-form { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+        .add-form .field-group { min-width: 120px; flex: 1; }
+        .btn-add { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3); color: var(--green); padding: 13px 20px; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 700; transition: 0.15s; white-space: nowrap; }
+        .btn-add:hover { background: var(--green); color: #fff; }
+
+        /* ═══ ALERT ═══ */
+        #alert-banner { position: fixed; top: 0; left: 0; right: 0; background: linear-gradient(90deg, #7f1d1d, var(--red), #7f1d1d); color: #fff; text-align: center; padding: 12px; font-weight: 800; font-size: 14px; z-index: 2000; display: none; letter-spacing: 0.5px; }
+
+        /* ═══ SCROLLBAR ═══ */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.12); }
+        .hidden { display: none !important; }
     </style>
 </head>
-
 <body>
+<div id="alert-banner"></div>
 
-    <div id="alert-banner"></div>
-
-    <!-- ══ LOGIN SCREEN ══════════════════════════════════════════════════════════ -->
-    <div id="login-screen">
-        <div class="login-box">
-            <div class="login-logo" style="text-align: center;">
-                <img src="/static/logo.svg" style="width: 80px; height: 80px; margin-bottom: 10px; filter: drop-shadow(0 0 10px rgba(195,21,28,0.5));" alt="MISTRAL">
-                <h1 style="font-size: 80px; margin-left: 0; text-align: center;">MIST<span>RAL</span></h1>
-                <p style="text-align: center;">DEFENSE COMMAND</p>
-            </div>
-            <div class="row2">
-                <div class="field-group">
-                    <label>IP / ХОСТ СЕРВЕРА</label>
-                    <input id="inp-host" type="text" placeholder="IP адрес (без http://)" value="">
-                </div>
-                <div class="field-group">
-                    <label>ПОРТ</label>
-                    <input id="inp-port" type="text" placeholder="8080" value="8080">
-                </div>
-            </div>
-            <div class="field-group">
-                <label>ЛОГИН</label>
-                <input id="inp-user" type="text" placeholder="admin">
-            </div>
-            <div class="field-group">
-                <label>ПАРОЛЬ</label>
-                <input id="inp-pass" type="password" placeholder="••••••••">
-            </div>
-            <div id="login-error"></div>
-            <button class="btn-login" id="btn-login" onclick="doLogin()">ВОЙТИ В СИСТЕМУ</button>
-            <div id="login-status"></div>
+<!-- ═══ LOGIN ═══ -->
+<div id="login-screen">
+    <div class="login-box">
+        <div class="login-logo">
+            <img src="/static/logo.svg" alt="M" onerror="this.style.display='none'">
+            <h1>MIST<span>RAL</span></h1>
+            <p>Enterprise Security</p>
         </div>
+        <div class="row2">
+            <div class="field-group"><label>IP / Хост сервера</label><input id="inp-host" type="text" placeholder="192.168.0.1"></div>
+            <div class="field-group"><label>Порт</label><input id="inp-port" type="text" placeholder="8080" value="8080"></div>
+        </div>
+        <div class="field-group"><label>Логин</label><input id="inp-user" type="text" placeholder="admin"></div>
+        <div class="field-group"><label>Пароль</label><input id="inp-pass" type="password" placeholder="••••••••"></div>
+        <div id="login-error"></div>
+        <button class="btn-login" id="btn-login" onclick="doLogin()">ВОЙТИ В СИСТЕМУ</button>
+        <div id="login-status"></div>
     </div>
+</div>
 
-    <!-- ══ MAIN APP ══════════════════════════════════════════════════════════════ -->
-    <div id="app" class="hidden">
-        <header>
-            <div class="header-logo">MIST<span>RAL</span></div>
-            <div class="header-sep"></div>
-            <div class="conn-badge">
-                <div class="conn-dot" id="conn-dot"></div>
-                <span id="conn-label">Подключение...</span>
-            </div>
-            <div class="header-right">
-                <div class="model-badge" id="model-badge">—</div>
-                <button class="btn-logout" onclick="doLogout()">ВЫЙТИ</button>
-            </div>
-        </header>
-
+<!-- ═══ APP ═══ -->
+<div id="app" class="hidden">
+    <header>
+        <div class="hdr-logo"><img src="/static/logo.svg" alt="M" onerror="this.style.display='none'"> MIST<span>RAL</span></div>
         <div class="tabs">
-            <div class="tab active" onclick="switchTab('dashboard')">ДАШБОРД</div>
-            <div class="tab" onclick="switchTab('incidents')">ИНЦИДЕНТЫ</div>
-    <div class="tab" style="color: var(--red); font-weight: bold;" onclick="switchTab('dangerous')">🚨 ОПАСНОЕ</div>
-            <div class="tab" onclick="switchTab('logs')">ЛОГИ</div>
-            <div class="tab" onclick="switchTab('metrics')">МЕТРИКИ</div>
-            <div class="tab" onclick="switchTab('ai')">ИИ-АНАЛИЗ</div>
-            <div class="tab" onclick="switchTab('users')">ПОЛЬЗОВАТЕЛИ</div>
+            <div class="tab active" data-tab="dashboard" onclick="switchTab('dashboard')">Dashboard</div>
+            <div class="tab" data-tab="network" onclick="switchTab('network')">Network</div>
+            <div class="tab" data-tab="incidents" onclick="switchTab('incidents')">Incidents</div>
+            <div class="tab" data-tab="dangerous" onclick="switchTab('dangerous')">🚨 Threats</div>
+            <div class="tab" data-tab="logs" onclick="switchTab('logs')">Logs</div>
+            <div class="tab" data-tab="metrics" onclick="switchTab('metrics')">Metrics</div>
+            <div class="tab" data-tab="ai" onclick="switchTab('ai')">AI Analysis</div>
+            <div class="tab" data-tab="users" onclick="switchTab('users')">Access</div>
+        </div>
+        <div class="hdr-right">
+            <div class="conn-badge"><div class="conn-dot" id="conn-dot"></div><span id="conn-label">—</span></div>
+            <div id="model-badge">—</div>
+            <button class="btn-logout" onclick="doLogout()">ВЫЙТИ</button>
+        </div>
+    </header>
+
+    <div class="content">
+
+        <!-- ═══ DASHBOARD ═══ -->
+        <div class="panel active" id="panel-dashboard">
+            <div class="dash-grid">
+
+                <!-- LEFT: Risk Gauge + Live Feed -->
+                <div class="gauge-card">
+                    <div class="card">
+                        <div class="card-hdr"><div class="cd" style="background:var(--red)"></div>Security Risk Level</div>
+                        <div class="gauge-wrap">
+                            <canvas id="chart-risk" width="260" height="180"></canvas>
+                            <div class="gauge-center">
+                                <div class="gauge-val" id="risk-value" style="color:var(--green)">0</div>
+                                <div class="gauge-lbl" id="risk-label" style="color:var(--green)">SAFE</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card" style="flex:1;min-height:0;display:flex;flex-direction:column">
+                        <div class="card-hdr"><div class="cd" style="background:var(--green)"></div>Live Feed</div>
+                        <div class="live-feed" id="live-feed" style="flex:1;overflow-y:auto"></div>
+                    </div>
+                </div>
+
+                <!-- MIDDLE: Stats + Charts -->
+                <div style="display:flex;flex-direction:column;gap:16px">
+                    <div class="stats-row">
+                        <div class="stat-box s-red"><div class="stat-icon">🔴</div><div class="stat-val" id="s-critical">0</div><div class="stat-lbl">Critical Alerts</div></div>
+                        <div class="stat-box s-orange"><div class="stat-icon">⚡</div><div class="stat-val" id="s-threats">0</div><div class="stat-lbl">Active Threats</div></div>
+                        <div class="stat-box s-blue"><div class="stat-icon">🔍</div><div class="stat-val" id="s-vuln">0</div><div class="stat-lbl">CVE Events</div></div>
+                    </div>
+                    <div class="card" style="flex:0"><div class="card-hdr"><div class="cd" style="background:var(--green)"></div>Network Activity</div><div class="chart-box" style="height:110px"><canvas id="chart-network"></canvas></div></div>
+                    <div class="card" style="flex:1;min-height:0"><div class="card-hdr"><div class="cd" style="background:var(--orange)"></div>Threats by Type</div><div class="chart-box"><canvas id="chart-type"></canvas></div></div>
+                </div>
+
+                <!-- RIGHT: Health + Risk Level + Recent -->
+                <div class="right-col">
+                    <div class="card">
+                        <div class="card-hdr"><div class="cd" style="background:var(--blue)"></div>System Health</div>
+                        <div class="hp">
+                            <div class="hp-item"><div class="hp-row"><span class="lbl">CPU</span><span class="val" id="sys-cpu-val">—</span></div><div class="hp-bar"><div class="hp-fill" id="sys-cpu" style="width:0%;background:var(--blue)"></div></div></div>
+                            <div class="hp-item"><div class="hp-row"><span class="lbl">Memory</span><span class="val" id="sys-ram-val">—</span></div><div class="hp-bar"><div class="hp-fill" id="sys-ram" style="width:0%;background:var(--green)"></div></div></div>
+                            <div class="hp-item"><div class="hp-row"><span class="lbl">Storage</span><span class="val" id="sys-disk-val">—</span></div><div class="hp-bar"><div class="hp-fill" id="sys-disk" style="width:0%;background:var(--orange)"></div></div></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-hdr"><div class="cd" style="background:var(--red)"></div>Risk Level</div>
+                        <table class="risk-tbl">
+                            <tr><td><span class="risk-dot" style="background:var(--red)"></span>Critical</td><td style="text-align:right;font-weight:700" id="rl-crit">0</td></tr>
+                            <tr><td><span class="risk-dot" style="background:var(--orange)"></span>High</td><td style="text-align:right;font-weight:700" id="rl-high">0</td></tr>
+                            <tr><td><span class="risk-dot" style="background:var(--blue)"></span>Medium</td><td style="text-align:right;font-weight:700" id="rl-med">0</td></tr>
+                            <tr><td><span class="risk-dot" style="background:var(--muted)"></span>Low</td><td style="text-align:right;font-weight:700" id="rl-low">0</td></tr>
+                        </table>
+                    </div>
+                    <div class="card" style="flex:1;min-height:0;display:flex;flex-direction:column">
+                        <div class="card-hdr"><div class="cd" style="background:var(--orange)"></div>Recent Alerts</div>
+                        <div id="recent-alerts" style="flex:1;overflow-y:auto;font-size:12px;display:flex;flex-direction:column;gap:6px"></div>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div class="content">
-
-            <!-- DASHBOARD -->
-            <div class="panel active" id="panel-dashboard">
-                <div class="stats-bar">
-                    <div class="stat-card critical">
-                        <div class="label">КРИТИЧЕСКИХ</div>
-                        <div class="value" id="s-critical">0</div>
-                    </div>
-                    <div class="stat-card high">
-                        <div class="label">ВЫСОКИХ</div>
-                        <div class="value" id="s-high">0</div>
-                    </div>
-                    <div class="stat-card medium">
-                        <div class="label">СРЕДНИХ</div>
-                        <div class="value" id="s-medium">0</div>
-                    </div>
-                    <div class="stat-card low">
-                        <div class="label">НИЗКИХ</div>
-                        <div class="value" id="s-low">0</div>
-                    </div>
+        <!-- ═══ NETWORK & QUARANTINE ═══ -->
+        <div class="panel" id="panel-network">
+            <div class="net-grid">
+                <div class="card"><div class="card-hdr"><div class="cd" style="background:var(--orange)"></div>SSH / Auth Attempts</div>
+                    <table class="full-tbl"><thead><tr><th>User</th><th>IP Address</th><th>Time</th><th>Action</th></tr></thead><tbody id="ssh-tbody"><tr><td colspan="4" class="empty-td">Ожидание данных от мониторов...</td></tr></tbody></table>
                 </div>
-                <div class="feed-header" style="padding:0 30px">
-                    <div class="feed-dot"></div>
-                    LIVE СВОДКА
-                </div>
-                <div class="live-feed" id="live-feed"></div>
-            </div>
-
-            <!-- INCIDENTS -->
-            <div class="panel" id="panel-incidents">
-                <div class="feed-header" style="padding:24px 30px 8px">ВСЕ ИНЦИДЕНТЫ</div>
-                <div class="incidents-list" id="incidents-list"></div>
-            </div>
-
-            <!-- LOGS -->
-            
-    <!-- DANGEROUS -->
-    <div class="panel" id="panel-dangerous">
-      <div class="feed-header" style="padding:24px 30px 8px; color: var(--red);">КРИТИЧЕСКИЕ ИНЦИДЕНТЫ И УЯЗВИМОСТИ</div>
-      <div class="incidents-list" id="dangerous-list"></div>
-    </div>
-
-    <div class="panel" id="panel-logs">
-                <div style="padding:30px 30px 16px;display:flex;gap:8px;flex-shrink:0">
-                    <select id="log-type" onchange="loadLogs()">
-                        <option value="server">СЕРВЕР</option>
-                        <option value="bot">TELEGRAM BOT</option>
-                        <option value="cve">CVE</option>
-                    </select>
-                </div>
-                <div class="live-feed" id="logs-feed"></div>
-            </div>
-
-            <!-- METRICS -->
-            <div class="panel" id="panel-metrics">
-                <div class="metrics-grid">
-                    <div class="metric-card">
-                        <div class="m-label">CPU</div>
-                        <div class="metric-bar">
-                            <div class="metric-bar-fill" id="cpu-bar" style="width:0%"></div>
-                        </div>
-                        <div class="metric-val" id="cpu-val">—</div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="m-label">RAM</div>
-                        <div class="metric-bar">
-                            <div class="metric-bar-fill" id="ram-bar" style="width:0%"></div>
-                        </div>
-                        <div class="metric-val" id="ram-val">—</div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="m-label">DISK</div>
-                        <div class="metric-bar">
-                            <div class="metric-bar-fill" id="disk-bar" style="width:0%"></div>
-                        </div>
-                        <div class="metric-val" id="disk-val">—</div>
-                    </div>
-                </div>
-                <div class="live-feed" id="metrics-feed" style="padding:0 30px 16px">
-                    <div style="color:var(--muted);font-size:14px;padding:20px 0;font-family:var(--font-mono)">Ожидание
-                        метрик от Lua-мониторов...</div>
+                <div class="card" style="flex:1"><div class="card-hdr"><div class="cd" style="background:var(--red)"></div>Quarantine <span id="q-count" style="background:rgba(239,68,68,0.12);color:var(--red);border-radius:20px;padding:1px 8px;font-size:10px;margin-left:6px">0</span></div>
+                    <table class="full-tbl"><thead><tr><th>IP</th><th>Reason</th><th>Blocked</th><th>Action</th></tr></thead><tbody id="quarantine-tbody"><tr><td colspan="4" class="empty-td">Нет заблокированных IP</td></tr></tbody></table>
                 </div>
             </div>
+        </div>
 
-            <!-- AI -->
-            <div class="panel" id="panel-ai">
-                <div class="ai-panel">
+        <!-- ═══ INCIDENTS ═══ -->
+        <div class="panel" id="panel-incidents">
+            <div class="card" style="display:flex;flex-direction:column;height:100%">
+                <div class="card-hdr"><div class="cd" style="background:var(--orange)"></div>Все инциденты</div>
+                <div id="incidents-list" class="inc-list" style="flex:1;overflow-y:auto;padding-right:4px"></div>
+            </div>
+        </div>
+
+        <!-- ═══ DANGEROUS (THREATS) ═══ -->
+        <div class="panel" id="panel-dangerous">
+            <div class="card" style="display:flex;flex-direction:column;height:100%">
+                <div class="card-hdr" style="color:var(--red)"><div class="cd" style="background:var(--red)"></div>🚨 Критические инциденты и уязвимости</div>
+                <div id="dangerous-list" class="inc-list" style="flex:1;overflow-y:auto;padding-right:4px"></div>
+            </div>
+        </div>
+
+        <!-- ═══ LOGS ═══ -->
+        <div class="panel" id="panel-logs">
+            <div class="card" style="display:flex;flex-direction:column;height:100%">
+                <div class="card-hdr" style="justify-content:space-between;padding-bottom:12px;border-bottom:1px solid var(--border)">
+                    <span><div class="cd" style="background:var(--blue);display:inline-block;margin-right:6px"></div>System Logs</span>
+                    <select id="log-type" onchange="loadLogs()" style="background:rgba(0,0,0,0.4);border:1px solid var(--border);color:#fff;padding:5px 10px;border-radius:5px;font-size:11px;font-weight:700;outline:none;cursor:pointer"><option value="server">Server</option><option value="bot">Telegram Bot</option><option value="cve">CVE</option></select>
+                </div>
+                <div id="logs-feed" style="flex:1;overflow-y:auto;padding-top:10px"></div>
+            </div>
+        </div>
+
+        <!-- ═══ METRICS ═══ -->
+        <div class="panel" id="panel-metrics">
+            <div class="metrics-grid">
+                <div class="m-card"><div class="m-label">CPU</div><div class="m-bar"><div class="m-fill" id="cpu-bar" style="width:0%"></div></div><div class="m-val" id="cpu-val">—</div></div>
+                <div class="m-card"><div class="m-label">RAM</div><div class="m-bar"><div class="m-fill" id="ram-bar" style="width:0%"></div></div><div class="m-val" id="ram-val">—</div></div>
+                <div class="m-card"><div class="m-label">DISK</div><div class="m-bar"><div class="m-fill" id="disk-bar" style="width:0%"></div></div><div class="m-val" id="disk-val">—</div></div>
+            </div>
+            <div class="card"><div class="card-hdr"><div class="cd" style="background:var(--cyan)"></div>Metrics Feed</div>
+                <div class="live-feed" id="metrics-feed" style="max-height:none"><div style="color:var(--dim);font-size:12px;padding:12px 0;font-family:'JetBrains Mono',monospace">Ожидание метрик от Lua-мониторов...</div></div>
+            </div>
+        </div>
+
+        <!-- ═══ AI ═══ -->
+        <div class="panel" id="panel-ai">
+            <div class="ai-wrap">
+                <div class="card" style="flex:0">
                     <div class="ai-models">
-                        <button class="model-btn active" onclick="selectModel('deepseek-v4-pro',this)">DEEPSEEK V4
-                            PRO</button>
-                        <button class="model-btn" onclick="selectModel('kimi-k2.6',this)">KIMI K2.6</button>
-                        <button class="model-btn" onclick="selectModel('claude-sonnet-4.6',this)">CLAUDE SONNET
-                            4.6</button>
-                    </div>
-                    <div class="ai-output" id="ai-output">// Введите задачу и нажмите Отправить.
-                        // ИИ работает строго в режиме защитного анализа.
-                        // Управление нейросетью доступно только через этот клиент.</div>
-                    <div class="ai-input-row">
-                        <textarea id="ai-task" placeholder="Опишите задачу для ИИ-анализа..."></textarea>
-                        <button class="btn-send" id="btn-ai-send" onclick="sendAITask()">ОТПРАВИТЬ</button>
+                        <button class="model-btn active" onclick="selectModel('deepseek-v4-pro',this)">DeepSeek V4 Pro</button>
+                        <button class="model-btn" onclick="selectModel('kimi-k2.6',this)">Kimi K2.6</button>
+                        <button class="model-btn" onclick="selectModel('claude-sonnet-4.6',this)">Claude Sonnet 4.6</button>
                     </div>
                 </div>
-            </div>
-
-            <!-- USERS -->
-            <div class="panel" id="panel-users">
-                <div class="add-user-form">
-                    <div class="field"><label>ЛОГИН</label><input id="nu-user" type="text" placeholder="username"></div>
-                    <div class="field"><label>ПАРОЛЬ</label><input id="nu-pass" type="password" placeholder="password">
-                    </div>
-                    <div class="field"><label>РОЛЬ</label>
-                        <select id="nu-role">
-                            <option value="operator">operator</option>
-                            <option value="admin">admin</option>
-                        </select>
-                    </div>
-                    <button class="btn-add" onclick="addUser()">ДОБАВИТЬ</button>
+                <div class="ai-output" id="ai-output">// Система ИИ-анализа готова.
+// Введите задачу и нажмите Отправить.
+// ИИ работает строго в режиме защитного анализа.
+// Управление нейросетью доступно только через этот клиент.</div>
+                <div class="ai-input-row">
+                    <textarea id="ai-task" placeholder="Опишите задачу для ИИ-анализа..."></textarea>
+                    <button class="ai-send" id="btn-ai-send" onclick="sendAITask()">ОТПРАВИТЬ</button>
                 </div>
-                <div class="users-panel" id="users-list"></div>
             </div>
+        </div>
 
+        <!-- ═══ USERS ═══ -->
+        <div class="panel" id="panel-users">
+            <div class="card" style="margin-bottom:16px">
+                <div class="card-hdr"><div class="cd" style="background:var(--green)"></div>Добавить пользователя</div>
+                <div class="add-form">
+                    <div class="field-group"><label>Логин</label><input id="nu-user" type="text" placeholder="username"></div>
+                    <div class="field-group"><label>Пароль</label><input id="nu-pass" type="password" placeholder="password"></div>
+                    <div class="field-group"><label>Роль</label><select id="nu-role"><option value="operator">operator</option><option value="admin">admin</option></select></div>
+                    <button class="btn-add" onclick="addUser()">+ ДОБАВИТЬ</button>
+                </div>
+            </div>
+            <div class="card"><div class="card-hdr"><div class="cd" style="background:var(--blue)"></div>Пользователи</div><div id="users-list" style="display:flex;flex-direction:column;gap:8px"></div></div>
         </div>
     </div>
+</div>
 
-    <script>
-        // ══ State ══════════════════════════════════════════════════════════════════
-        let ws = null;
-        let token = null;
-        let serverBase = '';
-        let currentModel = 'deepseek-v4-pro';
-        let reconnectTimer = null;
-        let reconnectAttempts = 0;
+<script>
+// ══════════════════════════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════════════════════════
+let ws = null, token = null, serverBase = '', currentModel = 'deepseek-v4-pro';
+let reconnectTimer = null, reconnectAttempts = 0;
 let allIncidents = [];
+let chartRisk = null, chartNet = null, chartType = null;
+const $ = id => document.getElementById(id);
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// ANALYZE (from original)
+// ══════════════════════════════════════════════════════════════════════════════
 window.analyzeLog = function(msgText) {
-  const prompt = `Проанализируй следующую строку логов с сервера. Скажи, нормальное ли это поведение или атака, и что она означает:\n\n${msgText}\n\nУчти строгие правила: ничего не ломать, не отключать.`;
-  document.getElementById('ai-task').value = prompt;
-  switchTab('ai');
-  sendAITask();
+    const prompt = `Проанализируй следующую строку логов с сервера. Скажи, нормальное ли это поведение или атака, и что она означает:\n\n${msgText}\n\nУчти строгие правила: ничего не ломать, не отключать.`;
+    $('ai-task').value = prompt; switchTab('ai'); sendAITask();
 };
-
 window.analyzeContext = function(id) {
-  const inc = allIncidents.find(i => i.id === id);
-  if(!inc) return;
-  const prompt = `Проанализируй опасный участок логов. Тип атаки: ${inc.type}. Описание: ${inc.description}.\n\nКонтекст:\n${inc.contextBlock}\n\nЧто делает атакующий и какие меры предпринять? Ничего не отключай и не ломай.`;
-  document.getElementById('ai-task').value = prompt;
-  switchTab('ai');
-  sendAITask();
+    const inc = allIncidents.find(i => i.id === id);
+    if(!inc) return;
+    const prompt = `Проанализируй опасный участок логов. Тип атаки: ${inc.type}. Описание: ${inc.description}.\n\nКонтекст:\n${inc.contextBlock}\n\nЧто делает атакующий и какие меры предпринять? Ничего не отключай и не ломай.`;
+    $('ai-task').value = prompt; switchTab('ai'); sendAITask();
 };
 
-        // ══ Login ══════════════════════════════════════════════════════════════════
-        async function doLogin() {
-            const host = document.getElementById('inp-host').value.trim();
-            const port = document.getElementById('inp-port').value.trim() || '8080';
-            const username = document.getElementById('inp-user').value.trim();
-            const password = document.getElementById('inp-pass').value;
-            const errEl = document.getElementById('login-error');
-            const statusEl = document.getElementById('login-status');
-            const btn = document.getElementById('btn-login');
-
-            if (!host) { errEl.textContent = 'Укажите IP/хост сервера'; return; }
-            if (!username || !password) { errEl.textContent = 'Введите логин и пароль'; return; }
-
-            errEl.textContent = '';
-            btn.disabled = true;
-            statusEl.textContent = 'Проверка соединения...';
-
-            // Определяем протокол — пробуем HTTPS, fallback HTTP
-            let base = '';
-            let loginData = null;
-
-            for (const proto of ['https', 'http']) {
-                try {
-                    const url = `${proto}://${host}:${port}`;
-                    statusEl.textContent = `Подключение к ${url}...`;
-                    const r = await fetch(`${url}/api/auth/login`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username, password }),
-                        signal: AbortSignal.timeout(5000),
-                    });
-                    const data = await r.json();
-                    if (data.success) { base = url; loginData = data; break; }
-                    else { errEl.textContent = data.error || 'Неверный логин или пароль'; btn.disabled = false; statusEl.textContent = ''; return; }
-                } catch (e) { /* пробуем следующий протокол */ }
-            }
-
-            if (!loginData) {
-                errEl.textContent = 'Сервер недоступен. Проверьте IP и порт.';
-                btn.disabled = false; statusEl.textContent = ''; return;
-            }
-
-            serverBase = base;
-            token = loginData.token;
-            statusEl.textContent = 'Авторизован. Подключение к WebSocket...';
-
-            document.getElementById('login-screen').classList.add('hidden');
-            document.getElementById('app').classList.remove('hidden');
-            btn.disabled = false;
-
-            // Сообщаем клиентскому серверу (localhost:3001) параметры подключения
-            fetch('/api/set-connection', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url: base, host, port, token }),
-            }).catch(() => { });
-
-            connectWS(host, port);
-            loadUsers();
-        }
-
-        function doLogout() {
-            if (ws) { ws.close(); ws = null; }
-            token = null; serverBase = '';
-            document.getElementById('login-screen').classList.remove('hidden');
-            document.getElementById('app').classList.add('hidden');
-            document.getElementById('live-feed').innerHTML = '';
-            document.getElementById('incidents-list').innerHTML = '';
-            document.getElementById('logs-feed').innerHTML = '';
-        }
-
-        // ══ WebSocket ══════════════════════════════════════════════════════════════
-        function connectWS(host, port) {
-            if (ws) { ws.close(); ws = null; }
-            setConnStatus('connecting', 'Подключение...');
-
-            // Пробуем WSS, потом WS
-            const proto = serverBase.startsWith('https') ? 'wss' : 'ws';
-            const url = `${proto}://${host}:${port}/ws`;
-
-            try {
-                ws = new WebSocket(url);
-            } catch (e) {
-                setConnStatus('error', 'Ошибка WS'); scheduleReconnect(host, port); return;
-            }
-
-            ws.onopen = () => {
-                reconnectAttempts = 0;
-                setConnStatus('connecting', 'Авторизация...');
-                ws.send(JSON.stringify({ event: 'auth', data: { token, nonce: Date.now().toString(36) + Math.random().toString(36).slice(2) } }));
-            };
-
-            ws.onmessage = (e) => {
-                try { handleMessage(JSON.parse(e.data)); } catch (_) { }
-            };
-
-            ws.onclose = () => {
-                setConnStatus('error', 'Отключён');
-                scheduleReconnect(host, port);
-            };
-
-            ws.onerror = () => {
-                setConnStatus('error', 'Ошибка соединения');
-            };
-        }
-
-        function scheduleReconnect(host, port) {
-            if (reconnectTimer) return;
-            const delay = Math.min(2000 * Math.pow(1.5, reconnectAttempts), 30000);
-            reconnectAttempts++;
-            reconnectTimer = setTimeout(() => { reconnectTimer = null; if (token) connectWS(host, port); }, delay);
-        }
-
-        function setConnStatus(state, label) {
-            const dot = document.getElementById('conn-dot');
-            const lbl = document.getElementById('conn-label');
-            dot.className = 'conn-dot ' + state;
-            lbl.textContent = label;
-        }
-
-        // ══ Message Handler ════════════════════════════════════════════════════════
-        function handleMessage(msg) {
-            switch (msg.event) {
-                case 'auth_success':
-                    setConnStatus('connected', 'Подключён');
-                    if (msg.data?.model) { currentModel = msg.data.model; document.getElementById('model-badge').textContent = currentModel; }
-                    break;
-                case 'auth_error':
-                    setConnStatus('error', 'Ошибка авторизации');
-                    break;
-                case 'stats':
-                    updateStats(msg.data);
-                    break;
-                case 'incidents_list':
-      allIncidents = msg.data || [];
-      renderIncidents(allIncidents);
-      break;
-                case 'logs_list':
-                    renderLogs(msg.data || []);
-                    break;
-                case 'log':
-                    if (msg.data) addLiveEntry(msg.data);
-                    break;
-                case 'incident':
-      if (msg.data) {
-        allIncidents.unshift(msg.data);
-        if(allIncidents.length > 500) allIncidents.pop();
-        addIncidentCard(msg.data, true, document.getElementById('incidents-list'));
-        if (msg.data.severity === 'CRITICAL' || msg.data.severity === 'HIGH') {
-          addDangerousCard(msg.data, true, document.getElementById('dangerous-list'));
-          showAlert(msg.data);
-        }
-      }
-      break;
-                case 'metrics':
-                    updateMetrics(msg.data);
-                    break;
-                case 'model_changed':
-                    if (msg.data?.model) { currentModel = msg.data.model; document.getElementById('model-badge').textContent = currentModel; }
-                    break;
-                case 'ai_result':
-                    document.getElementById('ai-output').textContent = msg.data?.result || '(нет ответа)';
-                    document.getElementById('btn-ai-send').disabled = false;
-                    break;
-                case 'ai_error':
-                    document.getElementById('ai-output').textContent = '❌ Ошибка: ' + (msg.data?.error || 'unknown');
-                    document.getElementById('btn-ai-send').disabled = false;
-                    break;
-                case 'bot_notify':
-                    if (msg.data) showAlert(msg.data);
-                    break;
-            }
-        }
-
-        // ══ Stats ══════════════════════════════════════════════════════════════════
-        function updateStats(data) {
-            if (!data?.incidents) return;
-            document.getElementById('s-critical').textContent = data.incidents.critical || 0;
-            document.getElementById('s-high').textContent = data.incidents.high || 0;
-            document.getElementById('s-medium').textContent = data.incidents.medium || 0;
-            document.getElementById('s-low').textContent = data.incidents.low || 0;
-        }
-
-        // ══ Live Feed ══════════════════════════════════════════════════════════════
-        function addLiveEntry(entry) {
-            const feed = document.getElementById('live-feed');
-            const div = document.createElement('div');
-            div.className = 'log-entry';
-            const t = (entry.timestamp || '').slice(11, 19);
-            div.innerHTML = `<span class="log-time">${t}</span><span class="log-level ${entry.level}">${(entry.level || 'info').toUpperCase()}</span><span class="log-msg">${esc(entry.message || '')}</span><span class="log-monitor">${esc(entry.type || '')}</span>`;
-            feed.insertBefore(div, feed.firstChild);
-            if (feed.children.length > 200) feed.removeChild(feed.lastChild);
-        }
-
-        // ══ Incidents ══════════════════════════════════════════════════════════════
-        function renderIncidents(list) {
-  const el = document.getElementById('incidents-list');
-  const dEl = document.getElementById('dangerous-list');
-  el.innerHTML = '';
-  if(dEl) dEl.innerHTML = '';
-  list.forEach(i => {
-    addIncidentCard(i, false, el);
-    if (i.severity === 'CRITICAL' || i.severity === 'HIGH') {
-      addDangerousCard(i, false, dEl);
-    }
-  });
+// ══════════════════════════════════════════════════════════════════════════════
+// CHARTS
+// ══════════════════════════════════════════════════════════════════════════════
+function initCharts() {
+    Chart.defaults.color = '#6B7A90';
+    Chart.defaults.font.family = "'Inter', sans-serif";
+    chartRisk = new Chart($('chart-risk').getContext('2d'), {
+        type: 'doughnut',
+        data: { datasets: [{ data: [0,100], backgroundColor: ['#22C55E','#1A222D'], borderWidth: 0 }] },
+        options: { cutout:'82%', rotation:-90, circumference:180, plugins:{tooltip:{enabled:false},legend:{display:false}} }
+    });
+    chartNet = new Chart($('chart-network').getContext('2d'), {
+        type: 'line',
+        data: { labels: Array(30).fill(''), datasets: [{ data: Array(30).fill(0), borderColor:'#22C55E', backgroundColor:'rgba(34,197,94,0.08)', borderWidth:2, tension:0.4, fill:true, pointRadius:0 }] },
+        options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{display:false},x:{display:false}} }
+    });
+    chartType = new Chart($('chart-type').getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: ['Brute Force','SQLi','DDoS','Malware','XSS','Other'],
+            datasets: [{ data:[0,0,0,0,0,0], backgroundColor:['#EF4444','#F59E0B','#22C55E','#3B82F6','#A855F7','#6B7280'], borderRadius:4, borderWidth:0 }]
+        },
+        options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{grid:{color:'#1E2736'},beginAtZero:true},x:{grid:{display:false}}} }
+    });
 }
 
-        function addIncidentCard(inc, prepend, container) {
-  if(!container) container = document.getElementById('incidents-list');
-  const div = document.createElement('div');
-  div.className = `incident-card ${inc.severity||'LOW'}`;
-  div.innerHTML = `<span class="inc-sev ${inc.severity}">${inc.severity}</span><div class="inc-body"><div class="inc-type">${esc(inc.type||'')}</div><div class="inc-desc">${esc(inc.description||'')}</div><div class="inc-meta">${esc(inc.monitor||'')} · ${(inc.timestamp||'').slice(0,19).replace('T',' ')}</div></div>`;
-  if (prepend) container.insertBefore(div, container.firstChild);
-  else container.appendChild(div);
+function updateChartsFromIncidents(list) {
+    let crit=0, high=0, med=0, low=0;
+    const types = [0,0,0,0,0,0];
+    list.forEach(i => {
+        if(i.severity==='CRITICAL') crit++;
+        else if(i.severity==='HIGH') high++;
+        else if(i.severity==='MEDIUM') med++;
+        else low++;
+        const t = String(i.type||'').toLowerCase();
+        if(t.includes('brute')||t.includes('login')||t.includes('auth')) types[0]++;
+        else if(t.includes('sql')||t.includes('inject')) types[1]++;
+        else if(t.includes('ddos')||t.includes('flood')) types[2]++;
+        else if(t.includes('malware')||t.includes('virus')) types[3]++;
+        else if(t.includes('xss')||t.includes('script')) types[4]++;
+        else types[5]++;
+    });
+    // Risk level
+    const risk = Math.min(100, crit*12 + high*6 + med*2);
+    $('risk-value').textContent = risk;
+    const col = risk>70?'#EF4444':risk>40?'#F59E0B':'#22C55E';
+    const lbl = risk>70?'HIGH':risk>40?'MEDIUM':'SAFE';
+    $('risk-value').style.color=col; $('risk-label').style.color=col; $('risk-label').textContent=lbl;
+    if(chartRisk){chartRisk.data.datasets[0].data=[risk,100-risk]; chartRisk.data.datasets[0].backgroundColor[0]=col; chartRisk.update();}
+    if(chartType){chartType.data.datasets[0].data=types; chartType.update();}
+    // Risk level table
+    $('rl-crit').textContent=crit; $('rl-high').textContent=high; $('rl-med').textContent=med; $('rl-low').textContent=low;
+    // Recent alerts (last 8 critical/high)
+    const recent = list.filter(i=>i.severity==='CRITICAL'||i.severity==='HIGH').slice(0,8);
+    const ra = $('recent-alerts'); ra.innerHTML = '';
+    recent.forEach(i => {
+        const d = document.createElement('div');
+        d.style.cssText = 'padding:6px 8px;background:rgba(0,0,0,0.3);border-radius:6px;border-left:3px solid '+(i.severity==='CRITICAL'?'var(--red)':'var(--orange)');
+        d.innerHTML = '<div style="font-weight:700;font-size:11px;color:#fff">'+esc(i.type||'')+'</div><div style="font-size:10px;color:var(--muted);margin-top:2px">'+esc(i.description||'').slice(0,60)+'</div>';
+        ra.appendChild(d);
+    });
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LOGIN
+// ══════════════════════════════════════════════════════════════════════════════
+async function doLogin() {
+    const host = $('inp-host').value.trim();
+    const port = $('inp-port').value.trim() || '8080';
+    const username = $('inp-user').value.trim();
+    const password = $('inp-pass').value;
+    const errEl = $('login-error'), statusEl = $('login-status'), btn = $('btn-login');
+    if (!host) { errEl.textContent = 'Укажите IP/хост сервера'; return; }
+    if (!username || !password) { errEl.textContent = 'Введите логин и пароль'; return; }
+    errEl.textContent = ''; btn.disabled = true; statusEl.textContent = 'Проверка соединения...';
+    let base = '', loginData = null;
+    for (const proto of ['https','http']) {
+        try {
+            const url = `${proto}://${host}:${port}`;
+            statusEl.textContent = `Подключение к ${url}...`;
+            const r = await fetch(`${url}/api/auth/login`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username,password}), signal:AbortSignal.timeout(5000) });
+            const data = await r.json();
+            if (data.success) { base=url; loginData=data; break; }
+            else { errEl.textContent = data.error || 'Неверный логин или пароль'; btn.disabled=false; statusEl.textContent=''; return; }
+        } catch(e) {}
+    }
+    if (!loginData) { errEl.textContent = 'Сервер недоступен. Проверьте IP и порт.'; btn.disabled=false; statusEl.textContent=''; return; }
+    serverBase = base; token = loginData.token;
+    statusEl.textContent = 'Авторизован. Подключение к WebSocket...';
+    $('login-screen').classList.add('hidden');
+    $('app').classList.remove('hidden');
+    btn.disabled = false;
+    fetch('/api/set-connection', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url:base,host,port,token}) }).catch(()=>{});
+    initCharts(); connectWS(host, port); loadUsers(); loadQuarantine();
+}
+function doLogout() {
+    if (ws) { ws.close(); ws = null; }
+    token = null; serverBase = '';
+    $('login-screen').classList.remove('hidden');
+    $('app').classList.add('hidden');
+    $('live-feed').innerHTML = '';
+    $('incidents-list').innerHTML = '';
+    $('logs-feed').innerHTML = '';
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// WEBSOCKET
+// ══════════════════════════════════════════════════════════════════════════════
+function connectWS(host, port) {
+    if (ws) { ws.close(); ws = null; }
+    setConnStatus('connecting','Подключение...');
+    const proto = serverBase.startsWith('https') ? 'wss' : 'ws';
+    const url = `${proto}://${host}:${port}/ws`;
+    try { ws = new WebSocket(url); } catch(e) { setConnStatus('error','Ошибка WS'); scheduleReconnect(host,port); return; }
+    ws.onopen = () => { reconnectAttempts=0; setConnStatus('connecting','Авторизация...'); ws.send(JSON.stringify({event:'auth',data:{token,nonce:Date.now().toString(36)+Math.random().toString(36).slice(2)}})); };
+    ws.onmessage = e => { try{handleMessage(JSON.parse(e.data));}catch(_){} };
+    ws.onclose = () => { setConnStatus('error','Отключён'); scheduleReconnect(host,port); };
+    ws.onerror = () => { setConnStatus('error','Ошибка соединения'); };
+}
+function scheduleReconnect(host, port) {
+    if (reconnectTimer) return;
+    const delay = Math.min(2000*Math.pow(1.5,reconnectAttempts), 30000);
+    reconnectAttempts++;
+    reconnectTimer = setTimeout(() => { reconnectTimer=null; if(token) connectWS(host,port); }, delay);
+}
+function setConnStatus(state, label) { $('conn-dot').className='conn-dot '+state; $('conn-label').textContent=label; }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MESSAGE HANDLER
+// ══════════════════════════════════════════════════════════════════════════════
+function handleMessage(msg) {
+    switch(msg.event) {
+        case 'auth_success':
+            setConnStatus('connected','Подключён');
+            if(msg.data?.model){currentModel=msg.data.model;$('model-badge').textContent=currentModel;}
+            break;
+        case 'auth_error': setConnStatus('error','Ошибка авторизации'); break;
+        case 'stats': updateStats(msg.data); break;
+        case 'incidents_list':
+            allIncidents = msg.data||[];
+            renderIncidents(allIncidents);
+            updateChartsFromIncidents(allIncidents);
+            break;
+        case 'incident_updated':
+            const idx = allIncidents.findIndex(i=>i.id===msg.data.id);
+            if(idx!==-1) allIncidents[idx]=msg.data;
+            renderIncidents(allIncidents);
+            updateChartsFromIncidents(allIncidents);
+            break;
+        case 'logs_list': renderLogs(msg.data||[]); break;
+        case 'log': if(msg.data) addLiveEntry(msg.data); break;
+        case 'incident':
+            if(msg.data){
+                allIncidents.unshift(msg.data);
+                if(allIncidents.length>500) allIncidents.pop();
+                addIncidentCard(msg.data, true, $('incidents-list'));
+                if(msg.data.severity==='CRITICAL'||msg.data.severity==='HIGH'){
+                    addDangerousCard(msg.data, true, $('dangerous-list'));
+                    showAlert(msg.data);
+                }
+                updateChartsFromIncidents(allIncidents);
+            }
+            break;
+        case 'metrics': updateMetrics(msg.data); break;
+        case 'quarantine_updated': renderQuarantine(msg.data||[]); break;
+        case 'model_changed':
+            if(msg.data?.model){currentModel=msg.data.model;$('model-badge').textContent=currentModel;}
+            break;
+        case 'ai_result':
+            $('ai-output').textContent = msg.data?.result || '(нет ответа)';
+            $('btn-ai-send').disabled = false;
+            break;
+        case 'ai_error':
+            $('ai-output').textContent = '❌ Ошибка: ' + (msg.data?.error || 'unknown');
+            $('btn-ai-send').disabled = false;
+            break;
+        case 'bot_notify': if(msg.data) showAlert(msg.data); break;
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// STATS
+// ══════════════════════════════════════════════════════════════════════════════
+function updateStats(data) {
+    if(!data?.incidents) return;
+    $('s-critical').textContent = data.incidents.critical||0;
+    $('s-threats').textContent = (data.incidents.critical||0)+(data.incidents.high||0)+(data.incidents.medium||0)+(data.incidents.low||0);
+    $('s-vuln').textContent = data.cveLogs||0;
+    // Also update risk level table
+    $('rl-crit').textContent = data.incidents.critical||0;
+    $('rl-high').textContent = data.incidents.high||0;
+    $('rl-med').textContent = data.incidents.medium||0;
+    $('rl-low').textContent = data.incidents.low||0;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LIVE FEED
+// ══════════════════════════════════════════════════════════════════════════════
+function addLiveEntry(entry) {
+    const feed = $('live-feed');
+    const div = document.createElement('div');
+    div.className = 'log-entry';
+    const t = (entry.timestamp||'').slice(11,19);
+    div.innerHTML = `<span class="log-time">${t}</span><span class="log-level ${entry.level}">${(entry.level||'info').toUpperCase()}</span><span class="log-msg">${esc(entry.message||'')}</span><span class="log-monitor">${esc(entry.type||'')}</span>`;
+    feed.insertBefore(div, feed.firstChild);
+    if (feed.children.length > 200) feed.removeChild(feed.lastChild);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// INCIDENTS (with status/severity controls)
+// ══════════════════════════════════════════════════════════════════════════════
+function renderIncidents(list) {
+    const el = $('incidents-list');
+    const dEl = $('dangerous-list');
+    el.innerHTML = '';
+    if(dEl) dEl.innerHTML = '';
+    list.forEach(i => {
+        addIncidentCard(i, false, el);
+        if(i.severity==='CRITICAL'||i.severity==='HIGH') addDangerousCard(i, false, dEl);
+    });
+}
+
+function patchIncident(id, body) {
+    fetch(`${serverBase}/api/incidents/${id}`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}).catch(console.error);
+}
+
+function addIncidentCard(inc, prepend, container) {
+    if(!container) container = $('incidents-list');
+    const div = document.createElement('div');
+    div.className = `inc-card ${inc.severity||'LOW'}`;
+    const sOpts = [['new','Новый'],['in_review','В рассмотрении'],['resolved','Решён']].map(([v,l])=>`<option value="${v}"${inc.status===v?' selected':''}>${l}</option>`).join('');
+    const svOpts = ['CRITICAL','HIGH','MEDIUM','LOW'].map(s=>`<option value="${s}"${inc.severity===s?' selected':''}>${s}</option>`).join('');
+    div.innerHTML = `<span class="inc-sev ${inc.severity}">${inc.severity}</span><div class="inc-body"><div class="inc-type">${esc(inc.type||'')}</div><div class="inc-desc">${esc(inc.description||'')}</div><div class="inc-ctrls"><select class="inc-sel" onchange="patchIncident('${inc.id}',{status:this.value})">${sOpts}</select><select class="inc-sel" onchange="patchIncident('${inc.id}',{severity:this.value})">${svOpts}</select><button class="btn-ai" onclick="analyzeContext('${inc.id}')">🧠 ИИ Анализ</button></div><div class="inc-meta">${esc(inc.monitor||'')} · ${(inc.timestamp||'').slice(0,19).replace('T',' ')}</div></div>`;
+    if(prepend) container.insertBefore(div, container.firstChild);
+    else container.appendChild(div);
 }
 
 function addDangerousCard(inc, prepend, container) {
-  if(!container) container = document.getElementById('dangerous-list');
-  const div = document.createElement('div');
-  div.className = `incident-card ${inc.severity}`;
-  
-  let ctxHtml = '';
-  if(inc.contextBlock) {
-    ctxHtml = `<div style="margin-top: 15px; background: var(--bg2); padding: 10px; border: 1px solid var(--border); font-family: var(--font-mono); font-size: 12px; white-space: pre-wrap; color: var(--text); max-height: 200px; overflow-y: auto;">${esc(inc.contextBlock)}</div>`;
-  }
-  
-  const btnHtml = `<button onclick="analyzeContext('${inc.id}')" style="margin-top: 15px; background: var(--text); color: var(--bg); border: none; padding: 10px 20px; cursor: pointer; font-family: var(--font-display); font-size: 16px; letter-spacing: 1px;">🧠 АНАЛИЗ ИИ</button>`;
-  
-  div.innerHTML = `<span class="inc-sev ${inc.severity}">${inc.severity}</span><div class="inc-body"><div class="inc-type">${esc(inc.type||'')}</div><div class="inc-desc">${esc(inc.description||'')}</div>${ctxHtml}${btnHtml}<div class="inc-meta">${esc(inc.monitor||'')} · ${(inc.timestamp||'').slice(0,19).replace('T',' ')}</div></div>`;
-  
-  if (prepend) container.insertBefore(div, container.firstChild);
-  else container.appendChild(div);
+    if(!container) container = $('dangerous-list');
+    const div = document.createElement('div');
+    div.className = `inc-card ${inc.severity}`;
+    let ctxHtml = '';
+    if(inc.contextBlock) ctxHtml = `<div class="inc-ctx">${esc(inc.contextBlock)}</div>`;
+    const sOpts = [['new','Новый'],['in_review','В рассмотрении'],['resolved','Решён']].map(([v,l])=>`<option value="${v}"${inc.status===v?' selected':''}>${l}</option>`).join('');
+    const svOpts = ['CRITICAL','HIGH','MEDIUM','LOW'].map(s=>`<option value="${s}"${inc.severity===s?' selected':''}>${s}</option>`).join('');
+    div.innerHTML = `<span class="inc-sev ${inc.severity}">${inc.severity}</span><div class="inc-body"><div class="inc-type">${esc(inc.type||'')}</div><div class="inc-desc">${esc(inc.description||'')}</div>${ctxHtml}<div class="inc-ctrls"><select class="inc-sel" onchange="patchIncident('${inc.id}',{status:this.value})">${sOpts}</select><select class="inc-sel" onchange="patchIncident('${inc.id}',{severity:this.value})">${svOpts}</select><button class="btn-ai" onclick="analyzeContext('${inc.id}')">🧠 ИИ Анализ</button></div><div class="inc-meta">${esc(inc.monitor||'')} · ${(inc.timestamp||'').slice(0,19).replace('T',' ')}</div></div>`;
+    if(prepend) container.insertBefore(div, container.firstChild);
+    else container.appendChild(div);
 }
 
-        // ══ Logs ══════════════════════════════════════════════════════════════════
-        function renderLogs(list) {
-            const feed = document.getElementById('logs-feed');
-            feed.innerHTML = '';
-            list.forEach(entry => {
-                const div = document.createElement('div');
-                div.className = 'log-entry';
-                const t = (entry.timestamp || '').slice(0, 19).replace('T', ' ');
-                div.innerHTML = `<span class="log-time">${t}</span><span class="log-level ${entry.level}">${(entry.level || 'info').toUpperCase()}</span><span class="log-msg">${esc(entry.message || '')}</span>`;
-                feed.appendChild(div);
-            });
-        }
+// ══════════════════════════════════════════════════════════════════════════════
+// LOGS
+// ══════════════════════════════════════════════════════════════════════════════
+function renderLogs(list) {
+    const feed = $('logs-feed'); feed.innerHTML = '';
+    list.forEach(entry => {
+        const div = document.createElement('div'); div.className = 'log-entry';
+        const t = (entry.timestamp||'').slice(0,19).replace('T',' ');
+        div.innerHTML = `<span class="log-time">${t}</span><span class="log-level ${entry.level}">${(entry.level||'info').toUpperCase()}</span><span class="log-msg">${esc(entry.message||'')}</span>`;
+        feed.appendChild(div);
+    });
+}
+function loadLogs() {
+    const type = $('log-type').value;
+    if(ws && ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({event:'get_logs',data:{type,limit:200}}));
+}
 
-        function loadLogs() {
-            const type = document.getElementById('log-type').value;
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ event: 'get_logs', data: { type, limit: 200 } }));
-            }
-        }
+// ══════════════════════════════════════════════════════════════════════════════
+// METRICS (original + dashboard update)
+// ══════════════════════════════════════════════════════════════════════════════
+function updateMetrics(data) {
+    if (!data) return;
+    // Metrics tab bars
+    setMetric('cpu', data.cpu, '%');
+    if(data.ram) setMetric('ram', data.ram.percent, '%');
+    if(data.disk) setMetric('disk', data.disk.percent, '%');
+    // Dashboard system health
+    if(data.cpu != null) { $('sys-cpu').style.width=data.cpu+'%'; $('sys-cpu-val').textContent=data.cpu+'%'; }
+    if(data.ram) { $('sys-ram').style.width=data.ram.percent+'%'; $('sys-ram-val').textContent=data.ram.percent+'%'; }
+    if(data.disk) { $('sys-disk').style.width=data.disk.percent+'%'; $('sys-disk-val').textContent=data.disk.percent+'%'; }
+    // Network chart
+    if(data.connections!=null && chartNet) { const ds=chartNet.data.datasets[0].data; ds.shift(); ds.push(data.connections); chartNet.update(); }
+    // Metrics feed
+    const feed = $('metrics-feed');
+    const div = document.createElement('div'); div.className = 'log-entry';
+    const t = (data.receivedAt || data.timestamp || '').slice(11,19);
+    const parts = [];
+    if(data.cpu!=null) parts.push(`CPU:${data.cpu}%`);
+    if(data.ram) parts.push(`RAM:${data.ram.percent}%`);
+    if(data.disk) parts.push(`Disk:${data.disk.percent}%`);
+    if(data.connections!=null) parts.push(`Conn:${data.connections}`);
+    div.innerHTML = `<span class="log-time">${t}</span><span class="log-level info">METRICS</span><span class="log-msg">${esc(data.monitor||'monitor')} — ${parts.join(' | ')}</span>`;
+    feed.insertBefore(div, feed.firstChild);
+    if(feed.children.length > 100) feed.removeChild(feed.lastChild);
+    // SSH sessions for network tab
+    if(data.ssh_sessions && Array.isArray(data.ssh_sessions)) {
+        const tb = $('ssh-tbody'); tb.innerHTML = '';
+        if(!data.ssh_sessions.length) { tb.innerHTML='<tr><td colspan="4" class="empty-td">Нет SSH-сессий</td></tr>'; return; }
+        data.ssh_sessions.forEach(s => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${esc(s.user||'?')}</td><td><span class="ip-chip">${esc(s.ip||'?')}</span></td><td>${esc(s.time||'')}</td><td><button class="btn-sm btn-q" onclick="quarantineIp('${esc(s.ip)}','Blocked from SSH table')">🛡 КАРАНТИН</button></td>`;
+            tb.appendChild(tr);
+        });
+    }
+}
+function setMetric(id, val, unit) {
+    if(val==null) return;
+    const bar = $(id+'-bar'), valEl = $(id+'-val');
+    if(!bar||!valEl) return;
+    bar.style.width = Math.min(val,100)+'%';
+    bar.className = 'm-fill'+(val>90?' danger':val>70?' warn':'');
+    valEl.textContent = val + unit;
+}
 
-        // ══ Metrics ════════════════════════════════════════════════════════════════
-        function updateMetrics(data) {
-            if (!data) return;
-            setMetric('cpu', data.cpu, '%');
-            if (data.ram) setMetric('ram', data.ram.percent, '%');
-            if (data.disk) setMetric('disk', data.disk.percent, '%');
+// ══════════════════════════════════════════════════════════════════════════════
+// QUARANTINE
+// ══════════════════════════════════════════════════════════════════════════════
+function loadQuarantine() {
+    if(!serverBase) return;
+    fetch(`${serverBase}/api/quarantine`).then(r=>r.json()).then(d=>renderQuarantine(d||[])).catch(()=>{});
+}
+function renderQuarantine(list) {
+    const tb = $('quarantine-tbody');
+    $('q-count').textContent = list.length;
+    if(!list.length) { tb.innerHTML='<tr><td colspan="4" class="empty-td">Нет заблокированных IP</td></tr>'; return; }
+    tb.innerHTML = '';
+    list.forEach(q => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td><span class="ip-chip">${esc(q.ip)}</span></td><td>${esc(q.reason||'Manual')}</td><td>${esc((q.timestamp||'').slice(0,19).replace('T',' '))}</td><td><button class="btn-sm btn-unq" onclick="unquarantineIp('${esc(q.ip)}')">🔓 РАЗБЛОКИРОВАТЬ</button></td>`;
+        tb.appendChild(tr);
+    });
+}
+function quarantineIp(ip, reason) {
+    fetch(`${serverBase}/api/quarantine`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ip,reason:reason||'Manual block'})}).catch(console.error);
+}
+function unquarantineIp(ip) {
+    fetch(`${serverBase}/api/quarantine/${encodeURIComponent(ip)}`, {method:'DELETE'}).catch(console.error);
+}
 
-            const feed = document.getElementById('metrics-feed');
-            const div = document.createElement('div');
-            div.className = 'log-entry';
-            const t = (data.receivedAt || data.timestamp || '').slice(11, 19);
-            const parts = [];
-            if (data.cpu != null) parts.push(`CPU:${data.cpu}%`);
-            if (data.ram) parts.push(`RAM:${data.ram.percent}%`);
-            if (data.disk) parts.push(`Disk:${data.disk.percent}%`);
-            if (data.connections != null) parts.push(`Conn:${data.connections}`);
-            div.innerHTML = `<span class="log-time">${t}</span><span class="log-level info">METRICS</span><span class="log-msg">${esc(data.monitor || 'monitor')} — ${parts.join(' | ')}</span>`;
-            feed.insertBefore(div, feed.firstChild);
-            if (feed.children.length > 100) feed.removeChild(feed.lastChild);
-        }
+// ══════════════════════════════════════════════════════════════════════════════
+// AI
+// ══════════════════════════════════════════════════════════════════════════════
+function selectModel(model, btn) {
+    currentModel = model;
+    document.querySelectorAll('.model-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    if(ws && ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({event:'switch_model',data:{model}}));
+}
+function sendAITask() {
+    const task = $('ai-task').value.trim();
+    if(!task) return;
+    if(!ws || ws.readyState!==WebSocket.OPEN) { $('ai-output').textContent='❌ Нет соединения с сервером'; return; }
+    $('btn-ai-send').disabled = true;
+    $('ai-output').textContent = '⏳ Запрос отправлен, ожидаю ответ...';
+    ws.send(JSON.stringify({event:'ai_task',data:{task,model:currentModel}}));
+}
 
-        function setMetric(id, val, unit) {
-            if (val == null) return;
-            const bar = document.getElementById(id + '-bar');
-            const valEl = document.getElementById(id + '-val');
-            bar.style.width = Math.min(val, 100) + '%';
-            bar.className = 'metric-bar-fill' + (val > 90 ? ' danger' : val > 70 ? ' warn' : '');
-            valEl.textContent = val + unit;
-        }
+// ══════════════════════════════════════════════════════════════════════════════
+// USERS
+// ══════════════════════════════════════════════════════════════════════════════
+async function loadUsers() {
+    try {
+        const r = await fetch(`${serverBase}/api/users`);
+        const users = await r.json();
+        const el = $('users-list'); el.innerHTML = '';
+        users.forEach(u => {
+            const div = document.createElement('div'); div.className='user-card';
+            div.innerHTML = `<div class="user-avatar">${(u.username||'?')[0].toUpperCase()}</div><div class="user-info"><div class="name">${esc(u.username)}</div><div class="role role-${u.role||'operator'}">${esc(u.role||'operator')}</div></div>${u.chat_id?'<span class="user-tg">TELEGRAM</span>':''}`;
+            el.appendChild(div);
+        });
+    } catch(e) {}
+}
+async function addUser() {
+    const username=$('nu-user').value.trim(), password=$('nu-pass').value, role=$('nu-role').value;
+    if(!username||!password) return;
+    try {
+        const r = await fetch(`${serverBase}/api/users`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username,password,role})});
+        const data = await r.json();
+        if(data.success) { $('nu-user').value=''; $('nu-pass').value=''; loadUsers(); }
+        else alert(data.error||'Ошибка');
+    } catch(e) { alert('Ошибка соединения'); }
+}
 
-        // ══ AI ════════════════════════════════════════════════════════════════════
-        function selectModel(model, btn) {
-            currentModel = model;
-            document.querySelectorAll('.model-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ event: 'switch_model', data: { model } }));
-        }
+// ══════════════════════════════════════════════════════════════════════════════
+// ALERT BANNER
+// ══════════════════════════════════════════════════════════════════════════════
+function showAlert(data) {
+    const banner = $('alert-banner');
+    const sev = data.severity || data.type || 'ALERT';
+    banner.textContent = `🚨 ${sev}: ${data.description || data.type || ''} — ТРЕБУЕТСЯ ВМЕШАТЕЛЬСТВО!`;
+    banner.style.display = 'block';
+    setTimeout(() => { banner.style.display = 'none'; }, 8000);
+}
 
-        function sendAITask() {
-            const task = document.getElementById('ai-task').value.trim();
-            if (!task) return;
-            if (!ws || ws.readyState !== WebSocket.OPEN) { document.getElementById('ai-output').textContent = '❌ Нет соединения с сервером'; return; }
-            document.getElementById('btn-ai-send').disabled = true;
-            document.getElementById('ai-output').textContent = '⏳ Запрос отправлен, ожидаю ответ...';
-            ws.send(JSON.stringify({ event: 'ai_task', data: { task, model: currentModel } }));
-        }
+// ══════════════════════════════════════════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════════════════════════════════════════
+const TAB_NAMES = ['dashboard','network','incidents','dangerous','logs','metrics','ai','users'];
+function switchTab(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab===name));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    $('panel-'+name).classList.add('active');
+    if(name==='logs') loadLogs();
+    if(name==='users') loadUsers();
+    if(name==='network') loadQuarantine();
+    if(name==='incidents' && ws && ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({event:'get_incidents'}));
+}
 
-        // ══ Users ══════════════════════════════════════════════════════════════════
-        async function loadUsers() {
-            try {
-                const r = await fetch(`${serverBase}/api/users`);
-                const users = await r.json();
-                const el = document.getElementById('users-list');
-                el.innerHTML = '';
-                users.forEach(u => {
-                    const div = document.createElement('div');
-                    div.className = 'user-card';
-                    div.innerHTML = `<div class="user-avatar">${(u.username || '?')[0].toUpperCase()}</div><div class="user-info"><div class="name">${esc(u.username)}</div><div class="role">${esc(u.role || 'operator')}</div></div>${u.chat_id ? '<span class="user-tg">TELEGRAM</span>' : ''}`;
-                    el.appendChild(div);
-                });
-            } catch (e) { }
-        }
-
-        async function addUser() {
-            const username = document.getElementById('nu-user').value.trim();
-            const password = document.getElementById('nu-pass').value;
-            const role = document.getElementById('nu-role').value;
-            if (!username || !password) return;
-            try {
-                const r = await fetch(`${serverBase}/api/users`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password, role }) });
-                const data = await r.json();
-                if (data.success) { document.getElementById('nu-user').value = ''; document.getElementById('nu-pass').value = ''; loadUsers(); }
-                else alert(data.error || 'Ошибка');
-            } catch (e) { alert('Ошибка соединения'); }
-        }
-
-        // ══ Alert Banner ══════════════════════════════════════════════════════════
-        function showAlert(data) {
-            const banner = document.getElementById('alert-banner');
-            const sev = data.severity || data.type || 'ALERT';
-            banner.textContent = `🚨 ${sev}: ${data.description || data.type || ''} — ТРЕБУЕТСЯ ВМЕШАТЕЛЬСТВО!`;
-            banner.style.display = 'block';
-            setTimeout(() => { banner.style.display = 'none'; }, 8000);
-        }
-
-        // ══ Tabs ══════════════════════════════════════════════════════════════════
-        function switchTab(name) {
-            document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', ['dashboard', 'incidents', 'dangerous', 'logs', 'metrics', 'ai', 'users'][i] === name));
-            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-            document.getElementById('panel-' + name).classList.add('active');
-            if (name === 'logs') loadLogs();
-            if (name === 'users') loadUsers();
-            if (name === 'incidents' && ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ event: 'get_incidents' }));
-        }
-
-        // ══ Utils ══════════════════════════════════════════════════════════════════
-        function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-
-        // Enter to login
-        document.getElementById('inp-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
-    </script>
+// Enter to login
+$('inp-pass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+</script>
 </body>
-
 </html>
