@@ -2,7 +2,7 @@
   "name": "mistral-defense-client",
   "version": "1.1.0",
   "description": "MISTRAL Defense Command Center - Desktop Application",
-  "main": "main.js",
+  "main": "src/main.js",
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
@@ -33,25 +33,25 @@
       "output": "dist"
     },
     "files": [
-      "main.js",
-      "preload.js",
-      "client-server.js",
+      "src/main.js",
+      "src/preload.js",
+      "src/client-server.js",
       ".env",
       ".env.example",
-      "templates/**/*",
-      "static/**/*",
+      "src/templates/**/*",
+      "src/static/**/*",
       "node_modules/**/*"
     ],
     "extraResources": [
-      { "from": "templates", "to": "templates" },
-      { "from": "static", "to": "static" }
+      { "from": "src/templates", "to": "templates" },
+      { "from": "src/static", "to": "static" }
     ],
     "win": {
       "target": [
         { "target": "nsis", "arch": ["x64"] },
         { "target": "portable", "arch": ["x64"] }
       ],
-      "icon": "static/logo.ico",
+      "icon": "src/static/logo.ico",
       "publisherName": "MISTRAL Defense",
       "requestedExecutionLevel": "asInvoker"
     },
