@@ -9,11 +9,16 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         :root {
-            --bg: #0A0D12;
+            --defcon-bg: #0A0D12;
+            --defcon-border: #1E2736;
+            --defcon-accent: #3B82F6;
+            --defcon-glow: rgba(59,130,246,0.1);
+            
+            --bg: var(--defcon-bg);
             --bg2: #0F1319;
             --bg3: #151B24;
             --bg4: #1A222D;
-            --border: #1E2736;
+            --border: var(--defcon-border);
             --border2: #2A3545;
             --text: #E8EDF4;
             --muted: #6B7A90;
@@ -171,16 +176,16 @@
         #login-status { color: var(--muted); font-size: 12px; text-align: center; min-height: 16px; font-family: 'JetBrains Mono', monospace; }
 
         /* ═══ APP SHELL ═══ */
-        #app { display: flex; flex-direction: column; height: 100vh; }
+        #app { display: flex; flex-direction: column; height: 100vh; background: var(--defcon-bg); transition: background 0.5s ease; }
         #app.hidden { display: none; }
-        header { background: var(--bg2); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 20px; height: 52px; gap: 0; flex-shrink: 0; }
-        .hdr-logo { font-size: 16px; font-weight: 900; color: #fff; margin-right: 28px; display: flex; align-items: center; gap: 8px; }
-        .hdr-logo img { width: 24px; height: 24px; }
-        .hdr-logo span { color: var(--red); }
+        header { background: var(--bg2); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 20px; height: 52px; gap: 0; flex-shrink: 0; transition: border-color 0.5s; z-index: 50;}
+        .hdr-logo { font-size: 16px; font-weight: 900; color: #fff; margin-right: 28px; display: flex; align-items: center; gap: 8px; text-shadow: 0 0 10px var(--defcon-glow); transition: text-shadow 0.5s;}
+        .hdr-logo img { width: 24px; height: 24px; filter: drop-shadow(0 0 5px var(--defcon-accent)); transition: filter 0.5s;}
+        .hdr-logo span { color: var(--defcon-accent); transition: color 0.5s;}
         .tabs { display: flex; gap: 0; height: 100%; flex: 1; }
         .tab { font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer; letter-spacing: 0.3px; height: 100%; display: flex; align-items: center; padding: 0 16px; border-bottom: 2px solid transparent; transition: 0.15s; white-space: nowrap; }
         .tab:hover { color: var(--text); }
-        .tab.active { color: #fff; border-bottom-color: var(--red); }
+        .tab.active { color: #fff; border-bottom-color: var(--defcon-accent); }
         .hdr-right { display: flex; align-items: center; gap: 12px; margin-left: auto; }
         .conn-badge { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
         .conn-dot { width: 7px; height: 7px; border-radius: 50%; background: #555; }
@@ -192,13 +197,33 @@
         .btn-logout { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 5px 12px; border-radius: 5px; cursor: pointer; font-size: 11px; font-weight: 700; transition: 0.15s; }
         .btn-logout:hover { color: #fff; border-color: var(--text); }
 
+        /* ═══ TICKER TAPE ═══ */
+        #ticker-container {
+            width: 100%; height: 28px; background: rgba(0,0,0,0.4); border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; overflow: hidden; position: relative; z-index: 40;
+            transition: background 0.5s, border-color 0.5s;
+        }
+        #ticker-label {
+            background: var(--defcon-accent); color: #fff; font-size: 10px; font-weight: 900;
+            height: 100%; display: flex; align-items: center; padding: 0 12px; z-index: 2;
+            text-transform: uppercase; letter-spacing: 2px; box-shadow: 4px 0 10px rgba(0,0,0,0.5);
+            transition: background 0.5s; flex-shrink: 0;
+        }
+        #ticker-scroll {
+            white-space: nowrap; font-family: 'JetBrains Mono', monospace; font-size: 11px;
+            font-weight: 600; color: var(--text); padding-left: 10px; display: inline-block;
+            animation: tickerScroll 20s linear infinite;
+        }
+        #ticker-scroll span { margin-right: 50px; }
+        @keyframes tickerScroll { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+
         /* ═══ CONTENT ═══ */
-        .content { flex: 1; overflow: hidden; padding: 16px; }
+        .content { flex: 1; overflow: hidden; padding: 16px; position: relative; z-index: 10; }
         .panel { display: none; height: 100%; overflow-y: auto; }
         .panel.active { display: block; }
 
         /* Cards */
-        .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+        .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: 0 0 20px var(--defcon-glow) inset; transition: border-color 0.5s, box-shadow 0.5s; }
         .card-hdr { font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 16px; letter-spacing: 0.5px; text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
         .card-hdr .cd { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
 
@@ -209,7 +234,7 @@
         .gauge-card { grid-row: 1/3; display: flex; flex-direction: column; gap: 16px; }
         .gauge-wrap { position: relative; width: 100%; display: flex; justify-content: center; align-items: center; }
         .gauge-center { position: absolute; text-align: center; top: 50%; left: 50%; transform: translate(-50%,-20%); }
-        .gauge-val { font-size: 56px; font-weight: 900; line-height: 1; }
+        .gauge-val { font-size: 56px; font-weight: 900; line-height: 1; text-shadow: 0 0 20px var(--defcon-glow); transition: text-shadow 0.5s;}
         .gauge-lbl { font-size: 12px; font-weight: 800; letter-spacing: 3px; margin-top: 4px; text-transform: uppercase; }
 
         /* Stats row */
@@ -335,8 +360,31 @@
         .btn-add { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3); color: var(--green); padding: 13px 20px; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 700; transition: 0.15s; white-space: nowrap; }
         .btn-add:hover { background: var(--green); color: #fff; }
 
-        /* ═══ ALERT ═══ */
+        /* ═══ ALERT & TOASTS ═══ */
         #alert-banner { position: fixed; top: 0; left: 0; right: 0; background: linear-gradient(90deg, #7f1d1d, var(--red), #7f1d1d); color: #fff; text-align: center; padding: 12px; font-weight: 800; font-size: 14px; z-index: 2000; display: none; letter-spacing: 0.5px; }
+        
+        #toast-container { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 3000; pointer-events: none; }
+        .toast {
+            background: rgba(15, 19, 25, 0.9); backdrop-filter: blur(10px); border: 1px solid var(--border); border-left: 4px solid var(--blue);
+            border-radius: 8px; padding: 14px 18px; width: 340px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1), fadeOut 0.5s 4.5s forwards;
+            display: flex; flex-direction: column; gap: 6px; pointer-events: auto;
+        }
+        .toast.t-warn { border-left-color: var(--orange); }
+        .toast.t-critical { border-left-color: var(--red); box-shadow: 0 10px 30px rgba(239,68,68,0.2); }
+        .toast-hdr { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; display: flex; justify-content: space-between; }
+        .toast-hdr span:first-child { color: var(--blue); }
+        .toast.t-warn .toast-hdr span:first-child { color: var(--orange); }
+        .toast.t-critical .toast-hdr span:first-child { color: var(--red); }
+        .toast-msg { font-size: 12px; font-weight: 500; color: var(--text); line-height: 1.4; }
+        @keyframes slideInRight { 0% { transform: translateX(100%); opacity: 0; } 100% { transform: translateX(0); opacity: 1; } }
+        @keyframes fadeOut { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(0.9); } }
+
+        /* ═══ COLOR-CODED LOG ROWS ═══ */
+        .log-row-error, .log-row-critical { background: rgba(239,68,68,0.05) !important; }
+        .log-row-error td, .log-row-critical td { color: #fca5a5 !important; }
+        .log-row-warn { background: rgba(245,158,11,0.05) !important; }
+        .log-row-warn td { color: #fcd34d !important; }
 
         /* ═══ SCROLLBAR ═══ */
         ::-webkit-scrollbar { width: 5px; height: 5px; }
@@ -348,6 +396,7 @@
 </head>
 <body>
 <div id="alert-banner"></div>
+<div id="toast-container"></div>
 
 <!-- ═══ LOGIN ═══ -->
 <div id="login-screen">
@@ -408,6 +457,14 @@
             <button class="btn-logout" style="margin-left:12px;" onclick="doLogout()">ВЫЙТИ</button>
         </div>
     </header>
+    
+    <div id="ticker-container">
+        <div id="ticker-label">DEFCON 5</div>
+        <div id="ticker-scroll">
+            <span id="ticker-text">SYSTEM SECURE | ALL SERVICES ONLINE | ROUTINE MONITORING ACTIVE | NO THREATS DETECTED</span>
+            <span id="ticker-text2">SYSTEM SECURE | ALL SERVICES ONLINE | ROUTINE MONITORING ACTIVE | NO THREATS DETECTED</span>
+        </div>
+    </div>
 
     <div class="content">
 
@@ -775,6 +832,48 @@ function handleMessage(msg) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// DEFCON & TICKER TAPE
+// ══════════════════════════════════════════════════════════════════════════════
+function setDefcon(level) {
+    const root = document.documentElement;
+    const tickerLbl = $('ticker-label');
+    const tickerText1 = $('ticker-text');
+    const tickerText2 = $('ticker-text2');
+    
+    if (level === 1) {
+        root.style.setProperty('--defcon-bg', '#1a0505');
+        root.style.setProperty('--defcon-border', '#3f1111');
+        root.style.setProperty('--defcon-accent', '#ef4444');
+        root.style.setProperty('--defcon-glow', 'rgba(239, 68, 68, 0.15)');
+        tickerLbl.textContent = 'DEFCON 1';
+        tickerLbl.style.background = 'var(--red)';
+        const tMsg = '[CRITICAL ALERT] UNAUTHORIZED ACTIVITY DETECTED | INITIATING DEFENSE PROTOCOLS | SYSTEM UNDER ATTACK ';
+        tickerText1.textContent = tMsg; tickerText2.textContent = tMsg;
+        tickerText1.style.color = '#fca5a5'; tickerText2.style.color = '#fca5a5';
+    } else if (level === 2) {
+        root.style.setProperty('--defcon-bg', '#1a1005');
+        root.style.setProperty('--defcon-border', '#3f2511');
+        root.style.setProperty('--defcon-accent', '#f59e0b');
+        root.style.setProperty('--defcon-glow', 'rgba(245, 158, 11, 0.1)');
+        tickerLbl.textContent = 'DEFCON 2';
+        tickerLbl.style.background = 'var(--orange)';
+        const tMsg = '[WARNING] SUSPICIOUS ANOMALIES DETECTED | ELEVATING SECURITY POSTURE | INVESTIGATION REQUIRED ';
+        tickerText1.textContent = tMsg; tickerText2.textContent = tMsg;
+        tickerText1.style.color = '#fcd34d'; tickerText2.style.color = '#fcd34d';
+    } else {
+        root.style.setProperty('--defcon-bg', '#0A0D12');
+        root.style.setProperty('--defcon-border', '#1E2736');
+        root.style.setProperty('--defcon-accent', '#3B82F6');
+        root.style.setProperty('--defcon-glow', 'rgba(59, 130, 246, 0.1)');
+        tickerLbl.textContent = 'DEFCON 5';
+        tickerLbl.style.background = 'var(--blue)';
+        const tMsg = 'SYSTEM SECURE | ALL SERVICES ONLINE | ROUTINE MONITORING ACTIVE | NO THREATS DETECTED ';
+        tickerText1.textContent = tMsg; tickerText2.textContent = tMsg;
+        tickerText1.style.color = 'var(--text)'; tickerText2.style.color = 'var(--text)';
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // STATS
 // ══════════════════════════════════════════════════════════════════════════════
 function updateStats(data) {
@@ -808,9 +907,9 @@ function getAutoLevel(entry) {
 function addLiveEntry(entry) {
     const feed = $('live-feed');
     const div = document.createElement('div');
-    div.className = 'log-entry';
-    const t = (entry.timestamp||'').slice(11,19);
     const level = getAutoLevel(entry);
+    div.className = `log-entry log-row-${level}`;
+    const t = (entry.timestamp||'').slice(11,19);
     div.innerHTML = `<span class="log-time">${t}</span><span class="log-level ${level}">${level.toUpperCase()}</span><span class="log-msg">${esc(entry.message||'')}</span><span class="log-monitor">${esc(entry.type||'')}</span>`;
     feed.insertBefore(div, feed.firstChild);
     if (feed.children.length > 200) feed.removeChild(feed.lastChild);
@@ -908,6 +1007,13 @@ function updateMetrics(data) {
     div.innerHTML = `<span class="log-time">${t}</span><span class="log-level info">METRICS</span><span class="log-msg">${esc(data.monitor||'monitor')} — ${parts.join(' | ')}</span>`;
     feed.insertBefore(div, feed.firstChild);
     if(feed.children.length > 100) feed.removeChild(feed.lastChild);
+    
+    // Check for high CPU to trigger DEFCON 2 warning
+    if(data.cpu != null && data.cpu >= 90) {
+        setDefcon(2);
+        showToast('SYSTEM WARNING', `High CPU load detected: ${data.cpu}%`, 'warn');
+        setTimeout(() => setDefcon(5), 15000);
+    }
     // SSH sessions for network tab
     if(data.ssh_sessions && Array.isArray(data.ssh_sessions)) {
         const tb = $('ssh-tbody'); tb.innerHTML = '';
@@ -998,14 +1104,36 @@ async function addUser() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// ALERT BANNER
+// ALERTS & TOASTS
 // ══════════════════════════════════════════════════════════════════════════════
 function showAlert(data) {
-    const banner = $('alert-banner');
-    const sev = data.severity || data.type || 'ALERT';
-    banner.textContent = `🚨 ${sev}: ${data.description || data.type || ''} — ТРЕБУЕТСЯ ВМЕШАТЕЛЬСТВО!`;
-    banner.style.display = 'block';
-    setTimeout(() => { banner.style.display = 'none'; }, 8000);
+    const sev = (data.severity || data.type || 'ALERT').toUpperCase();
+    
+    if (sev === 'CRITICAL' || sev === 'HIGH') {
+        setDefcon(1);
+        showToast(`DEFCON 1: ${sev}`, data.description || data.type || 'Critical threat detected!', 'critical');
+        // Reset to normal after 20 seconds
+        setTimeout(() => setDefcon(5), 20000);
+    } else if (sev === 'MEDIUM' || sev === 'WARN') {
+        showToast(`WARNING: ${sev}`, data.description || data.type || 'Suspicious activity detected.', 'warn');
+    } else {
+        showToast('INFO', data.description || data.type || 'New event logged.', 'info');
+    }
+}
+
+function showToast(title, message, type='info') {
+    const container = $('toast-container');
+    if (!container) return;
+    const t = document.createElement('div');
+    t.className = `toast t-${type}`;
+    const time = new Date().toLocaleTimeString();
+    t.innerHTML = `
+        <div class="toast-hdr"><span>${esc(title)}</span> <span>${time}</span></div>
+        <div class="toast-msg">${esc(message)}</div>
+    `;
+    container.appendChild(t);
+    // Remove after 5 seconds (animation takes 5s)
+    setTimeout(() => { if(t.parentNode===container) container.removeChild(t); }, 5000);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
