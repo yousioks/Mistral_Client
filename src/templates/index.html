@@ -352,12 +352,15 @@
             <div class="tab" data-tab="logs" onclick="switchTab('logs')">Logs</div>
             <div class="tab" data-tab="metrics" onclick="switchTab('metrics')">Metrics</div>
             <div class="tab" data-tab="ai" onclick="switchTab('ai')">AI Analysis</div>
-            <div class="tab" data-tab="users" onclick="switchTab('users')">Аккаунт</div>
         </div>
         <div class="hdr-right">
             <div class="conn-badge"><div class="conn-dot" id="conn-dot"></div><span id="conn-label">—</span></div>
             <div id="model-badge">—</div>
-            <button class="btn-logout" onclick="doLogout()">ВЫЙТИ</button>
+            <div class="acc-dropdown" onclick="switchTab('users')" style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-left:12px; background:rgba(255,255,255,0.05); padding:4px 12px 4px 4px; border-radius:20px; border:1px solid var(--border); transition:0.2s;">
+                <div style="width:24px; height:24px; border-radius:50%; background:var(--red); color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800;">A</div>
+                <span style="font-size:11px; font-weight:600; color:var(--text);">Аккаунт</span>
+            </div>
+            <button class="btn-logout" style="margin-left:12px;" onclick="doLogout()">ВЫЙТИ</button>
         </div>
     </header>
 
@@ -404,6 +407,16 @@
                             <div class="hp-item"><div class="hp-row"><span class="lbl">CPU</span><span class="val" id="sys-cpu-val">—</span></div><div class="hp-bar"><div class="hp-fill" id="sys-cpu" style="width:0%;background:var(--blue)"></div></div></div>
                             <div class="hp-item"><div class="hp-row"><span class="lbl">Memory</span><span class="val" id="sys-ram-val">—</span></div><div class="hp-bar"><div class="hp-fill" id="sys-ram" style="width:0%;background:var(--green)"></div></div></div>
                             <div class="hp-item"><div class="hp-row"><span class="lbl">Storage</span><span class="val" id="sys-disk-val">—</span></div><div class="hp-bar"><div class="hp-fill" id="sys-disk" style="width:0%;background:var(--orange)"></div></div></div>
+                        </div>
+                        <div style="margin-top:16px; border-top:1px solid var(--border); padding-top:12px;">
+                            <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                                <span style="font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase;">Top Process</span>
+                                <span id="top-process-info" style="font-size:10px; font-weight:700; color:var(--orange);">—</span>
+                            </div>
+                            <div style="display:flex; gap:6px;">
+                                <input type="number" id="inp-kill-pid" placeholder="PID" style="flex:1; background:rgba(0,0,0,0.3); border:1px solid var(--border); padding:6px 10px; border-radius:6px; color:#fff; font-size:11px; outline:none;">
+                                <button onclick="killProcess()" style="background:var(--red); color:#fff; border:none; padding:0 12px; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer; text-transform:uppercase;">Сбросить</button>
+                            </div>
                         </div>
                     </div>
                     <div class="card">
@@ -831,6 +844,11 @@ function updateMetrics(data) {
     if(data.cpu != null) { $('sys-cpu').style.width=data.cpu+'%'; $('sys-cpu-val').textContent=data.cpu+'%'; }
     if(data.ram) { $('sys-ram').style.width=data.ram.percent+'%'; $('sys-ram-val').textContent=data.ram.percent+'%'; }
     if(data.disk) { $('sys-disk').style.width=data.disk.percent+'%'; $('sys-disk-val').textContent=data.disk.percent+'%'; }
+    if(data.top_process) {
+        const tp = data.top_process;
+        $('top-process-info').textContent = `${tp.name} [PID: ${tp.pid}] — CPU: ${tp.cpu}% / RAM: ${tp.mem}%`;
+        // Если поле пустое, можно автозаполнить для удобства, но лучше не надо, чтобы случайно не кликнули
+    }
     // Network chart
     if(data.connections!=null && chartNet) { const ds=chartNet.data.datasets[0].data; ds.shift(); ds.push(data.connections); chartNet.update(); }
     // Metrics feed
@@ -957,6 +975,20 @@ function switchTab(name) {
     if(name==='users') loadUsers();
     if(name==='network') loadQuarantine();
     if(name==='incidents' && ws && ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({event:'get_incidents'}));
+}
+
+function killProcess() {
+    const pid = $('inp-kill-pid').value.trim();
+    if(!pid) return;
+    if(!confirm(`Точно сбросить процесс PID ${pid}?`)) return;
+    fetch(`${serverBase}/api/process/${pid}`, {method:'DELETE', headers:{'X-Auth-Token':wsToken}}).then(r=>r.json()).then(res=>{
+        if(res.success) {
+            alert(`Процесс ${pid} успешно сброшен`);
+            $('inp-kill-pid').value = '';
+        } else {
+            alert('Ошибка: ' + (res.error||'Неизвестно'));
+        }
+    }).catch(()=>alert('Network error'));
 }
 
 // Enter to login
