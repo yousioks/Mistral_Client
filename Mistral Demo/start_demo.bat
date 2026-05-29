@@ -14,3 +14,4 @@ if %errorlevel% neq 0 (
 
 echo Запуск скрипта атаки...
 python attack_simulator.py
+pause
