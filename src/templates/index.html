@@ -70,9 +70,7 @@
             letter-spacing: -2px; line-height: 1;
         }
         .login-logo h1 span {
-            background: linear-gradient(135deg, var(--red), var(--orange));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            color: var(--red);
         }
         .login-logo p {
             font-size: 11px; letter-spacing: 6px; color: var(--muted);
@@ -133,7 +131,7 @@
         header { background: var(--bg2); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 20px; height: 52px; gap: 0; flex-shrink: 0; }
         .hdr-logo { font-size: 16px; font-weight: 900; color: #fff; margin-right: 28px; display: flex; align-items: center; gap: 8px; }
         .hdr-logo img { width: 24px; height: 24px; }
-        .hdr-logo span { background: linear-gradient(135deg, var(--red), var(--orange)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .hdr-logo span { color: var(--red); }
         .tabs { display: flex; gap: 0; height: 100%; flex: 1; }
         .tab { font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer; letter-spacing: 0.3px; height: 100%; display: flex; align-items: center; padding: 0 16px; border-bottom: 2px solid transparent; transition: 0.15s; white-space: nowrap; }
         .tab:hover { color: var(--text); }
@@ -354,7 +352,7 @@
             <div class="tab" data-tab="logs" onclick="switchTab('logs')">Logs</div>
             <div class="tab" data-tab="metrics" onclick="switchTab('metrics')">Metrics</div>
             <div class="tab" data-tab="ai" onclick="switchTab('ai')">AI Analysis</div>
-            <div class="tab" data-tab="users" onclick="switchTab('users')">Access</div>
+            <div class="tab" data-tab="users" onclick="switchTab('users')">Аккаунт</div>
         </div>
         <div class="hdr-right">
             <div class="conn-badge"><div class="conn-dot" id="conn-dot"></div><span id="conn-label">—</span></div>
@@ -736,12 +734,26 @@ function updateStats(data) {
 // ══════════════════════════════════════════════════════════════════════════════
 // LIVE FEED
 // ══════════════════════════════════════════════════════════════════════════════
+function getAutoLevel(entry) {
+    let level = (entry.level || 'info').toLowerCase();
+    const msg = (entry.message || '').toLowerCase();
+    if (msg.includes('error') || msg.includes('fail') || msg.includes('crash') || msg.includes('down') || msg.includes('падение') || msg.includes('ошибка')) {
+        level = 'error';
+    } else if (msg.includes('warn') || msg.includes('warning') || msg.includes('внимание')) {
+        level = 'warn';
+    } else if (msg.includes('ssh') || msg.includes('login') || msg.includes('auth') || msg.includes('success') || msg.includes('успешн') || msg.includes('accepted')) {
+        if (level !== 'error') level = 'info';
+    }
+    return level;
+}
+
 function addLiveEntry(entry) {
     const feed = $('live-feed');
     const div = document.createElement('div');
     div.className = 'log-entry';
     const t = (entry.timestamp||'').slice(11,19);
-    div.innerHTML = `<span class="log-time">${t}</span><span class="log-level ${entry.level}">${(entry.level||'info').toUpperCase()}</span><span class="log-msg">${esc(entry.message||'')}</span><span class="log-monitor">${esc(entry.type||'')}</span>`;
+    const level = getAutoLevel(entry);
+    div.innerHTML = `<span class="log-time">${t}</span><span class="log-level ${level}">${level.toUpperCase()}</span><span class="log-msg">${esc(entry.message||'')}</span><span class="log-monitor">${esc(entry.type||'')}</span>`;
     feed.insertBefore(div, feed.firstChild);
     if (feed.children.length > 200) feed.removeChild(feed.lastChild);
 }
@@ -796,7 +808,8 @@ function renderLogs(list) {
     list.forEach(entry => {
         const div = document.createElement('div'); div.className = 'log-entry';
         const t = (entry.timestamp||'').slice(0,19).replace('T',' ');
-        div.innerHTML = `<span class="log-time">${t}</span><span class="log-level ${entry.level}">${(entry.level||'info').toUpperCase()}</span><span class="log-msg">${esc(entry.message||'')}</span>`;
+        const level = getAutoLevel(entry);
+        div.innerHTML = `<span class="log-time">${t}</span><span class="log-level ${level}">${level.toUpperCase()}</span><span class="log-msg">${esc(entry.message||'')}</span>`;
         feed.appendChild(div);
     });
 }
