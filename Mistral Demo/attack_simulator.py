@@ -5,8 +5,7 @@ import time
 import urllib.request
 import urllib.error
 
-API_PORT = os.environ.get('API_PORT', '8080')
-BASE_URL = f"http://localhost:{API_PORT}"
+BASE_URL = ""
 
 def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
@@ -34,9 +33,19 @@ def api_request(path, data):
         return None
 
 def main():
+    global BASE_URL
     print_header()
-    print(" ГОТОВ К ЗАПУСКУ.")
-    print(" Убедитесь, что MISTRAL Server и Client запущены.")
+    
+    target = input(" Введите адрес Mistral Server (например, http://raemon.ru:8080 или нажмите ENTER для http://localhost:8080):\n > ").strip()
+    if not target:
+        target = "http://localhost:8080"
+    if not target.startswith("http"):
+        target = "http://" + target
+    BASE_URL = target.rstrip('/')
+
+    print("\n ГОТОВ К ЗАПУСКУ.")
+    print(f" Цель атаки: {BASE_URL}")
+    print(" Убедитесь, что MISTRAL Server запущен по этому адресу.")
     print("\n Нажмите ENTER, чтобы начать симуляцию атаки...")
     input()
     

@@ -1,24 +1,24 @@
 @echo off
-chcp 65001 >nul
 title Mistral Defense Demo Simulator
 color 0C
 
 echo =======================================================
-echo Проверка наличия Python...
+echo Starting attack simulation...
 
-set PYTHON_CMD=python
-%PYTHON_CMD% --version >nul 2>&1
-if %errorlevel% neq 0 (
-    set PYTHON_CMD=py
-    %PYTHON_CMD% --version >nul 2>&1
-    if %errorlevel% neq 0 (
-        echo [ОШИБКА] Python не установлен или не добавлен в PATH!
-        echo Пожалуйста, установите Python с официального сайта.
-        pause
-        exit /b
-    )
-)
+:: Attempt 1: Standard python command
+python attack_simulator.py
+if %errorlevel% equ 0 goto end
 
-echo Запуск скрипта атаки через команду "%PYTHON_CMD%"...
-%PYTHON_CMD% attack_simulator.py
+:: Attempt 2: Windows py launcher
+py attack_simulator.py
+if %errorlevel% equ 0 goto end
+
+:: Attempt 3: File association (if .py is associated with Python)
+attack_simulator.py
+if %errorlevel% equ 0 goto end
+
+echo [ERROR] Could not start the script automatically.
+echo If Python is installed, please DOUBLE-CLICK the 'attack_simulator.py' file directly in the folder!
+
+:end
 pause
