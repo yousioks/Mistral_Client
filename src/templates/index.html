@@ -507,11 +507,20 @@
         <div class="row2">
             <div class="field-group">
                 <label>IP / Хост сервера</label>
-                <input id="inp-host" type="text" placeholder="192.168.0.1">
+                <input id="inp-host" type="text" placeholder="132.243.224.93">
             </div>
             <div class="field-group">
-                <label>Порт</label>
+                <label>REST Порт</label>
                 <input id="inp-port" type="text" placeholder="8080" value="8080">
+            </div>
+        </div>
+        <div class="row2">
+            <div class="field-group">
+                <label>WSS Порт</label>
+                <input id="inp-wss-port" type="text" placeholder="8443" value="8443">
+            </div>
+            <div class="field-group" style="justify-content:flex-end;padding-top:20px">
+                <label style="font-size:9px;color:var(--dim);line-height:1.4">REST — для входа<br>WSS — для WebSocket</label>
             </div>
         </div>
 
@@ -932,6 +941,7 @@ function updateChartsFromIncidents(list) {
 async function doLogin() {
     const host = $('inp-host').value.trim();
     const port = $('inp-port').value.trim() || '8080';
+    const wssPort = $('inp-wss-port').value.trim() || '8443';
     const username = $('inp-user').value.trim();
     const password = $('inp-pass').value;
     const errEl = $('login-error'), statusEl = $('login-status'), btn = $('btn-login');
@@ -949,14 +959,14 @@ async function doLogin() {
             else { errEl.textContent = data.error || 'Неверный логин или пароль'; btn.disabled=false; statusEl.textContent=''; return; }
         } catch(e) {}
     }
-    if (!loginData) { errEl.textContent = 'Сервер недоступен. Проверьте IP и порт.'; btn.disabled=false; statusEl.textContent=''; return; }
+    if (!loginData) { errEl.textContent = 'Сервер недоступен. Проверьте IP и REST порт.'; btn.disabled=false; statusEl.textContent=''; return; }
     serverBase = base; token = loginData.token;
     statusEl.textContent = 'Авторизован. Подключение к WebSocket...';
     $('login-screen').classList.add('hidden');
     $('app').classList.remove('hidden');
     btn.disabled = false;
     fetch('/api/set-connection', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url:base,host,port,token}) }).catch(()=>{});
-    initCharts(); connectWS(host, port); loadUsers(); loadQuarantine();
+    initCharts(); connectWS(host, wssPort); loadUsers(); loadQuarantine();
 }
 function doLogout() {
     if (ws) { ws.close(); ws = null; }
@@ -976,17 +986,17 @@ function doLogout() {
 // ══════════════════════════════════════════════════════════════════════════════
 // WEBSOCKET
 // ══════════════════════════════════════════════════════════════════════════════
-function connectWS(host, port) {
+function connectWS(host, wssPort) {
     if (ws) { try { ws.close(); } catch(_) {} ws = null; }
-    const proto = serverBase.startsWith('https') ? 'wss' : 'ws';
-    const url = `${proto}://${host}:${port}/ws`;
-    setConnStatus('connecting', `Подключение... (${host}:${port})`);
+    // Всегда используем wss:// и WSS порт (8443) — отдельно от REST порта (8080)
+    const url = `wss://${host}:${wssPort}/ws`;
+    setConnStatus('connecting', `Подключение... (${host}:${wssPort})`);
     lastWsUrl = url;
     console.log('[WS] Connecting to', url);
     try { ws = new WebSocket(url); } catch(e) { 
         console.error('[WS] Failed to create socket:', e);
         setConnStatus('error',`Ошибка WS: ${e.message}`);
-        scheduleReconnect(host,port); 
+        scheduleReconnect(host, wssPort); 
         return; 
     }
     ws.onopen = () => { 
@@ -1003,7 +1013,7 @@ function connectWS(host, port) {
                        ev.code === 4003 ? 'Неверный токен' :
                        ev.code === 1006 ? 'Нет соединения' : `Отключён (${ev.code})`;
         setConnStatus('error', reason); 
-        scheduleReconnect(host,port); 
+        scheduleReconnect(host, wssPort); 
     };
     ws.onerror = (e) => { 
         console.error('[WS] Error:', e);
