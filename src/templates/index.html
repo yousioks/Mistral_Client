@@ -289,12 +289,40 @@
         /* ═══ CONTENT ═══ */
         .content { flex: 1; overflow-y: auto; padding: 24px; position: relative; z-index: 10; background: #000000; }
         .panel { display: none; height: 100%; }
-        .panel.active { display: block; }
+        .panel.active { display: flex; flex-direction: column; }
+        .panel.active > * { flex-shrink: 0; }
+        .panel.active > .panel-scroll-body { flex: 1; overflow-y: auto; }
 
         /* Cards */
         .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: 0 0 20px var(--defcon-glow) inset; transition: border-color 0.5s, box-shadow 0.5s; }
         .card-hdr { font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 16px; letter-spacing: 0.5px; text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
         .card-hdr .cd { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+
+        /* ═══ LOG FILTERS ═══ */
+        .log-filter-bar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; padding:10px 0 12px 0; border-bottom:1px solid var(--border); margin-bottom:10px; }
+        .log-filter-bar select, .log-filter-bar input[type=date] {
+            background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: #fff;
+            padding: 6px 10px; border-radius: 6px; font-size: 11px; outline: none; cursor: pointer;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .log-filter-bar input[type=date]::-webkit-calendar-picker-indicator { filter: invert(1); }
+        .log-filter-bar label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+        .btn-send-ai { background: rgba(255,0,0,0.1); border: 1px solid rgba(255,0,0,0.3); color: var(--red);
+            padding: 5px 14px; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: 700;
+            transition: 0.15s; white-space: nowrap; letter-spacing: 0.5px; }
+        .btn-send-ai:hover { background: var(--red); color: #fff; }
+        .btn-sm-clear { background: transparent; border: 1px solid var(--border); color: var(--muted);
+            padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: 700; transition: 0.15s; }
+        .btn-sm-clear:hover { color: #fff; border-color: var(--border2); }
+        .log-count-badge { font-size: 10px; font-weight: 700; background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--muted); padding: 4px 10px; border-radius: 20px; margin-left: auto; }
+
+        /* Running logs — terminal style */
+        #running-logs-container { display:flex; flex-direction:column; height:100%; min-height:0; }
+        #running-logs-container .rlog-hdr { display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-shrink:0; }
+        .rlog-ticker { flex:1; overflow:hidden; position:relative; height:22px; }
+        .rlog-ticker-inner { white-space:nowrap; font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--muted); animation: rlogTicker 30s linear infinite; display:inline-block; }
+        @keyframes rlogTicker { 0%{transform:translateX(100%)} 100%{transform:translateX(-200%)} }
+        .rlog-pill { font-size:9px; font-weight:800; background:rgba(255,165,0,0.12); border:1px solid rgba(255,165,0,0.3); color:var(--orange); padding:2px 8px; border-radius:20px; letter-spacing:1px; text-transform:uppercase; flex-shrink:0; }
 
         /* ═══ DASHBOARD ═══ */
         .dash-grid { display: grid; grid-template-columns: 300px 1fr 320px; grid-template-rows: auto 1fr; gap: 16px; height: 100%; }
@@ -528,11 +556,25 @@
     <div id="main-area">
         <header>
             <div class="hdr-right">
-                <div class="conn-badge"><div class="conn-dot" id="conn-dot"></div><span id="conn-label">—</span></div>
+                <div class="conn-badge" id="conn-badge-btn" onclick="toggleConnDiag()" style="cursor:pointer;user-select:none" title="Нажмите для диагностики соединения">
+                    <div class="conn-dot" id="conn-dot"></div><span id="conn-label">—</span>
+                    <span style="font-size:9px;color:var(--dim);margin-left:3px">&#9432;</span>
+                </div>
                 <div id="model-badge">—</div>
                 <button class="btn-logout" onclick="doLogout()">ВЫЙТИ</button>
             </div>
         </header>
+        <!-- WS Diagnostics Popup -->
+        <div id="conn-diag" style="display:none;position:fixed;top:68px;right:20px;z-index:9999;background:#0a0a0a;border:1px solid var(--border);border-radius:10px;padding:16px 20px;min-width:300px;box-shadow:0 10px 40px rgba(0,0,0,0.8);font-family:'JetBrains Mono',monospace;font-size:11px">
+            <div style="font-weight:800;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:12px;display:flex;justify-content:space-between">
+                WS Диагностика <span onclick="toggleConnDiag()" style="cursor:pointer;color:var(--dim)">✕</span>
+            </div>
+            <div id="diag-content" style="display:flex;flex-direction:column;gap:8px;color:#ccc;line-height:1.8"></div>
+            <div style="margin-top:14px;display:flex;gap:8px">
+                <button onclick="diagReconnect()" style="flex:1;background:rgba(255,0,0,0.1);border:1px solid rgba(255,0,0,0.3);color:var(--red);padding:7px;border-radius:6px;cursor:pointer;font-size:10px;font-weight:700;font-family:'JetBrains Mono',monospace">⚡ ПЕРЕПОДКЛЮЧИТЬ</button>
+                <button onclick="toggleConnDiag()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 12px;border-radius:6px;cursor:pointer;font-size:10px;font-weight:700;font-family:'JetBrains Mono',monospace">Закрыть</button>
+            </div>
+        </div>
 
         <div class="content">
 
@@ -580,7 +622,12 @@
                         <div class="stat-box s-blue"><div class="stat-icon">🔍</div><div class="stat-val" id="s-vuln">0</div><div class="stat-lbl">CVE Events</div></div>
                     </div>
                     <div class="card" style="flex:0"><div class="card-hdr"><div class="cd" style="background:var(--green)"></div>Network Activity</div><div class="chart-box" style="height:110px"><canvas id="chart-network"></canvas></div></div>
-                    <div class="card" style="flex:1;min-height:0;display:flex;flex-direction:column"><div class="card-hdr"><div class="cd" style="background:var(--orange)"></div>Running Logs</div><div id="running-logs" class="live-feed" style="flex:1;overflow-y:auto;scroll-behavior:smooth"></div></div>
+                    <div class="card" style="flex:1;min-height:0;display:flex;flex-direction:column">
+                        <div class="card-hdr"><div class="cd" style="background:var(--orange)"></div>Running Logs
+                            <span class="rlog-pill" id="rlog-count">0 записей</span>
+                        </div>
+                        <div id="running-logs" class="live-feed" style="flex:1;overflow-y:auto;scroll-behavior:smooth;min-height:0"></div>
+                    </div>
                 </div>
 
                 <!-- RIGHT: Health + Risk Level + Recent -->
@@ -651,9 +698,36 @@
         <!-- ═══ LOGS ═══ -->
         <div class="panel" id="panel-logs">
             <div class="card" style="display:flex;flex-direction:column;height:100%">
-                <div class="card-hdr" style="justify-content:space-between;padding-bottom:12px;border-bottom:1px solid var(--border)">
-                    <span><div class="cd" style="background:var(--blue);display:inline-block;margin-right:6px"></div>System Logs</span>
-                    <select id="log-type" onchange="loadLogs()" style="background:rgba(0,0,0,0.4);border:1px solid var(--border);color:#fff;padding:5px 10px;border-radius:5px;font-size:11px;font-weight:700;outline:none;cursor:pointer"><option value="server">Server</option><option value="bot">Telegram Bot</option><option value="cve">CVE</option></select>
+                <div class="card-hdr" style="flex-direction:column;align-items:stretch;gap:0;padding-bottom:0;border-bottom:none">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+                        <div class="cd" style="background:var(--blue)"></div>
+                        <span>System Logs</span>
+                        <span id="logs-count-badge" class="log-count-badge">0</span>
+                    </div>
+                    <div class="log-filter-bar">
+                        <label>Тип:</label>
+                        <select id="log-type" onchange="loadLogs()">
+                            <option value="server">Server</option>
+                            <option value="bot">Telegram Bot</option>
+                            <option value="cve">CVE</option>
+                        </select>
+                        <label>Уровень:</label>
+                        <select id="log-level-filter" onchange="applyLogFilters()">
+                            <option value="all">Все</option>
+                            <option value="error">Error</option>
+                            <option value="warn">Warn</option>
+                            <option value="info">Info</option>
+                            <option value="debug">Debug</option>
+                        </select>
+                        <label>С:</label>
+                        <input type="date" id="log-date-from" onchange="applyLogFilters()">
+                        <label>По:</label>
+                        <input type="date" id="log-date-to" onchange="applyLogFilters()">
+                        <label>Поиск:</label>
+                        <input type="text" id="log-search" placeholder="Фильтр по тексту..." oninput="applyLogFilters()" style="background:rgba(0,0,0,0.4);border:1px solid var(--border);color:#fff;padding:6px 10px;border-radius:6px;font-size:11px;outline:none;width:160px;font-family:'JetBrains Mono',monospace">
+                        <button class="btn-sm-clear" onclick="clearLogFilters()">Сбросить</button>
+                        <button class="btn-send-ai" onclick="sendLogsToAI()">🧠 Отправить в ИИ</button>
+                    </div>
                 </div>
                 <div id="logs-feed" style="flex:1;overflow-y:auto;padding-top:10px"></div>
             </div>
@@ -889,24 +963,52 @@ function doLogout() {
     token = null; serverBase = '';
     $('login-screen').classList.remove('hidden');
     $('app').classList.add('hidden');
-    $('live-feed').innerHTML = '';
+    $('running-logs').innerHTML = '';
     $('incidents-list').innerHTML = '';
     $('logs-feed').innerHTML = '';
+    $('dangerous-list').innerHTML = '';
+    allIncidents = [];
+    currentLogsData = [];
+    updateRlogCount(0);
+    setConnStatus('', '—');
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
 // WEBSOCKET
 // ══════════════════════════════════════════════════════════════════════════════
 function connectWS(host, port) {
-    if (ws) { ws.close(); ws = null; }
-    setConnStatus('connecting','Подключение...');
+    if (ws) { try { ws.close(); } catch(_) {} ws = null; }
     const proto = serverBase.startsWith('https') ? 'wss' : 'ws';
     const url = `${proto}://${host}:${port}/ws`;
-    try { ws = new WebSocket(url); } catch(e) { setConnStatus('error','Ошибка WS'); scheduleReconnect(host,port); return; }
-    ws.onopen = () => { reconnectAttempts=0; setConnStatus('connecting','Авторизация...'); ws.send(JSON.stringify({event:'auth',data:{token,nonce:Date.now().toString(36)+Math.random().toString(36).slice(2)}})); };
+    setConnStatus('connecting', `Подключение... (${host}:${port})`);
+    lastWsUrl = url;
+    console.log('[WS] Connecting to', url);
+    try { ws = new WebSocket(url); } catch(e) { 
+        console.error('[WS] Failed to create socket:', e);
+        setConnStatus('error',`Ошибка WS: ${e.message}`);
+        scheduleReconnect(host,port); 
+        return; 
+    }
+    ws.onopen = () => { 
+        reconnectAttempts=0; 
+        setConnStatus('connecting','Авторизация...'); 
+        console.log('[WS] Connected, sending auth...');
+        ws.send(JSON.stringify({event:'auth',data:{token,nonce:Date.now().toString(36)+Math.random().toString(36).slice(2)}})); 
+    };
     ws.onmessage = e => { try{handleMessage(JSON.parse(e.data));}catch(_){} };
-    ws.onclose = () => { setConnStatus('error','Отключён'); scheduleReconnect(host,port); };
-    ws.onerror = () => { setConnStatus('error','Ошибка соединения'); };
+    ws.onclose = (ev) => { 
+        console.warn('[WS] Closed:', ev.code, ev.reason);
+        const reason = ev.code === 4001 ? 'Таймаут авторизации' :
+                       ev.code === 4002 ? 'Повтор нонса' :
+                       ev.code === 4003 ? 'Неверный токен' :
+                       ev.code === 1006 ? 'Нет соединения' : `Отключён (${ev.code})`;
+        setConnStatus('error', reason); 
+        scheduleReconnect(host,port); 
+    };
+    ws.onerror = (e) => { 
+        console.error('[WS] Error:', e);
+        setConnStatus('error','Ошибка соединения'); 
+    };
 }
 function scheduleReconnect(host, port) {
     if (reconnectTimer) return;
@@ -914,8 +1016,58 @@ function scheduleReconnect(host, port) {
     reconnectAttempts++;
     reconnectTimer = setTimeout(() => { reconnectTimer=null; if(token) connectWS(host,port); }, delay);
 }
-function setConnStatus(state, label) { $('conn-dot').className='conn-dot '+state; $('conn-label').textContent=label; }
+function setConnStatus(state, label) { 
+    $('conn-dot').className='conn-dot '+state; 
+    $('conn-label').textContent=label;
+    lastConnState = state;
+    lastConnLabel = label;
+}
 
+// ── Connection diagnostics popup ──────────────────────────────────────────────
+let lastConnState = '', lastConnLabel = '—';
+let lastWsUrl = '';
+let diagOpen = false;
+
+function toggleConnDiag() {
+    const diag = $('conn-diag');
+    diagOpen = !diagOpen;
+    if (diagOpen) {
+        updateDiagContent();
+        diag.style.display = 'block';
+    } else {
+        diag.style.display = 'none';
+    }
+}
+
+function updateDiagContent() {
+    const el = $('diag-content');
+    if (!el) return;
+    const wsState = ws ? ['CONNECTING','OPEN','CLOSING','CLOSED'][ws.readyState] || '?' : 'НЕ СОЗДАН';
+    const wsColor = ws?.readyState === 1 ? 'var(--green)' : 'var(--red)';
+    const stateColor = lastConnState === 'connected' ? 'var(--green)' : lastConnState === 'connecting' ? 'var(--orange)' : 'var(--red)';
+    el.innerHTML = `
+        <div><span style="color:var(--muted)">Статус:</span> <span style="color:${stateColor};font-weight:700">${lastConnLabel}</span></div>
+        <div><span style="color:var(--muted)">WS ReadyState:</span> <span style="color:${wsColor}">${wsState}</span></div>
+        <div><span style="color:var(--muted)">URL сервера:</span> <span style="color:var(--cyan)">${serverBase || '—'}</span></div>
+        <div><span style="color:var(--muted)">WS URL:</span> <span style="color:var(--cyan)">${lastWsUrl || '—'}</span></div>
+        <div><span style="color:var(--muted)">Попытки реконн.:</span> <span>${reconnectAttempts}</span></div>
+        <div><span style="color:var(--muted)">Токен:</span> <span style="color:${token ? 'var(--green)' : 'var(--red)'}">${token ? '✓ Получен' : '✗ Нет'}</span></div>
+        <div style="margin-top:4px;padding-top:8px;border-top:1px solid var(--border);font-size:10px;color:var(--dim)">Совет: если WS = CLOSED и код 1006 — проверь что сервер запущен и доступен по сети. Код 4003 = неверный токен (перезайди).</div>
+    `;
+}
+
+function diagReconnect() {
+    if (!serverBase || !token) { showToast('Ошибка', 'Сначала войдите в систему', 'warn'); return; }
+    reconnectAttempts = 0;
+    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+    const urlObj = new URL(serverBase);
+    connectWS(urlObj.hostname, urlObj.port || '8080');
+    toggleConnDiag();
+    showToast('Переподключение', 'Попытка подключения к серверу...', 'info');
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════════
 // ══════════════════════════════════════════════════════════════════════════════
 // MESSAGE HANDLER
 // ══════════════════════════════════════════════════════════════════════════════
@@ -941,10 +1093,12 @@ function handleMessage(msg) {
             populateAIIncidentDropdown();
             break;
         case 'logs_list': 
-            renderLogs(msg.data||[]); 
+            currentLogsData = msg.data || [];
+            applyLogFilters();
             const rFeed = $('running-logs');
             if (rFeed) {
                 rFeed.innerHTML = '';
+                // Running logs: новые внизу, скроллим вниз
                 (msg.data||[]).slice().reverse().forEach(log => {
                     const div = document.createElement('div');
                     const level = getAutoLevel(log);
@@ -954,6 +1108,7 @@ function handleMessage(msg) {
                     rFeed.appendChild(div);
                 });
                 rFeed.scrollTop = rFeed.scrollHeight;
+                updateRlogCount(rFeed.children.length);
             }
             break;
         case 'log': if(msg.data) addLiveEntry(msg.data); break;
@@ -1116,16 +1271,20 @@ function addLiveEntry(entry) {
     const t = (entry.timestamp||'').slice(11,19);
     div.innerHTML = `<span class="log-time">${t}</span><span class="log-level ${level}">${level.toUpperCase()}</span><span class="log-msg">${esc(entry.message||'')}</span><span class="log-monitor">${esc(entry.type||'')}</span>`;
     
-    if (feed && entry.type === $('log-type').value) {
-        feed.insertBefore(div, feed.firstChild);
-        if (feed.children.length > 200) feed.removeChild(feed.lastChild);
+    // Add to currentLogsData and re-filter
+    if (entry.type === $('log-type').value || !$('log-type').value) {
+        currentLogsData.unshift(entry);
+        if (currentLogsData.length > 2000) currentLogsData.pop();
+        applyLogFilters();
     }
     
     if (rFeed) {
         const d2 = div.cloneNode(true);
         rFeed.appendChild(d2);
+        // Auto-scroll down — running logs всегда идут вниз
         rFeed.scrollTop = rFeed.scrollHeight;
-        if (rFeed.children.length > 100) rFeed.removeChild(rFeed.firstChild);
+        if (rFeed.children.length > 200) rFeed.removeChild(rFeed.firstChild);
+        updateRlogCount(rFeed.children.length);
     }
 }
 
@@ -1173,21 +1332,97 @@ function addDangerousCard(inc, prepend, container) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// LOGS
+// LOGS — with filters
 // ══════════════════════════════════════════════════════════════════════════════
+let currentLogsData = [];
+
 function renderLogs(list) {
-    const feed = $('logs-feed'); feed.innerHTML = '';
-    list.forEach(entry => {
-        const div = document.createElement('div'); div.className = 'log-entry';
+    currentLogsData = list || [];
+    applyLogFilters();
+}
+
+function applyLogFilters() {
+    const feed = $('logs-feed'); 
+    if (!feed) return;
+    const levelFilter = $('log-level-filter')?.value || 'all';
+    const dateFrom = $('log-date-from')?.value || '';
+    const dateTo = $('log-date-to')?.value || '';
+    const searchText = ($('log-search')?.value || '').toLowerCase();
+    
+    let filtered = currentLogsData.filter(entry => {
+        if (levelFilter !== 'all') {
+            const lv = getAutoLevel(entry);
+            if (lv !== levelFilter) return false;
+        }
+        if (dateFrom) {
+            const entryDate = (entry.timestamp||'').slice(0,10);
+            if (entryDate < dateFrom) return false;
+        }
+        if (dateTo) {
+            const entryDate = (entry.timestamp||'').slice(0,10);
+            if (entryDate > dateTo) return false;
+        }
+        if (searchText) {
+            const msg = (entry.message||'').toLowerCase();
+            if (!msg.includes(searchText)) return false;
+        }
+        return true;
+    });
+    
+    const badge = $('logs-count-badge');
+    if (badge) badge.textContent = `${filtered.length} / ${currentLogsData.length}`;
+    
+    feed.innerHTML = '';
+    filtered.forEach(entry => {
+        const div = document.createElement('div'); 
+        div.className = 'log-entry';
         const t = (entry.timestamp||'').slice(0,19).replace('T',' ');
         const level = getAutoLevel(entry);
         div.innerHTML = `<span class="log-time">${t}</span><span class="log-level ${level}">${level.toUpperCase()}</span><span class="log-msg">${esc(entry.message||'')}</span>`;
         feed.appendChild(div);
     });
 }
+
+function clearLogFilters() {
+    const lf = $('log-level-filter'); if (lf) lf.value = 'all';
+    const df = $('log-date-from'); if (df) df.value = '';
+    const dt = $('log-date-to'); if (dt) dt.value = '';
+    const ls = $('log-search'); if (ls) ls.value = '';
+    applyLogFilters();
+}
+
+function sendLogsToAI() {
+    const levelFilter = $('log-level-filter')?.value || 'all';
+    const dateFrom = $('log-date-from')?.value;
+    const dateTo = $('log-date-to')?.value;
+    const searchText = $('log-search')?.value;
+    
+    let filtered = currentLogsData.filter(entry => {
+        if (levelFilter !== 'all') { const lv = getAutoLevel(entry); if (lv !== levelFilter) return false; }
+        if (dateFrom) { const ed = (entry.timestamp||'').slice(0,10); if (ed < dateFrom) return false; }
+        if (dateTo) { const ed = (entry.timestamp||'').slice(0,10); if (ed > dateTo) return false; }
+        if (searchText) { const msg = (entry.message||'').toLowerCase(); if (!msg.includes(searchText.toLowerCase())) return false; }
+        return true;
+    });
+    
+    if (!filtered.length) { showToast('Нет данных', 'Нет логов для отправки в ИИ', 'warn'); return; }
+    
+    const logText = filtered.slice(0, 50).map(e => `[${(e.timestamp||'').slice(0,19).replace('T',' ')}] [${getAutoLevel(e).toUpperCase()}] ${e.message}`).join('\n');
+    const filterDesc = [levelFilter !== 'all' ? `Уровень: ${levelFilter}` : '', dateFrom ? `С: ${dateFrom}` : '', dateTo ? `По: ${dateTo}` : '', searchText ? `Поиск: "${searchText}"` : ''].filter(Boolean).join(', ');
+    
+    switchTab('ai');
+    $('ai-task').value = `Проанализируй следующие системные логи${filterDesc ? ' (фильтр: '+filterDesc+')' : ''} и выяви аномалии, угрозы и паттерны атак:\n\n${logText}\n\nДай краткое резюме угроз и рекомендации по устранению.`;
+    showToast('Логи отправлены', `${filtered.length > 50 ? 50 : filtered.length} записей отправлено в ИИ`, 'info');
+}
+
+function updateRlogCount(n) {
+    const el = $('rlog-count'); if (el) el.textContent = n + ' записей';
+}
+
 function loadLogs() {
     const type = $('log-type').value;
-    if(ws && ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({event:'get_logs',data:{type,limit:200}}));
+    currentLogsData = [];
+    if(ws && ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({event:'get_logs',data:{type,limit:500}}));
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

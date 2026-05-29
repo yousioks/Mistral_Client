@@ -1,4 +1,4 @@
-﻿const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const { startClientServer } = require('./client-server.js');
 
@@ -70,10 +70,21 @@ function createMainWindow() {
   // Load from local HTTP server (client-server.js serves on localhost:3001)
   mainWindow.loadURL('http://localhost:3001');
 
-  // Open DevTools in development
+  // Open DevTools in development (or always via Ctrl+Shift+I)
   if (process.env.NODE_ENV === 'development') {
     mainWindow.webContents.openDevTools();
   }
+
+  // Allow opening DevTools with Ctrl+Shift+I at any time
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.control && input.shift && input.key.toLowerCase() === 'i') {
+      if (mainWindow.webContents.isDevToolsOpened()) {
+        mainWindow.webContents.closeDevTools();
+      } else {
+        mainWindow.webContents.openDevTools();
+      }
+    }
+  });
 
   mainWindow.once('ready-to-show', () => {
     if (splashWindow) splashWindow.close();
