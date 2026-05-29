@@ -9,38 +9,38 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         :root {
-            --defcon-bg: #0A0D12;
-            --defcon-border: #1E2736;
-            --defcon-accent: #3B82F6;
-            --defcon-glow: rgba(59,130,246,0.1);
+            --defcon-bg: #000000;
+            --defcon-border: rgba(255, 255, 255, 0.12);
+            --defcon-accent: #FF0000;
+            --defcon-glow: rgba(255, 0, 0, 0.05);
             
-            --bg: var(--defcon-bg);
-            --bg2: #0F1319;
-            --bg3: #151B24;
-            --bg4: #1A222D;
-            --border: var(--defcon-border);
-            --border2: #2A3545;
-            --text: #E8EDF4;
-            --muted: #6B7A90;
-            --dim: #3D4C5E;
-            --red: #EF4444;
+            --bg: #000000;
+            --bg2: #000000;
+            --bg3: #000000;
+            --bg4: #000000;
+            --border: rgba(255, 255, 255, 0.12);
+            --border2: rgba(255, 255, 255, 0.2);
+            --text: #FFFFFF;
+            --muted: #8899A6;
+            --dim: #444444;
+            --red: #FF0000;
             --red-dark: #991B1B;
             --green: #22C55E;
             --green-dark: #166534;
             --orange: #F59E0B;
             --orange-dark: #92400E;
-            --blue: #3B82F6;
+            --blue: #FF0000;
             --purple: #A855F7;
             --cyan: #06B6D4;
             --pink: #EC4899;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-
+ 
         /* ═══ LOGIN ═══ */
         #login-screen {
             position: fixed; inset: 0; z-index: 1000;
-            background: #05070A;
+            background: #000000;
             display: flex; align-items: center; justify-content: center;
             overflow: hidden;
         }
@@ -48,8 +48,8 @@
         #login-screen::before {
             content: ''; position: absolute; inset: -50%;
             background-image: 
-                linear-gradient(rgba(239, 68, 68, 0.05) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(239, 68, 68, 0.05) 1px, transparent 1px);
+                linear-gradient(rgba(255, 0, 0, 0.08) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 0, 0, 0.08) 1px, transparent 1px);
             background-size: 40px 40px;
             transform: perspective(500px) rotateX(60deg) translateY(-100px) translateZ(-200px);
             animation: gridMove 15s linear infinite;
@@ -63,18 +63,18 @@
         /* Ambient Glow */
         #login-screen::after {
             content: ''; position: absolute; width: 600px; height: 600px;
-            background: radial-gradient(circle, rgba(239,68,68,0.15) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(255, 0, 0, 0.2) 0%, transparent 70%);
             top: 50%; left: 50%; transform: translate(-50%, -50%);
             z-index: 0; filter: blur(40px); pointer-events: none;
         }
         #login-screen.hidden { display: none; }
-
+ 
         .login-box {
             position: relative; z-index: 10;
-            background: rgba(15, 19, 25, 0.65);
+            background: rgba(0, 0, 0, 0.85);
             backdrop-filter: blur(24px);
             -webkit-backdrop-filter: blur(24px);
-            border: 1px solid rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.12);
             border-radius: 24px;
             padding: 56px 48px;
             width: 480px;
@@ -83,9 +83,9 @@
             flex-direction: column;
             gap: 28px;
             box-shadow:
-                0 0 0 1px rgba(255,255,255,0.02) inset,
-                0 30px 80px -10px rgba(0,0,0,0.9),
-                0 0 60px -15px rgba(239,68,68,0.25);
+                0 0 0 1px rgba(255,255,255,0.01) inset,
+                0 30px 80px -10px rgba(0,0,0,0.95),
+                0 0 60px -15px rgba(255, 0, 0, 0.1);
             animation: boxFadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
         }
         @keyframes boxFadeIn {
@@ -176,36 +176,105 @@
         #login-status { color: var(--muted); font-size: 12px; text-align: center; min-height: 16px; font-family: 'JetBrains Mono', monospace; }
 
         /* ═══ APP SHELL ═══ */
-        #app { display: flex; flex-direction: column; height: 100vh; background: var(--defcon-bg); transition: background 0.5s ease; }
-        #app.hidden { display: none; }
-        header { background: var(--bg2); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 20px; height: 52px; gap: 0; flex-shrink: 0; transition: border-color 0.5s; z-index: 50;}
-        .hdr-logo { font-size: 16px; font-weight: 900; color: #fff; margin-right: 28px; display: flex; align-items: center; gap: 8px; text-shadow: 0 0 10px var(--defcon-glow); transition: text-shadow 0.5s;}
-        .hdr-logo img { width: 24px; height: 24px; filter: drop-shadow(0 0 5px var(--defcon-accent)); transition: filter 0.5s;}
-        .hdr-logo span { color: var(--defcon-accent); transition: color 0.5s;}
-        .tabs { display: flex; gap: 0; height: 100%; flex: 1; }
-        .tab { font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer; letter-spacing: 0.3px; height: 100%; display: flex; align-items: center; padding: 0 16px; border-bottom: 2px solid transparent; transition: 0.15s; white-space: nowrap; }
-        .tab:hover { color: var(--text); }
-        .tab.active { color: #fff; border-bottom-color: var(--defcon-accent); }
-        .hdr-right { display: flex; align-items: center; gap: 12px; margin-left: auto; }
+        #app { display: flex; flex-direction: row; height: 100vh; background: var(--defcon-bg); transition: background 0.5s ease; overflow: hidden; }
+        #app.hidden { display: none !important; }
+
+        /* Left Sidebar styling */
+        #sidebar {
+            width: 240px;
+            background: #000000;
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            z-index: 60;
+        }
+        .sidebar-logo {
+            padding: 24px;
+            font-size: 20px;
+            font-weight: 900;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid var(--border);
+            text-shadow: 0 0 10px var(--defcon-glow);
+        }
+        .sidebar-logo img {
+            width: 28px;
+            height: 28px;
+            filter: drop-shadow(0 0 5px var(--defcon-accent));
+        }
+        .sidebar-logo span {
+            color: #fff;
+        }
+        
+        #sidebar .tabs {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding: 16px 8px;
+            flex: 1;
+            overflow-y: auto;
+        }
+        #sidebar .tab {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--muted);
+            cursor: pointer;
+            letter-spacing: 0.3px;
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid transparent;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+            height: auto;
+            border-bottom: none;
+        }
+        #sidebar .tab:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.03);
+            border-color: rgba(255, 255, 255, 0.05);
+        }
+        #sidebar .tab.active {
+            color: #fff;
+            background: rgba(255, 0, 0, 0.08);
+            border-color: var(--defcon-accent);
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.05);
+        }
+
+        /* Right Content Area layout */
+        #main-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+        header { background: #000000; border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 24px; height: 60px; gap: 0; flex-shrink: 0; transition: border-color 0.5s; z-index: 50;}
+        .hdr-right { display: flex; align-items: center; gap: 16px; margin-left: auto; }
         .conn-badge { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
         .conn-dot { width: 7px; height: 7px; border-radius: 50%; background: #555; }
         .conn-dot.connected { background: var(--green); box-shadow: 0 0 8px var(--green); }
         .conn-dot.error { background: var(--red); box-shadow: 0 0 8px var(--red); }
         .conn-dot.connecting { background: var(--orange); animation: blink 1s infinite; }
         @keyframes blink { 0%,100%{opacity:1}50%{opacity:.3} }
-        #model-badge { font-size: 10px; font-weight: 700; background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.25); color: var(--blue); padding: 4px 10px; border-radius: 20px; }
-        .btn-logout { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 5px 12px; border-radius: 5px; cursor: pointer; font-size: 11px; font-weight: 700; transition: 0.15s; }
-        .btn-logout:hover { color: #fff; border-color: var(--text); }
+        #model-badge { font-size: 10px; font-weight: 700; background: rgba(255, 0, 0, 0.08); border: 1px solid rgba(255, 0, 0, 0.25); color: var(--red); padding: 4px 10px; border-radius: 20px; }
+        .btn-logout { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 700; transition: 0.15s; }
+        .btn-logout:hover { color: #fff; border-color: #fff; background: rgba(255,255,255,0.02); }
 
-        /* ═══ TICKER TAPE ═══ */
+        /* ═══ TICKER TAPE (Bottom Status Bar) ═══ */
         #ticker-container {
-            width: 100%; height: 28px; background: rgba(0,0,0,0.4); border-bottom: 1px solid var(--border);
+            width: 100%; height: 32px; background: #000000; border-top: 1px solid var(--border); border-bottom: none;
             display: flex; align-items: center; overflow: hidden; position: relative; z-index: 40;
             transition: background 0.5s, border-color 0.5s;
+            flex-shrink: 0;
         }
         #ticker-label {
-            background: var(--defcon-accent); color: #fff; font-size: 10px; font-weight: 900;
-            height: 100%; display: flex; align-items: center; padding: 0 12px; z-index: 2;
+            background: var(--red); color: #fff; font-size: 10px; font-weight: 900;
+            height: 100%; display: flex; align-items: center; padding: 0 14px; z-index: 2;
             text-transform: uppercase; letter-spacing: 2px; box-shadow: 4px 0 10px rgba(0,0,0,0.5);
             transition: background 0.5s; flex-shrink: 0;
         }
@@ -218,8 +287,8 @@
         @keyframes tickerScroll { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
 
         /* ═══ CONTENT ═══ */
-        .content { flex: 1; overflow: hidden; padding: 16px; position: relative; z-index: 10; }
-        .panel { display: none; height: 100%; overflow-y: auto; }
+        .content { flex: 1; overflow-y: auto; padding: 24px; position: relative; z-index: 10; background: #000000; }
+        .panel { display: none; height: 100%; }
         .panel.active { display: block; }
 
         /* Cards */
@@ -436,8 +505,12 @@
 
 <!-- ═══ APP ═══ -->
 <div id="app" class="hidden">
-    <header>
-        <div class="hdr-logo"><img src="/static/logo.svg" alt="M" onerror="this.style.display='none'"> MIST<span>RAL</span></div>
+    <!-- Left Sidebar Navigation -->
+    <div id="sidebar">
+        <div class="sidebar-logo">
+            <img src="/static/logo.svg" alt="M" onerror="this.style.display='none'">
+            MIST<span>RAL</span>
+        </div>
         <div class="tabs">
             <div class="tab active" data-tab="dashboard" onclick="switchTab('dashboard')">Dashboard</div>
             <div class="tab" data-tab="network" onclick="switchTab('network')">Network</div>
@@ -445,28 +518,23 @@
             <div class="tab" data-tab="dangerous" onclick="switchTab('dangerous')">🚨 Threats</div>
             <div class="tab" data-tab="logs" onclick="switchTab('logs')">Logs</div>
             <div class="tab" data-tab="metrics" onclick="switchTab('metrics')">Metrics</div>
+            <div class="tab" data-tab="scanners" onclick="switchTab('scanners')">🛡️ Scanners</div>
             <div class="tab" data-tab="ai" onclick="switchTab('ai')">AI Analysis</div>
-        </div>
-        <div class="hdr-right">
-            <div class="conn-badge"><div class="conn-dot" id="conn-dot"></div><span id="conn-label">—</span></div>
-            <div id="model-badge">—</div>
-            <div class="acc-dropdown" onclick="switchTab('users')" style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-left:12px; background:rgba(255,255,255,0.05); padding:4px 12px 4px 4px; border-radius:20px; border:1px solid var(--border); transition:0.2s;">
-                <div style="width:24px; height:24px; border-radius:50%; background:var(--red); color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800;">A</div>
-                <span style="font-size:11px; font-weight:600; color:var(--text);">Аккаунт</span>
-            </div>
-            <button class="btn-logout" style="margin-left:12px;" onclick="doLogout()">ВЫЙТИ</button>
-        </div>
-    </header>
-    
-    <div id="ticker-container">
-        <div id="ticker-label">DEFCON 5</div>
-        <div id="ticker-scroll">
-            <span id="ticker-text">SYSTEM SECURE | ALL SERVICES ONLINE | ROUTINE MONITORING ACTIVE | NO THREATS DETECTED</span>
-            <span id="ticker-text2">SYSTEM SECURE | ALL SERVICES ONLINE | ROUTINE MONITORING ACTIVE | NO THREATS DETECTED</span>
+            <div class="tab" data-tab="users" onclick="switchTab('users')">Users & Access</div>
         </div>
     </div>
 
-    <div class="content">
+    <!-- Right Explorer Container -->
+    <div id="main-area">
+        <header>
+            <div class="hdr-right">
+                <div class="conn-badge"><div class="conn-dot" id="conn-dot"></div><span id="conn-label">—</span></div>
+                <div id="model-badge">—</div>
+                <button class="btn-logout" onclick="doLogout()">ВЫЙТИ</button>
+            </div>
+        </header>
+
+        <div class="content">
 
         <!-- ═══ DASHBOARD ═══ -->
         <div class="panel active" id="panel-dashboard">
@@ -485,8 +553,22 @@
                         </div>
                     </div>
                     <div class="card" style="flex:1;min-height:0;display:flex;flex-direction:column">
-                        <div class="card-hdr"><div class="cd" style="background:var(--green)"></div>Live Feed</div>
-                        <div class="live-feed" id="live-feed" style="flex:1;overflow-y:auto"></div>
+                        <div class="card-hdr"><div class="cd" style="background:var(--red)"></div>SSH / Auth Attempts</div>
+                        <div style="flex:1;overflow-y:auto">
+                            <table class="full-tbl" style="font-size:11px">
+                                <thead>
+                                    <tr>
+                                        <th>User</th>
+                                        <th>IP Address</th>
+                                        <th>Time</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dash-ssh-tbody">
+                                    <tr><td colspan="4" class="empty-td">Ожидание данных от мониторов...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 
@@ -498,7 +580,7 @@
                         <div class="stat-box s-blue"><div class="stat-icon">🔍</div><div class="stat-val" id="s-vuln">0</div><div class="stat-lbl">CVE Events</div></div>
                     </div>
                     <div class="card" style="flex:0"><div class="card-hdr"><div class="cd" style="background:var(--green)"></div>Network Activity</div><div class="chart-box" style="height:110px"><canvas id="chart-network"></canvas></div></div>
-                    <div class="card" style="flex:1;min-height:0"><div class="card-hdr"><div class="cd" style="background:var(--orange)"></div>Threats by Type</div><div class="chart-box"><canvas id="chart-type"></canvas></div></div>
+                    <div class="card" style="flex:1;min-height:0;display:flex;flex-direction:column"><div class="card-hdr"><div class="cd" style="background:var(--orange)"></div>Running Logs</div><div id="running-logs" class="live-feed" style="flex:1;overflow-y:auto;scroll-behavior:smooth"></div></div>
                 </div>
 
                 <!-- RIGHT: Health + Risk Level + Recent -->
@@ -592,11 +674,27 @@
         <!-- ═══ AI ═══ -->
         <div class="panel" id="panel-ai">
             <div class="ai-wrap">
-                <div class="card" style="flex:0">
-                    <div class="ai-models">
+                <div class="card" style="flex:0; display:flex; gap:16px; align-items:center; flex-wrap:wrap; margin-bottom:8px">
+                    <div class="ai-models" style="margin-right:auto">
                         <button class="model-btn active" onclick="selectModel('deepseek-v4-pro',this)">DeepSeek V4 Pro</button>
                         <button class="model-btn" onclick="selectModel('kimi-k2.6',this)">Kimi K2.6</button>
                         <button class="model-btn" onclick="selectModel('claude-sonnet-4.6',this)">Claude Sonnet 4.6</button>
+                    </div>
+                    <div class="field-group" style="min-width:140px; margin-top:0">
+                        <label style="font-size:9px; margin-bottom:4px">Фильтр критичности</label>
+                        <select id="ai-sev-filter" onchange="populateAIIncidentDropdown()" style="background:rgba(0,0,0,0.5); border:1px solid var(--border); color:#fff; padding:6px 12px; border-radius:6px; font-size:11px; outline:none; cursor:pointer">
+                            <option value="ALL">Все инциденты</option>
+                            <option value="CRITICAL">Critical</option>
+                            <option value="HIGH">High</option>
+                            <option value="MEDIUM">Medium</option>
+                            <option value="LOW">Low</option>
+                        </select>
+                    </div>
+                    <div class="field-group" style="min-width:260px; margin-top:0; max-width:400px">
+                        <label style="font-size:9px; margin-bottom:4px">Выберите инцидент</label>
+                        <select id="ai-incident-select" onchange="selectIncidentForAI()" style="background:rgba(0,0,0,0.5); border:1px solid var(--border); color:#fff; padding:6px 12px; border-radius:6px; font-size:11px; outline:none; cursor:pointer; width:100%">
+                            <option value="">-- Выберите инцидент --</option>
+                        </select>
                     </div>
                 </div>
                 <div class="ai-output" id="ai-output">// Система ИИ-анализа готова.
@@ -607,6 +705,34 @@
                     <textarea id="ai-task" placeholder="Опишите задачу для ИИ-анализа..."></textarea>
                     <button class="ai-send" id="btn-ai-send" onclick="sendAITask()">ОТПРАВИТЬ</button>
                 </div>
+            </div>
+        </div>
+
+        <!-- ═══ SECURITY SCANNERS ═══ -->
+        <div class="panel" id="panel-scanners">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px">
+                <!-- Semgrep Card -->
+                <div class="card" style="display:flex; flex-direction:column; gap:12px">
+                    <div class="card-hdr"><div class="cd" style="background:var(--orange)"></div>Semgrep SAST Scan</div>
+                    <div class="field-group" style="margin-top:0">
+                        <label style="font-size:9px; margin-bottom:4px">Целевая директория</label>
+                        <input id="semgrep-target" type="text" value="." placeholder="/path/to/project">
+                    </div>
+                    <button class="btn-login" id="btn-run-semgrep" onclick="runSecurityScan('semgrep')" style="padding:10px; font-size:12px; margin-top:4px">ЗАПУСТИТЬ SEMGREP</button>
+                </div>
+                <!-- Trivy Card -->
+                <div class="card" style="display:flex; flex-direction:column; gap:12px">
+                    <div class="card-hdr"><div class="cd" style="background:var(--red)"></div>Trivy Vulnerability Scan</div>
+                    <div class="field-group" style="margin-top:0">
+                        <label style="font-size:9px; margin-bottom:4px">Цель сканирования (Образ / Папка)</label>
+                        <input id="trivy-target" type="text" value="." placeholder="image_name or directory">
+                    </div>
+                    <button class="btn-login" id="btn-run-trivy" onclick="runSecurityScan('trivy')" style="padding:10px; font-size:12px; margin-top:4px">ЗАПУСТИТЬ TRIVY</button>
+                </div>
+            </div>
+            <div class="card" style="display:flex; flex-direction:column; height:calc(100% - 170px)">
+                <div class="card-hdr"><div class="cd" style="background:var(--blue)"></div>Scan Terminal Output</div>
+                <pre id="scan-output" style="flex:1; background:#000; border:1px solid var(--border); padding:16px; border-radius:8px; font-family:'JetBrains Mono', monospace; font-size:11px; color:#fff; overflow:auto; white-space:pre-wrap; margin-top:4px">// Выберите сканер и нажмите кнопку запуска. Результаты проверки отобразятся здесь.</pre>
             </div>
         </div>
 
@@ -623,8 +749,18 @@
             </div>
             <div class="card"><div class="card-hdr"><div class="cd" style="background:var(--blue)"></div>Пользователи</div><div id="users-list" style="display:flex;flex-direction:column;gap:8px"></div></div>
         </div>
+    </div> <!-- closes .content -->
+
+    <!-- Status Bar at bottom -->
+    <div id="ticker-container">
+        <div id="ticker-label">DEFCON 5</div>
+        <div id="ticker-scroll">
+            <span id="ticker-text">SYSTEM SECURE | ALL SERVICES ONLINE | ROUTINE MONITORING ACTIVE | NO THREATS DETECTED</span>
+            <span id="ticker-text2">SYSTEM SECURE | ALL SERVICES ONLINE | ROUTINE MONITORING ACTIVE | NO THREATS DETECTED</span>
+        </div>
     </div>
-</div>
+</div> <!-- closes #main-area -->
+</div> <!-- closes #app -->
 
 <script>
 // ══════════════════════════════════════════════════════════════════════════════
@@ -634,9 +770,11 @@ let ws = null, token = null, serverBase = '', currentModel = 'deepseek-v4-pro';
 let reconnectTimer = null, reconnectAttempts = 0;
 let allIncidents = [];
 let chartRisk = null, chartNet = null, chartType = null;
+let autoDefenseTriggered = false;
+let threatCount = 0;
 const $ = id => document.getElementById(id);
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
+ 
 // ══════════════════════════════════════════════════════════════════════════════
 // ANALYZE (from original)
 // ══════════════════════════════════════════════════════════════════════════════
@@ -650,21 +788,21 @@ window.analyzeContext = function(id) {
     const prompt = `Проанализируй опасный участок логов. Тип атаки: ${inc.type}. Описание: ${inc.description}.\n\nКонтекст:\n${inc.contextBlock}\n\nЧто делает атакующий и какие меры предпринять? Ничего не отключай и не ломай.`;
     $('ai-task').value = prompt; switchTab('ai'); sendAITask();
 };
-
+ 
 // ══════════════════════════════════════════════════════════════════════════════
 // CHARTS
 // ══════════════════════════════════════════════════════════════════════════════
 function initCharts() {
-    Chart.defaults.color = '#6B7A90';
+    Chart.defaults.color = '#8899A6';
     Chart.defaults.font.family = "'Inter', sans-serif";
     chartRisk = new Chart($('chart-risk').getContext('2d'), {
         type: 'doughnut',
-        data: { datasets: [{ data: [0,100], backgroundColor: ['#22C55E','#1A222D'], borderWidth: 0 }] },
+        data: { datasets: [{ data: [0,100], backgroundColor: ['#FF0000','#110000'], borderWidth: 0 }] },
         options: { cutout:'82%', rotation:-90, circumference:180, plugins:{tooltip:{enabled:false},legend:{display:false}} }
     });
     chartNet = new Chart($('chart-network').getContext('2d'), {
         type: 'line',
-        data: { labels: Array(30).fill(''), datasets: [{ data: Array(30).fill(0), borderColor:'#22C55E', backgroundColor:'rgba(34,197,94,0.08)', borderWidth:2, tension:0.4, fill:true, pointRadius:0 }] },
+        data: { labels: Array(30).fill(''), datasets: [{ data: Array(30).fill(0), borderColor:'#FFFFFF', backgroundColor:'rgba(255,255,255,0.05)', borderWidth:1.5, tension:0.4, fill:true, pointRadius:0 }] },
         options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{display:false},x:{display:false}} }
     });
     chartType = new Chart($('chart-type').getContext('2d'), {
@@ -673,7 +811,7 @@ function initCharts() {
             labels: ['Brute Force','SQLi','DDoS','Malware','XSS','Other'],
             datasets: [{ data:[0,0,0,0,0,0], backgroundColor:['#EF4444','#F59E0B','#22C55E','#3B82F6','#A855F7','#6B7280'], borderRadius:4, borderWidth:0 }]
         },
-        options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{grid:{color:'#1E2736'},beginAtZero:true},x:{grid:{display:false}}} }
+        options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{grid:{color:'rgba(255,255,255,0.08)'},beginAtZero:true},x:{grid:{display:false}}} }
     });
 }
 
@@ -700,7 +838,7 @@ function updateChartsFromIncidents(list) {
     const lbl = risk>70?'HIGH':risk>40?'MEDIUM':'SAFE';
     $('risk-value').style.color=col; $('risk-label').style.color=col; $('risk-label').textContent=lbl;
     if(chartRisk){chartRisk.data.datasets[0].data=[risk,100-risk]; chartRisk.data.datasets[0].backgroundColor[0]=col; chartRisk.update();}
-    if(chartType){chartType.data.datasets[0].data=types; chartType.update();}
+    // chartType update removed
     // Risk level table
     $('rl-crit').textContent=crit; $('rl-high').textContent=high; $('rl-med').textContent=med; $('rl-low').textContent=low;
     // Recent alerts (last 8 critical/high)
@@ -793,25 +931,56 @@ function handleMessage(msg) {
             allIncidents = msg.data||[];
             renderIncidents(allIncidents);
             updateChartsFromIncidents(allIncidents);
+            populateAIIncidentDropdown();
             break;
         case 'incident_updated':
             const idx = allIncidents.findIndex(i=>i.id===msg.data.id);
             if(idx!==-1) allIncidents[idx]=msg.data;
             renderIncidents(allIncidents);
             updateChartsFromIncidents(allIncidents);
+            populateAIIncidentDropdown();
             break;
-        case 'logs_list': renderLogs(msg.data||[]); break;
+        case 'logs_list': 
+            renderLogs(msg.data||[]); 
+            const rFeed = $('running-logs');
+            if (rFeed) {
+                rFeed.innerHTML = '';
+                (msg.data||[]).slice().reverse().forEach(log => {
+                    const div = document.createElement('div');
+                    const level = getAutoLevel(log);
+                    div.className = `log-entry log-row-${level}`;
+                    const t = (log.timestamp||'').slice(11,19);
+                    div.innerHTML = `<span class="log-time">${t}</span><span class="log-level ${level}">${level.toUpperCase()}</span><span class="log-msg">${esc(log.message||'')}</span><span class="log-monitor">${esc(log.type||'')}</span>`;
+                    rFeed.appendChild(div);
+                });
+                rFeed.scrollTop = rFeed.scrollHeight;
+            }
+            break;
         case 'log': if(msg.data) addLiveEntry(msg.data); break;
         case 'incident':
             if(msg.data){
                 allIncidents.unshift(msg.data);
                 if(allIncidents.length>500) allIncidents.pop();
-                addIncidentCard(msg.data, true, $('incidents-list'));
+                
+                // Throttle DOM updates if not active
+                if($('panel-incidents').classList.contains('active')) renderIncidents(allIncidents);
+                else addIncidentCard(msg.data, true, $('incidents-list'));
+                
                 if(msg.data.severity==='CRITICAL'||msg.data.severity==='HIGH'){
-                    addDangerousCard(msg.data, true, $('dangerous-list'));
+                    if(!$('panel-dangerous').classList.contains('active')) addDangerousCard(msg.data, true, $('dangerous-list'));
                     showAlert(msg.data);
+                    
+                    if (!autoDefenseTriggered) {
+                        threatCount++;
+                        if (threatCount >= 3) triggerAutoDefense();
+                    }
+                } else {
+                    if (!autoDefenseTriggered) {
+                        threatCount = 0;
+                    }
                 }
                 updateChartsFromIncidents(allIncidents);
+                populateAIIncidentDropdown();
             }
             break;
         case 'metrics': updateMetrics(msg.data); break;
@@ -828,6 +997,40 @@ function handleMessage(msg) {
             $('btn-ai-send').disabled = false;
             break;
         case 'bot_notify': if(msg.data) showAlert(msg.data); break;
+        case 'scan_result':
+            const scanOutput = $('scan-output');
+            if (scanOutput) {
+                const r = msg.data || {};
+                let text = `[SCAN RESULTS - ${r.scanner ? r.scanner.toUpperCase() : 'UNKNOWN'}]\n`;
+                text += `Target: ${r.target || 'N/A'}\n`;
+                text += `Timestamp: ${r.timestamp || new Date().toLocaleString()}\n`;
+                text += `--------------------------------------------------\n\n`;
+                
+                if (r.error) {
+                    text += `❌ ERROR: ${r.error}\n`;
+                } else if (!r.findings || r.findings.length === 0) {
+                    text += `✅ SUCCESS: No findings / vulnerabilities detected!\n`;
+                } else {
+                    text += `⚠️ Found ${r.findings.length} findings:\n\n`;
+                    r.findings.forEach((f, idx) => {
+                        if (r.scanner === 'semgrep') {
+                            text += `[#${idx + 1}] [${f.severity || 'MEDIUM'}] Rule: ${f.rule || 'N/A'}\n`;
+                            text += `     Path: ${f.path || 'N/A'}:${f.line || '?'}\n`;
+                            text += `     Message: ${f.message || 'No description'}\n\n`;
+                        } else {
+                            text += `[#${idx + 1}] [${f.severity || 'UNKNOWN'}] ${f.vulnId || 'N/A'} in ${f.pkg || 'N/A'}\n`;
+                            text += `     Target: ${f.target || 'N/A'}\n`;
+                            text += `     Title: ${f.title || 'No title'}\n`;
+                            if (f.fixedVersion) text += `     Fixed in: ${f.fixedVersion}\n`;
+                            text += `\n`;
+                        }
+                    });
+                }
+                scanOutput.textContent = text;
+            }
+            $('btn-run-semgrep').disabled = false;
+            $('btn-run-trivy').disabled = false;
+            break;
     }
 }
 
@@ -841,8 +1044,8 @@ function setDefcon(level) {
     const tickerText2 = $('ticker-text2');
     
     if (level === 1) {
-        root.style.setProperty('--defcon-bg', '#1a0505');
-        root.style.setProperty('--defcon-border', '#3f1111');
+        root.style.setProperty('--defcon-bg', '#000000');
+        root.style.setProperty('--defcon-border', '#ef4444');
         root.style.setProperty('--defcon-accent', '#ef4444');
         root.style.setProperty('--defcon-glow', 'rgba(239, 68, 68, 0.15)');
         tickerLbl.textContent = 'DEFCON 1';
@@ -851,8 +1054,8 @@ function setDefcon(level) {
         tickerText1.textContent = tMsg; tickerText2.textContent = tMsg;
         tickerText1.style.color = '#fca5a5'; tickerText2.style.color = '#fca5a5';
     } else if (level === 2) {
-        root.style.setProperty('--defcon-bg', '#1a1005');
-        root.style.setProperty('--defcon-border', '#3f2511');
+        root.style.setProperty('--defcon-bg', '#000000');
+        root.style.setProperty('--defcon-border', '#f59e0b');
         root.style.setProperty('--defcon-accent', '#f59e0b');
         root.style.setProperty('--defcon-glow', 'rgba(245, 158, 11, 0.1)');
         tickerLbl.textContent = 'DEFCON 2';
@@ -861,10 +1064,10 @@ function setDefcon(level) {
         tickerText1.textContent = tMsg; tickerText2.textContent = tMsg;
         tickerText1.style.color = '#fcd34d'; tickerText2.style.color = '#fcd34d';
     } else {
-        root.style.setProperty('--defcon-bg', '#0A0D12');
-        root.style.setProperty('--defcon-border', '#1E2736');
-        root.style.setProperty('--defcon-accent', '#3B82F6');
-        root.style.setProperty('--defcon-glow', 'rgba(59, 130, 246, 0.1)');
+        root.style.setProperty('--defcon-bg', '#000000');
+        root.style.setProperty('--defcon-border', '#cc0000');
+        root.style.setProperty('--defcon-accent', '#ff0000');
+        root.style.setProperty('--defcon-glow', 'rgba(255, 0, 0, 0.1)');
         tickerLbl.textContent = 'DEFCON 5';
         tickerLbl.style.background = 'var(--blue)';
         const tMsg = 'SYSTEM SECURE | ALL SERVICES ONLINE | ROUTINE MONITORING ACTIVE | NO THREATS DETECTED ';
@@ -905,14 +1108,25 @@ function getAutoLevel(entry) {
 }
 
 function addLiveEntry(entry) {
-    const feed = $('live-feed');
+    const feed = $('logs-feed');
+    const rFeed = $('running-logs');
     const div = document.createElement('div');
     const level = getAutoLevel(entry);
     div.className = `log-entry log-row-${level}`;
     const t = (entry.timestamp||'').slice(11,19);
     div.innerHTML = `<span class="log-time">${t}</span><span class="log-level ${level}">${level.toUpperCase()}</span><span class="log-msg">${esc(entry.message||'')}</span><span class="log-monitor">${esc(entry.type||'')}</span>`;
-    feed.insertBefore(div, feed.firstChild);
-    if (feed.children.length > 200) feed.removeChild(feed.lastChild);
+    
+    if (feed && entry.type === $('log-type').value) {
+        feed.insertBefore(div, feed.firstChild);
+        if (feed.children.length > 200) feed.removeChild(feed.lastChild);
+    }
+    
+    if (rFeed) {
+        const d2 = div.cloneNode(true);
+        rFeed.appendChild(d2);
+        rFeed.scrollTop = rFeed.scrollHeight;
+        if (rFeed.children.length > 100) rFeed.removeChild(rFeed.firstChild);
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -923,7 +1137,8 @@ function renderIncidents(list) {
     const dEl = $('dangerous-list');
     el.innerHTML = '';
     if(dEl) dEl.innerHTML = '';
-    list.forEach(i => {
+    // limit DOM nodes to prevent freezing
+    list.slice(0, 100).forEach(i => {
         addIncidentCard(i, false, el);
         if(i.severity==='CRITICAL'||i.severity==='HIGH') addDangerousCard(i, false, dEl);
     });
@@ -1014,15 +1229,36 @@ function updateMetrics(data) {
         showToast('SYSTEM WARNING', `High CPU load detected: ${data.cpu}%`, 'warn');
         setTimeout(() => setDefcon(5), 15000);
     }
-    // SSH sessions for network tab
+    // SSH sessions for network tab & dashboard
     if(data.ssh_sessions && Array.isArray(data.ssh_sessions)) {
-        const tb = $('ssh-tbody'); tb.innerHTML = '';
-        if(!data.ssh_sessions.length) { tb.innerHTML='<tr><td colspan="4" class="empty-td">Нет SSH-сессий</td></tr>'; return; }
-        data.ssh_sessions.forEach(s => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `<td>${esc(s.user||'?')}</td><td><span class="ip-chip">${esc(s.ip||'?')}</span></td><td>${esc(s.time||'')}</td><td><button class="btn-sm btn-q" onclick="quarantineIp('${esc(s.ip)}','Blocked from SSH table')">🛡 КАРАНТИН</button></td>`;
-            tb.appendChild(tr);
-        });
+        const tb = $('ssh-tbody');
+        const dashTb = $('dash-ssh-tbody');
+        
+        if (tb) {
+            tb.innerHTML = '';
+            if(!data.ssh_sessions.length) {
+                tb.innerHTML='<tr><td colspan="4" class="empty-td">Нет SSH-сессий</td></tr>';
+            } else {
+                data.ssh_sessions.forEach(s => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td>${esc(s.user||'?')}</td><td><span class="ip-chip">${esc(s.ip||'?')}</span></td><td>${esc(s.time||'')}</td><td><button class="btn-sm btn-q" onclick="quarantineIp('${esc(s.ip)}','Blocked from SSH table')">🛡 КАРАНТИН</button></td>`;
+                    tb.appendChild(tr);
+                });
+            }
+        }
+        
+        if (dashTb) {
+            dashTb.innerHTML = '';
+            if(!data.ssh_sessions.length) {
+                dashTb.innerHTML='<tr><td colspan="4" class="empty-td">Нет SSH-сессий</td></tr>';
+            } else {
+                data.ssh_sessions.forEach(s => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td>${esc(s.user||'?')}</td><td><span class="ip-chip">${esc(s.ip||'?')}</span></td><td>${esc(s.time||'')}</td><td><button class="btn-sm btn-q" onclick="quarantineIp('${esc(s.ip)}','Blocked from SSH table')">🛡 КАРАНТИН</button></td>`;
+                    dashTb.appendChild(tr);
+                });
+            }
+        }
     }
 }
 function setMetric(id, val, unit) {
@@ -1075,6 +1311,105 @@ function sendAITask() {
     $('btn-ai-send').disabled = true;
     $('ai-output').textContent = '⏳ Запрос отправлен, ожидаю ответ...';
     ws.send(JSON.stringify({event:'ai_task',data:{task,model:currentModel}}));
+}
+function analyzeContext(id) {
+    const inc = allIncidents.find(i=>i.id===id);
+    if(inc) {
+        switchTab('ai');
+        $('ai-task').value = `Проанализируй этот инцидент и предложи скрипт для защиты:\nТип: ${inc.type}\nУровень: ${inc.severity}\nОписание: ${inc.description}\nКонтекст: ${inc.contextBlock||''}`;
+        sendAITask();
+    }
+}
+function populateAIIncidentDropdown() {
+    const filter = $('ai-sev-filter').value;
+    const select = $('ai-incident-select');
+    if (!select) return;
+    select.innerHTML = '<option value="">-- Выберите инцидент --</option>';
+    
+    const filtered = allIncidents.filter(inc => {
+        if (filter === 'ALL') return true;
+        return inc.severity === filter;
+    });
+    
+    filtered.forEach(inc => {
+        const option = document.createElement('option');
+        option.value = inc.id;
+        const timeStr = inc.timestamp ? inc.timestamp.slice(11, 19) : '';
+        const desc = (inc.description || '').slice(0, 50);
+        option.textContent = `[${inc.severity}] ${inc.type} - ${desc} (${timeStr})`;
+        select.appendChild(option);
+    });
+}
+function selectIncidentForAI() {
+    const id = $('ai-incident-select').value;
+    if (!id) {
+        $('ai-task').value = '';
+        return;
+    }
+    const inc = allIncidents.find(i => i.id === id);
+    if (inc) {
+        $('ai-task').value = `Проанализируй этот инцидент и предложи скрипт для защиты:\nТип: ${inc.type}\nУровень: ${inc.severity}\nОписание: ${inc.description}\nКонтекст: ${inc.contextBlock||''}`;
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SECURITY SCANNERS
+// ══════════════════════════════════════════════════════════════════════════════
+function runSecurityScan(type) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+        $('scan-output').textContent = '❌ Нет соединения с сервером';
+        return;
+    }
+    let target = '';
+    if (type === 'semgrep') {
+        target = $('semgrep-target').value.trim();
+    } else if (type === 'trivy') {
+        target = $('trivy-target').value.trim();
+    }
+    
+    if (!target) {
+        alert('Пожалуйста, укажите целевую директорию или образ.');
+        return;
+    }
+    
+    $('btn-run-semgrep').disabled = true;
+    $('btn-run-trivy').disabled = true;
+    $('scan-output').textContent = `⏳ Запуск сканирования ${type.toUpperCase()} на цели: ${target}...\nПожалуйста, подождите, это может занять некоторое время...`;
+    
+    ws.send(JSON.stringify({
+        event: 'run_scan',
+        data: {
+            scanType: type,
+            target: target
+        }
+    }));
+}
+function triggerAutoDefense() {
+    autoDefenseTriggered = true;
+    const banner = $('alert-banner');
+    banner.style.display = 'block';
+    banner.style.fontSize = '18px';
+    banner.style.padding = '24px';
+    banner.style.letterSpacing = '2px';
+    banner.innerHTML = '🚨 AUTO DEFENSE ACTIVATED 🚨<br><span style="font-size:12px;font-weight:600;letter-spacing:1px">CRITICAL THREAT THRESHOLD REACHED. AI INITIATING COUNTERMEASURES...</span>';
+    setDefcon(1);
+    switchTab('ai');
+    
+    const threats = allIncidents.filter(i => i.severity==='CRITICAL'||i.severity==='HIGH').slice(0,3);
+    const contextText = threats.map(t => `[${t.severity}] ${t.type}: ${t.description}`).join('\n');
+    $('ai-task').value = "ВНИМАНИЕ! Обнаружена серия атак на сервер. Вот последние 3 угрозы:\n" + contextText + "\n\nДействуй немедленно! Выдай скрипт защиты или команды для блокировки атакующего.";
+    
+    let flashes = 0;
+    const flasher = setInterval(() => {
+        document.documentElement.style.setProperty('--defcon-bg', flashes%2===0 ? '#450a0a' : '#050505');
+        flashes++;
+        if(flashes > 12) { clearInterval(flasher); document.documentElement.style.setProperty('--defcon-bg', '#1a0505'); }
+    }, 200);
+
+    setTimeout(() => {
+        sendAITask();
+        setTimeout(() => { banner.style.display = 'none'; }, 6000);
+    }, 2500);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1139,7 +1474,7 @@ function showToast(title, message, type='info') {
 // ══════════════════════════════════════════════════════════════════════════════
 // TABS
 // ══════════════════════════════════════════════════════════════════════════════
-const TAB_NAMES = ['dashboard','network','incidents','dangerous','logs','metrics','ai','users'];
+const TAB_NAMES = ['dashboard','network','incidents','dangerous','logs','metrics','scanners','ai','users'];
 function switchTab(name) {
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab===name));
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -1154,7 +1489,7 @@ function killProcess() {
     const pid = $('inp-kill-pid').value.trim();
     if(!pid) return;
     if(!confirm(`Точно сбросить процесс PID ${pid}?`)) return;
-    fetch(`${serverBase}/api/process/${pid}`, {method:'DELETE', headers:{'X-Auth-Token':wsToken}}).then(r=>r.json()).then(res=>{
+    fetch(`${serverBase}/api/process/${pid}`, {method:'DELETE', headers:{'X-Auth-Token':token}}).then(r=>r.json()).then(res=>{
         if(res.success) {
             alert(`Процесс ${pid} успешно сброшен`);
             $('inp-kill-pid').value = '';
