@@ -9,15 +9,15 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         :root {
-            --defcon-bg: #111111;
+            --defcon-bg: #05070a;
             --defcon-border: rgba(255, 255, 255, 0.12);
             --defcon-accent: #FF0000;
             --defcon-glow: rgba(255, 0, 0, 0.05);
             
-            --bg: #16181c;
-            --bg2: #1c1f24;
-            --bg3: #23272d;
-            --bg4: #2b3038;
+            --bg: #090c15;
+            --bg2: #101420;
+            --bg3: #181d2e;
+            --bg4: #232b42;
             --border: rgba(255, 255, 255, 0.12);
             --border2: rgba(255, 255, 255, 0.2);
             --text: #FFFFFF;
@@ -490,52 +490,18 @@
         ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.12); }
         .hidden { display: none !important; }
 
-        /* ═══ EPIC AUTO DEFENSE UI ═══ */
-        #epic-overlay {
-            position: fixed; inset: 0; z-index: 5000;
-            background: rgba(20, 0, 0, 0.95);
-            display: none; flex-direction: column; align-items: center; justify-content: center;
-            overflow: hidden;
-        }
-        #epic-overlay::before {
-            content: ''; position: absolute; inset: 0;
-            background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,0,0,0.1) 2px, rgba(255,0,0,0.1) 4px);
-            z-index: 1; pointer-events: none;
-        }
-        .glitch-text {
-            font-size: 64px; font-weight: 900; color: #ff0000; text-transform: uppercase;
-            text-shadow: 2px 2px #00f, -2px -2px #0f0;
-            animation: glitch 0.5s infinite;
-            z-index: 2; text-align: center; margin-bottom: 20px;
-        }
-        @keyframes glitch {
-            0% { transform: translate(0) }
-            20% { transform: translate(-5px, 5px) }
-            40% { transform: translate(-5px, -5px) }
-            60% { transform: translate(5px, 5px) }
-            80% { transform: translate(5px, -5px) }
-            100% { transform: translate(0) }
-        }
-        .countdown-text {
-            font-size: 120px; font-weight: 900; color: #fff; text-shadow: 0 0 40px #ff0000;
-            z-index: 2; margin-bottom: 40px; font-variant-numeric: tabular-nums;
-        }
-        .btn-override {
-            pointer-events: auto;
-            background: transparent; border: 3px solid #ff0000; color: #ff0000;
-            font-size: 24px; font-weight: 900; padding: 20px 40px; border-radius: 12px;
-            cursor: pointer; text-transform: uppercase; letter-spacing: 5px;
-            box-shadow: 0 0 30px rgba(255,0,0,0.5), inset 0 0 20px rgba(255,0,0,0.5);
-            transition: all 0.2s; z-index: 2;
-        }
-        .btn-override:hover { background: #ff0000; color: #fff; box-shadow: 0 0 60px #ff0000; }
-        
+        /* ═══ AI NOTIFICATION TERMINAL ═══ */
         #ai-terminal {
-            display: none; position: fixed; inset: 10%; z-index: 5001;
-            background: rgba(0,0,0,0.9); border: 2px solid #ff0000; border-radius: 10px;
-            padding: 30px; font-family: 'JetBrains Mono', monospace; font-size: 16px;
-            color: #0f0; box-shadow: 0 0 50px rgba(255,0,0,0.5); overflow-y: auto;
+            display: none; position: fixed; right: 20px; top: 20px; width: 450px; max-height: 80vh; z-index: 5001;
+            background: rgba(15, 19, 25, 0.95); backdrop-filter: blur(10px); border: 1px solid var(--border); border-left: 4px solid var(--red); border-radius: 8px;
+            padding: 20px; font-family: 'JetBrains Mono', monospace; font-size: 12px;
+            color: #0f0; box-shadow: 0 10px 30px rgba(239,68,68,0.2); overflow-y: auto;
+            animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
+        .ai-term-close { position: absolute; top: 15px; right: 20px; color: var(--red); font-size: 20px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .ai-term-close:hover { color: #fff; }
+        #ai-term-input { width: 100%; background: transparent; border: none; border-top: 1px dashed var(--red); color: #0f0; padding: 12px 0 0 0; outline: none; font-family: 'JetBrains Mono', monospace; margin-top: 15px; display: none; font-size: 12px; }
+        #ai-term-input::placeholder { color: rgba(0, 255, 0, 0.3); }
         .typing-cursor::after { content: '█'; animation: blink 1s step-start infinite; }
         @keyframes blink { 50% { opacity: 0; } }
     </style>
@@ -544,15 +510,12 @@
 <div id="alert-banner"></div>
 <div id="toast-container"></div>
 
-<!-- EPIC UI ELEMENTS -->
-<div id="epic-overlay">
-    <div class="glitch-text">CRITICAL THREAT DETECTED<br>AUTO DEFENSE IMMINENT</div>
-    <div class="countdown-text" id="epic-countdown">10.0</div>
-    <button class="btn-override" onclick="cancelAutoDefense()">MANUAL OVERRIDE</button>
-</div>
+<!-- AI TERMINAL NOTIFICATION -->
 <div id="ai-terminal">
-    <div style="color:#f00; font-weight:900; font-size:24px; margin-bottom:20px; border-bottom:1px solid #f00; padding-bottom:10px;">🛡️ MISTRAL AI DEFENSE AGENT</div>
+    <div class="ai-term-close" onclick="closeAITerminal()" title="Перехватить управление">×</div>
+    <div style="color:#f00; font-weight:900; font-size:18px; margin-bottom:15px; border-bottom:1px solid #f00; padding-bottom:10px;">🛡️ MISTRAL AI DEFENSE AGENT</div>
     <div id="ai-term-content" class="typing-cursor"></div>
+    <input type="text" id="ai-term-input" placeholder="> Введите команду или поправку..." onkeydown="if(event.key==='Enter') sendAITerminalInput(this.value)">
 </div>
 
 <!-- ═══ LOGIN ═══ -->
@@ -906,8 +869,6 @@ let allIncidents = [];
 let chartRisk = null, chartNet = null, chartType = null;
 let autoDefenseTriggered = false;
 let threatCount = 0;
-let autoDefenseCountdown = 10.0;
-let countdownInterval = null;
 const $ = id => document.getElementById(id);
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
  
@@ -1189,7 +1150,7 @@ function handleMessage(msg) {
                     
                     if (!autoDefenseTriggered) {
                         threatCount++;
-                        if (threatCount >= 3) startEpicCountdown();
+                        if (threatCount >= 3) executeEpicAutoDefense();
                     }
                 } else {
                     if (!autoDefenseTriggered) {
@@ -1691,48 +1652,10 @@ function runSecurityScan(type) {
         }
     }));
 }
-function startEpicCountdown() {
-    if (autoDefenseTriggered || countdownInterval) return;
+function executeEpicAutoDefense() {
+    if (autoDefenseTriggered) return;
     autoDefenseTriggered = true;
     setDefcon(1);
-    const overlay = $('epic-overlay');
-    const cdText = $('epic-countdown');
-    overlay.style.display = 'flex';
-    autoDefenseCountdown = 10.0;
-    
-    let flashes = 0;
-    const flasher = setInterval(() => {
-        document.documentElement.style.setProperty('--defcon-bg', flashes%2===0 ? '#450a0a' : '#050505');
-        flashes++;
-        if(flashes > 20) { clearInterval(flasher); document.documentElement.style.setProperty('--defcon-bg', '#1a0505'); }
-    }, 200);
-
-    countdownInterval = setInterval(() => {
-        autoDefenseCountdown -= 0.1;
-        if (autoDefenseCountdown <= 0) {
-            autoDefenseCountdown = 0;
-            clearInterval(countdownInterval);
-            countdownInterval = null;
-            executeEpicAutoDefense();
-        }
-        cdText.textContent = autoDefenseCountdown.toFixed(1);
-    }, 100);
-}
-
-function cancelAutoDefense() {
-    if (countdownInterval) {
-        clearInterval(countdownInterval);
-        countdownInterval = null;
-    }
-    $('epic-overlay').style.display = 'none';
-    autoDefenseTriggered = false;
-    threatCount = 0;
-    setDefcon(5);
-    showToast('SYSTEM', 'Auto defense cancelled by operator', 'info');
-}
-
-function executeEpicAutoDefense() {
-    $('epic-overlay').style.display = 'none';
     const term = $('ai-terminal');
     const content = $('ai-term-content');
     term.style.display = 'block';
@@ -1756,6 +1679,8 @@ function executeEpicAutoDefense() {
             }
         }));
         content.innerHTML += `<br><span style="color:#0ff">> AI REQUEST SENT. AWAITING NEURAL RESPONSE...</span><br>`;
+        $('ai-term-input').style.display = 'block';
+        $('ai-term-input').focus();
     });
 }
 
@@ -1865,6 +1790,31 @@ function killProcess() {
             alert('Ошибка: ' + (res.error||'Неизвестно'));
         }
     }).catch(()=>alert('Network error'));
+}
+
+function closeAITerminal() {
+    $('ai-terminal').style.display = 'none';
+    autoDefenseTriggered = false;
+    threatCount = 0;
+    setDefcon(5);
+    showToast('SYSTEM', 'Управление перехвачено оператором', 'info');
+}
+
+function sendAITerminalInput(text) {
+    if (!text.trim()) return;
+    const content = $('ai-term-content');
+    content.innerHTML += `<br><br><span style="color:#fff">> OPERATOR: ${esc(text)}</span><br><span style="color:#0ff">> AWAITING NEURAL RESPONSE...</span><br>`;
+    $('ai-term-input').value = '';
+    
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+            event: 'ai_task',
+            data: {
+                task: text,
+                model: currentModel
+            }
+        }));
+    }
 }
 
 // Enter to login
