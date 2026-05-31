@@ -1,6 +1,6 @@
 {
   "name": "mistral-defense-client",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "MISTRAL Defense Command Center - Desktop Application",
   "main": "src/main.js",
   "scripts": {
@@ -13,13 +13,14 @@
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
-    "express": "^4.19.2",
-    "ws": "^8.17.0",
     "dotenv": "^16.4.5",
+    "electron-store": "^11.0.2",
+    "express": "^4.19.2",
     "helmet": "^7.1.0",
+    "node-fetch": "^3.3.2",
     "winston": "^3.13.0",
     "winston-daily-rotate-file": "^5.0.0",
-    "node-fetch": "^3.3.2"
+    "ws": "^8.17.0"
   },
   "devDependencies": {
     "electron": "^30.0.0",
@@ -43,13 +44,29 @@
       "node_modules/**/*"
     ],
     "extraResources": [
-      { "from": "src/templates", "to": "templates" },
-      { "from": "src/static", "to": "static" }
+      {
+        "from": "src/templates",
+        "to": "templates"
+      },
+      {
+        "from": "src/static",
+        "to": "static"
+      }
     ],
     "win": {
       "target": [
-        { "target": "nsis", "arch": ["x64"] },
-        { "target": "portable", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "src/static/logo.ico",
       "publisherName": "MISTRAL Defense",
