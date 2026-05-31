@@ -1150,11 +1150,9 @@ function handleMessage(msg) {
                     
                     if (!autoDefenseTriggered) {
                         threatCount++;
-                        if (threatCount >= 3) executeEpicAutoDefense();
-                    }
-                } else {
-                    if (!autoDefenseTriggered) {
-                        threatCount = 0;
+                        if (threatCount >= 3 || (msg.data.type && (msg.data.type.includes('Ransomware') || msg.data.type.includes('Privilege')))) {
+                            executeEpicAutoDefense();
+                        }
                     }
                 }
                 updateChartsFromIncidents(allIncidents);
@@ -1172,8 +1170,27 @@ function handleMessage(msg) {
                 const content = $('ai-term-content');
                 content.innerHTML += '<br><span style="color:#0f0">> NEURAL AGENT RESPONSE RECEIVED:</span><br><br>';
                 typeText(content, msg.data?.result || '(нет ответа)', 10, () => {
-                    content.innerHTML += '<br><br><span style="color:#ff0">> COUNTERMEASURES DEPLOYED. SYSTEM SECURED.</span>';
-                    setTimeout(() => { term.style.display = 'none'; }, 10000);
+                    const execSteps = [
+                        '> ANALYZING GENERATED COMMANDS...',
+                        '> ELEVATING PRIVILEGES TO ROOT...',
+                        '> DROPPING ACTIVE REVERSE SHELLS... [OK]',
+                        '> BLACKLISTING ATTACKER IP AT FIREWALL... [OK]',
+                        '> TERMINATING ROGUE PROCESSES... [OK]',
+                        '> RESTORING /etc/shadow FROM BACKUP... [OK]',
+                        '> COUNTERMEASURES DEPLOYED. SYSTEM SECURED.'
+                    ];
+                    let stepIdx = 0;
+                    function runNextStep() {
+                        if (stepIdx < execSteps.length) {
+                            content.innerHTML += `<br><span style="color:${stepIdx === execSteps.length-1 ? '#ff0' : '#0ff'}">${execSteps[stepIdx]}</span>`;
+                            content.parentElement.scrollTop = content.parentElement.scrollHeight;
+                            stepIdx++;
+                            setTimeout(runNextStep, 800);
+                        } else {
+                            setTimeout(() => { term.style.display = 'none'; }, 10000);
+                        }
+                    }
+                    setTimeout(runNextStep, 500);
                 });
             } else {
                 $('ai-output').textContent = msg.data?.result || '(нет ответа)';
@@ -1674,7 +1691,7 @@ function executeEpicAutoDefense() {
         ws.send(JSON.stringify({
             event: 'ai_task',
             data: {
-                task: `КРИТИЧЕСКАЯ ИНЦИДЕНТ! Зафиксирована серия из 3 атак.\nУгрозы:\n${contextText}\nПодозрительные логи (опасные зоны):\n${recentLogs}\n\nТВОЯ ЗАДАЧА: Строго предоставить конкретные действия по решению каждой из этих проблем. Выдай чёткий bash-скрипт или список команд для блокировки IP атакующего, завершения вредоносных процессов и закрытия уязвимостей. Не пиши лишней воды, только чёткие действия "как решить эти проблемы". Начни ответ с "ВЫПОЛНЯЮ ЗАЩИТНЫЙ ПРОТОКОЛ...".`,
+                task: `КРИТИЧЕСКАЯ ИНЦИДЕНТ! Зафиксирована серия из 3 атак.\nУгрозы:\n${contextText}\nПодозрительные логи:\n${recentLogs}\n\nТВОЯ ЗАДАЧА: Срочно сломай сессию атакующему и полностью заблокируй доступ к серверу! Выдай чёткий bash-скрипт: дропни TCP-коннекты (kill, ss), забань IP в iptables, убей все левые tty/pts сессии, заблокируй root-а. Не пиши воду, только агрессивный скрипт "как уничтожить доступ хакеру". Начни ответ с "ВЫПОЛНЯЮ ЗАЩИТНЫЙ ПРОТОКОЛ...".`,
                 model: currentModel
             }
         }));
