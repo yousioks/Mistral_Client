@@ -221,7 +221,6 @@ ipcMain.handle('get-app-version', () => app.getVersion());
 
 ipcMain.handle('connect-server', async (event, { host, port, username, password }) => {
   try {
-    const fetch = (await import('node-fetch')).default;
     const url = `http://${host}:${port}/api/auth/login`;
     const res = await fetch(url, {
       method: 'POST',
@@ -254,7 +253,6 @@ ipcMain.handle('disconnect-server', () => {
 ipcMain.handle('send-api-request', async (event, path, method, body) => {
   if (!serverConfig.url) return { error: 'Not connected' };
   try {
-    const fetch = (await import('node-fetch')).default;
     const res = await fetch(`${serverConfig.url}${path}`, {
       method,
       headers: { 'Content-Type': 'application/json' },
