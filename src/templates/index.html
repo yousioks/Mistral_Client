@@ -18,6 +18,10 @@
             --bg2: #101420;
             --bg3: #181d2e;
             --bg4: #232b42;
+            --glass-bg: rgba(16, 20, 32, 0.4);
+            --glass-border: rgba(255, 255, 255, 0.05);
+            --glass-blur: blur(16px);
+            --glass-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 8px 32px rgba(0,0,0,0.4);
             --border: rgba(255, 255, 255, 0.12);
             --border2: rgba(255, 255, 255, 0.2);
             --text: #FFFFFF;
@@ -182,8 +186,9 @@
         /* Left Sidebar styling */
         #sidebar {
             width: 240px;
-            background: var(--bg2);
-            border-right: 1px solid var(--border);
+            background: rgba(10, 14, 25, 0.7);
+            backdrop-filter: var(--glass-blur);
+            border-right: 1px solid var(--glass-border);
             display: flex;
             flex-direction: column;
             flex-shrink: 0;
@@ -253,7 +258,7 @@
             height: 100vh;
             overflow: hidden;
         }
-        header { background: #000000; border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 24px; height: 60px; gap: 0; flex-shrink: 0; transition: border-color 0.5s; z-index: 50;}
+        header { background: rgba(5, 7, 10, 0.8); backdrop-filter: var(--glass-blur); border-bottom: 1px solid var(--glass-border); display: flex; align-items: center; padding: 0 24px; height: 60px; gap: 0; flex-shrink: 0; transition: border-color 0.5s; z-index: 50;}
         .hdr-right { display: flex; align-items: center; gap: 16px; margin-left: auto; }
         .conn-badge { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
         .conn-dot { width: 7px; height: 7px; border-radius: 50%; background: #555; }
@@ -267,7 +272,7 @@
 
         /* ═══ TICKER TAPE (Bottom Status Bar) ═══ */
         #ticker-container {
-            width: 100%; height: 32px; background: #000000; border-top: 1px solid var(--border); border-bottom: none;
+            width: 100%; height: 32px; background: rgba(5, 7, 10, 0.9); backdrop-filter: var(--glass-blur); border-top: 1px solid var(--glass-border); border-bottom: none;
             display: flex; align-items: center; overflow: hidden; position: relative; z-index: 40;
             transition: background 0.5s, border-color 0.5s;
             flex-shrink: 0;
@@ -287,14 +292,14 @@
         @keyframes tickerScroll { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
 
         /* ═══ CONTENT ═══ */
-        .content { flex: 1; overflow-y: auto; padding: 24px; position: relative; z-index: 10; background: #000000; }
+        .content { flex: 1; overflow-y: auto; padding: 24px; position: relative; z-index: 10; background: radial-gradient(circle at center top, rgba(16, 20, 32, 1) 0%, rgba(9, 12, 21, 1) 100%); }
         .panel { display: none; height: 100%; }
         .panel.active { display: flex; flex-direction: column; }
         .panel.active > * { flex-shrink: 0; }
         .panel.active > .panel-scroll-body { flex: 1; overflow-y: auto; }
 
         /* Cards */
-        .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: 0 0 20px var(--defcon-glow) inset; transition: border-color 0.5s, box-shadow 0.5s; }
+        .card { background: var(--glass-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: 12px; padding: 20px; box-shadow: var(--glass-shadow); transition: border-color 0.5s, box-shadow 0.5s; }
         .card-hdr { font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 16px; letter-spacing: 0.5px; text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
         .card-hdr .cd { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
 
@@ -336,7 +341,7 @@
 
         /* Stats row */
         .stats-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
-        .stat-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; position: relative; overflow: hidden; }
+        .stat-box { background: var(--glass-bg); backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: 12px; padding: 20px; position: relative; overflow: hidden; box-shadow: var(--glass-shadow); }
         .stat-box::before { content: ''; position: absolute; top: 0; right: 0; width: 80px; height: 80px; border-radius: 50%; filter: blur(40px); opacity: 0.3; }
         .stat-box.s-red::before { background: var(--red); }
         .stat-box.s-orange::before { background: var(--orange); }
@@ -381,6 +386,19 @@
         .log-msg { color: #9AA8BD; flex: 1; word-break: break-all; }
         .log-monitor { color: var(--dim); font-size: 10px; }
 
+        /* ═══ THREAT RADAR ═══ */
+        .radar-box { position: relative; width: 100%; height: 220px; background: radial-gradient(circle at center, rgba(34, 197, 94, 0.03) 0%, transparent 70%), repeating-linear-gradient(rgba(34, 197, 94, 0.05) 0px, rgba(34, 197, 94, 0.05) 1px, transparent 1px, transparent 20px), repeating-linear-gradient(90deg, rgba(34, 197, 94, 0.05) 0px, rgba(34, 197, 94, 0.05) 1px, transparent 1px, transparent 20px); overflow: hidden; border-radius: 12px; border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); margin-bottom: 16px; }
+        .radar-box::before { content: ''; position: absolute; top: 50%; left: 50%; width: 280px; height: 280px; border-radius: 50%; border: 1px solid rgba(34,197,94,0.15); transform: translate(-50%, -50%); }
+        .radar-box::after { content: ''; position: absolute; top: 50%; left: 50%; width: 140px; height: 140px; border-radius: 50%; border: 1px solid rgba(34,197,94,0.1); transform: translate(-50%, -50%); }
+        .radar-sweep { position: absolute; top: 50%; left: 50%; width: 140px; height: 140px; border-radius: 100% 0 0 0; background: linear-gradient(45deg, rgba(34,197,94,0) 0%, rgba(34,197,94,0.4) 100%); transform-origin: bottom right; animation: sweep 3s linear infinite; z-index: 1; }
+        @keyframes sweep { from { transform: translate(-100%, -100%) rotate(0deg); } to { transform: translate(-100%, -100%) rotate(360deg); } }
+        .radar-dot { position: absolute; width: 8px; height: 8px; border-radius: 50%; background: var(--red); box-shadow: 0 0 12px var(--red); transform: translate(-50%, -50%); animation: ping 1.5s ease-out infinite; z-index: 2; }
+        @keyframes ping { 0% { box-shadow: 0 0 0 0 rgba(239,68,68,0.7); opacity: 1; } 70% { box-shadow: 0 0 0 15px rgba(239,68,68,0); opacity: 0; } 100% { opacity: 0; } }
+        .radar-crosshair-h { position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: rgba(34,197,94,0.2); }
+        .radar-crosshair-v { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(34,197,94,0.2); }
+        .radar-title { position: absolute; top: 12px; left: 16px; font-size: 10px; font-weight: 800; color: var(--green); text-transform: uppercase; letter-spacing: 2px; z-index: 3; text-shadow: 0 0 10px rgba(34,197,94,0.5); }
+        #radar-container { position: absolute; inset: 0; z-index: 2; }
+
         /* ═══ NETWORK / QUARANTINE ═══ */
         .net-grid { display: flex; flex-direction: column; gap: 16px; height: 100%; }
         table.full-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -396,9 +414,21 @@
         .btn-unq:hover { background: rgba(34,197,94,0.15); }
         .empty-td { color: var(--dim); font-style: italic; text-align: center; padding: 20px !important; }
 
+        /* ═══ KILL-CHAIN TIMELINE ═══ */
+        .killchain-wrap { display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.3); padding: 16px 20px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 16px; flex-shrink: 0; }
+        .kc-step { display: flex; flex-direction: column; align-items: center; gap: 8px; position: relative; z-index: 2; opacity: 0.4; transition: opacity 0.3s; }
+        .kc-step.active { opacity: 1; }
+        .kc-step.active .kc-dot { background: var(--red); box-shadow: 0 0 15px var(--red); border-color: transparent; animation: pulseKC 2s infinite; }
+        .kc-step.active .kc-lbl { color: #fff; font-weight: 800; text-shadow: 0 0 10px rgba(255,0,0,0.5); }
+        .kc-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--muted); background: var(--bg2); transition: 0.3s; }
+        .kc-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); font-weight: 600; text-align: center; max-width: 80px; }
+        .kc-line { flex: 1; height: 2px; background: rgba(255,255,255,0.1); margin: 0 10px; transform: translateY(-10px); position: relative; overflow: hidden; }
+        .kc-line-fill { position: absolute; top: 0; left: 0; bottom: 0; width: 0%; background: var(--red); box-shadow: 0 0 10px var(--red); transition: width 0.5s; }
+        @keyframes pulseKC { 0% { box-shadow: 0 0 0 0 rgba(239,68,68,0.7); } 70% { box-shadow: 0 0 0 10px rgba(239,68,68,0); } 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); } }
+
         /* ═══ INCIDENTS ═══ */
         .inc-list { display: flex; flex-direction: column; gap: 10px; }
-        .inc-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; display: flex; gap: 14px; border-left: 3px solid var(--dim); transition: 0.15s; }
+        .inc-card { background: var(--glass-bg); backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: 10px; padding: 16px 18px; display: flex; gap: 14px; border-left: 3px solid var(--dim); transition: 0.15s; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
         .inc-card:hover { border-color: var(--border2); }
         .inc-card.CRITICAL { border-left-color: var(--red); }
         .inc-card.HIGH { border-left-color: var(--orange); }
@@ -421,7 +451,7 @@
 
         /* ═══ METRICS ═══ */
         .metrics-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-bottom: 16px; }
-        .m-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; text-align: center; }
+        .m-card { background: var(--glass-bg); backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: 12px; padding: 20px; text-align: center; box-shadow: var(--glass-shadow); }
         .m-label { font-size: 14px; font-weight: 700; color: var(--muted); letter-spacing: 1px; margin-bottom: 12px; text-transform: uppercase; }
         .m-bar { height: 8px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; margin-bottom: 12px; }
         .m-fill { height: 100%; border-radius: 4px; transition: width 0.3s; background: var(--green); }
@@ -637,9 +667,16 @@
                     </div>
                 </div>
 
-                <!-- MIDDLE: Stats + Charts -->
+                <!-- MIDDLE: Radar + Stats + Charts -->
                 <div style="display:flex;flex-direction:column;gap:16px">
-                    <div class="stats-row">
+                    <div class="radar-box">
+                        <div class="radar-title">GLOBAL THREAT RADAR</div>
+                        <div class="radar-sweep"></div>
+                        <div class="radar-crosshair-h"></div>
+                        <div class="radar-crosshair-v"></div>
+                        <div id="radar-container"></div>
+                    </div>
+                    <div class="stats-row" style="margin-top:-16px">
                         <div class="stat-box s-red"><div class="stat-icon">🔴</div><div class="stat-val" id="s-critical">0</div><div class="stat-lbl">Critical Alerts</div></div>
                         <div class="stat-box s-orange"><div class="stat-icon">⚡</div><div class="stat-val" id="s-threats">0</div><div class="stat-lbl">Active Threats</div></div>
                         <div class="stat-box s-blue"><div class="stat-icon">🔍</div><div class="stat-val" id="s-vuln">0</div><div class="stat-lbl">CVE Events</div></div>
@@ -705,7 +742,21 @@
         <!-- ═══ INCIDENTS ═══ -->
         <div class="panel" id="panel-incidents">
             <div class="card" style="display:flex;flex-direction:column;height:100%">
-                <div class="card-hdr"><div class="cd" style="background:var(--orange)"></div>Все инциденты</div>
+                <div class="card-hdr" style="margin-bottom:8px;"><div class="cd" style="background:var(--orange)"></div>Все инциденты</div>
+                
+                <!-- Kill-Chain Timeline -->
+                <div class="killchain-wrap">
+                    <div class="kc-step" id="kc-recon"><div class="kc-dot"></div><div class="kc-lbl">Reconnaissance</div></div>
+                    <div class="kc-line"><div class="kc-line-fill"></div></div>
+                    <div class="kc-step" id="kc-initial"><div class="kc-dot"></div><div class="kc-lbl">Initial Access</div></div>
+                    <div class="kc-line"><div class="kc-line-fill"></div></div>
+                    <div class="kc-step" id="kc-exec"><div class="kc-dot"></div><div class="kc-lbl">Execution</div></div>
+                    <div class="kc-line"><div class="kc-line-fill"></div></div>
+                    <div class="kc-step" id="kc-priv"><div class="kc-dot"></div><div class="kc-lbl">Privilege Esc.</div></div>
+                    <div class="kc-line"><div class="kc-line-fill"></div></div>
+                    <div class="kc-step" id="kc-impact"><div class="kc-dot"></div><div class="kc-lbl">Impact</div></div>
+                </div>
+
                 <div id="incidents-list" class="inc-list" style="flex:1;overflow-y:auto;padding-right:4px"></div>
             </div>
         </div>
@@ -1144,6 +1195,9 @@ function handleMessage(msg) {
                 if($('panel-incidents').classList.contains('active')) renderIncidents(allIncidents);
                 else addIncidentCard(msg.data, true, $('incidents-list'));
                 
+                addRadarBlip(msg.data);
+                updateKillChain(msg.data);
+                
                 if(msg.data.severity==='CRITICAL'||msg.data.severity==='HIGH'){
                     if(!$('panel-dangerous').classList.contains('active')) addDangerousCard(msg.data, true, $('dangerous-list'));
                     showAlert(msg.data);
@@ -1363,7 +1417,23 @@ function addIncidentCard(inc, prepend, container) {
     div.className = `inc-card ${inc.severity||'LOW'}`;
     const sOpts = [['new','Новый'],['in_review','В рассмотрении'],['resolved','Решён']].map(([v,l])=>`<option value="${v}"${inc.status===v?' selected':''}>${l}</option>`).join('');
     const svOpts = ['CRITICAL','HIGH','MEDIUM','LOW'].map(s=>`<option value="${s}"${inc.severity===s?' selected':''}>${s}</option>`).join('');
-    div.innerHTML = `<span class="inc-sev ${inc.severity}">${inc.severity}</span><div class="inc-body"><div class="inc-type">${esc(inc.type||'')}</div><div class="inc-desc">${esc(inc.description||'')}</div><div class="inc-ctrls"><select class="inc-sel" onchange="patchIncident('${inc.id}',{status:this.value})">${sOpts}</select><select class="inc-sel" onchange="patchIncident('${inc.id}',{severity:this.value})">${svOpts}</select><button class="btn-ai" onclick="analyzeContext('${inc.id}')">🧠 ИИ Анализ</button></div><div class="inc-meta">${esc(inc.monitor||'')} · ${(inc.timestamp||'').slice(0,19).replace('T',' ')}</div></div>`;
+    div.innerHTML = `
+        <div style="display:flex; flex-direction:column; gap:8px; width:100%;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span class="inc-sev ${inc.severity}">${inc.severity}</span>
+                <span class="inc-meta" style="background:rgba(255,255,255,0.05); padding:3px 8px; border-radius:4px; border:1px solid var(--glass-border);">${esc(inc.monitor||'')}</span>
+            </div>
+            <div class="inc-type" style="font-size:15px; font-weight:800; color:#fff; letter-spacing:0.5px; margin-top:4px;">${esc(inc.type||'')}</div>
+            <div class="inc-desc" style="color:var(--muted); font-size:12px; line-height:1.5;">${esc(inc.description||'')}</div>
+            <div style="height:1px; background:var(--glass-border); margin:4px 0;"></div>
+            <div class="inc-ctrls">
+                <select class="inc-sel" onchange="patchIncident('${inc.id}',{status:this.value})">${sOpts}</select>
+                <select class="inc-sel" onchange="patchIncident('${inc.id}',{severity:this.value})">${svOpts}</select>
+                <button class="btn-ai" onclick="analyzeContext('${inc.id}')">🧠 ИИ Анализ</button>
+                <span style="margin-left:auto; font-size:10px; font-family:'JetBrains Mono',monospace; color:var(--dim);">${(inc.timestamp||'').slice(0,19).replace('T',' ')}</span>
+            </div>
+        </div>
+    `;
     if(prepend) container.insertBefore(div, container.firstChild);
     else container.appendChild(div);
 }
@@ -1376,7 +1446,24 @@ function addDangerousCard(inc, prepend, container) {
     if(inc.contextBlock) ctxHtml = `<div class="inc-ctx">${esc(inc.contextBlock)}</div>`;
     const sOpts = [['new','Новый'],['in_review','В рассмотрении'],['resolved','Решён']].map(([v,l])=>`<option value="${v}"${inc.status===v?' selected':''}>${l}</option>`).join('');
     const svOpts = ['CRITICAL','HIGH','MEDIUM','LOW'].map(s=>`<option value="${s}"${inc.severity===s?' selected':''}>${s}</option>`).join('');
-    div.innerHTML = `<span class="inc-sev ${inc.severity}">${inc.severity}</span><div class="inc-body"><div class="inc-type">${esc(inc.type||'')}</div><div class="inc-desc">${esc(inc.description||'')}</div>${ctxHtml}<div class="inc-ctrls"><select class="inc-sel" onchange="patchIncident('${inc.id}',{status:this.value})">${sOpts}</select><select class="inc-sel" onchange="patchIncident('${inc.id}',{severity:this.value})">${svOpts}</select><button class="btn-ai" onclick="analyzeContext('${inc.id}')">🧠 ИИ Анализ</button></div><div class="inc-meta">${esc(inc.monitor||'')} · ${(inc.timestamp||'').slice(0,19).replace('T',' ')}</div></div>`;
+    div.innerHTML = `
+        <div style="display:flex; flex-direction:column; gap:8px; width:100%;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span class="inc-sev ${inc.severity}">${inc.severity}</span>
+                <span class="inc-meta" style="background:rgba(255,255,255,0.05); padding:3px 8px; border-radius:4px; border:1px solid var(--glass-border);">${esc(inc.monitor||'')}</span>
+            </div>
+            <div class="inc-type" style="font-size:15px; font-weight:800; color:#fff; letter-spacing:0.5px; margin-top:4px;">${esc(inc.type||'')}</div>
+            <div class="inc-desc" style="color:var(--muted); font-size:12px; line-height:1.5;">${esc(inc.description||'')}</div>
+            ${ctxHtml}
+            <div style="height:1px; background:var(--glass-border); margin:4px 0;"></div>
+            <div class="inc-ctrls">
+                <select class="inc-sel" onchange="patchIncident('${inc.id}',{status:this.value})">${sOpts}</select>
+                <select class="inc-sel" onchange="patchIncident('${inc.id}',{severity:this.value})">${svOpts}</select>
+                <button class="btn-ai" onclick="analyzeContext('${inc.id}')">🧠 ИИ Анализ</button>
+                <span style="margin-left:auto; font-size:10px; font-family:'JetBrains Mono',monospace; color:var(--dim);">${(inc.timestamp||'').slice(0,19).replace('T',' ')}</span>
+            </div>
+        </div>
+    `;
     if(prepend) container.insertBefore(div, container.firstChild);
     else container.appendChild(div);
 }
@@ -1831,6 +1918,66 @@ function sendAITerminalInput(text) {
                 model: currentModel
             }
         }));
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// GLOBAL THREAT RADAR
+// ══════════════════════════════════════════════════════════════════════════════
+function addRadarBlip(incident) {
+    const radar = $('radar-container');
+    if (!radar) return;
+    
+    // Create blip
+    const dot = document.createElement('div');
+    dot.className = 'radar-dot';
+    
+    // Random position within circle radius (max 140px from center)
+    const angle = Math.random() * Math.PI * 2;
+    const distance = Math.random() * 120; // 120 max to stay inside 140px radius
+    
+    const x = Math.cos(angle) * distance;
+    const y = Math.sin(angle) * distance;
+    
+    dot.style.left = `calc(50% + ${x}px)`;
+    dot.style.top = `calc(50% + ${y}px)`;
+    
+    // Color based on severity
+    if (incident.severity === 'CRITICAL') dot.style.background = dot.style.boxShadowColor = 'var(--red)';
+    else if (incident.severity === 'HIGH') dot.style.background = dot.style.boxShadowColor = 'var(--orange)';
+    else if (incident.severity === 'MEDIUM') dot.style.background = dot.style.boxShadowColor = 'var(--blue)';
+    else dot.style.background = dot.style.boxShadowColor = 'var(--muted)';
+    
+    radar.appendChild(dot);
+    
+    // Remove after ping animation completes
+    setTimeout(() => { if (dot.parentNode) dot.parentNode.removeChild(dot); }, 1500);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// KILL-CHAIN TIMELINE
+// ══════════════════════════════════════════════════════════════════════════════
+function updateKillChain(incident) {
+    if (!incident || !incident.type) return;
+    const t = incident.type.toLowerCase();
+    let step = '';
+    if (t.includes('scan') || t.includes('recon')) step = 'recon';
+    else if (t.includes('brute') || t.includes('ssh success') || t.includes('auth')) step = 'initial';
+    else if (t.includes('sql') || t.includes('rce') || t.includes('bypass') || t.includes('exec') || t.includes('injection')) step = 'exec';
+    else if (t.includes('privilege') || t.includes('persistence') || t.includes('shadow')) step = 'priv';
+    else if (t.includes('ransomware') || t.includes('crypto') || t.includes('mass') || t.includes('encrypt')) step = 'impact';
+    
+    if (step) {
+        const steps = ['recon', 'initial', 'exec', 'priv', 'impact'];
+        const idx = steps.indexOf(step);
+        for(let i=0; i<=idx; i++) {
+            const el = $('kc-' + steps[i]);
+            if(el) el.classList.add('active');
+            if(i < idx) {
+                const lineFill = document.querySelectorAll('.kc-line-fill')[i];
+                if(lineFill) lineFill.style.width = '100%';
+            }
+        }
     }
 }
 
