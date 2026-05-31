@@ -9,15 +9,15 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         :root {
-            --defcon-bg: #000000;
+            --defcon-bg: #111111;
             --defcon-border: rgba(255, 255, 255, 0.12);
             --defcon-accent: #FF0000;
             --defcon-glow: rgba(255, 0, 0, 0.05);
             
-            --bg: #000000;
-            --bg2: #000000;
-            --bg3: #000000;
-            --bg4: #000000;
+            --bg: #16181c;
+            --bg2: #1c1f24;
+            --bg3: #23272d;
+            --bg4: #2b3038;
             --border: rgba(255, 255, 255, 0.12);
             --border2: rgba(255, 255, 255, 0.2);
             --text: #FFFFFF;
@@ -40,7 +40,7 @@
         /* ═══ LOGIN ═══ */
         #login-screen {
             position: fixed; inset: 0; z-index: 1000;
-            background: #000000;
+            background: var(--bg);
             display: flex; align-items: center; justify-content: center;
             overflow: hidden;
         }
@@ -182,7 +182,7 @@
         /* Left Sidebar styling */
         #sidebar {
             width: 240px;
-            background: #000000;
+            background: var(--bg2);
             border-right: 1px solid var(--border);
             display: flex;
             flex-direction: column;
@@ -489,11 +489,71 @@
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.12); }
         .hidden { display: none !important; }
+
+        /* ═══ EPIC AUTO DEFENSE UI ═══ */
+        #epic-overlay {
+            position: fixed; inset: 0; z-index: 5000;
+            background: rgba(20, 0, 0, 0.95);
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            overflow: hidden;
+        }
+        #epic-overlay::before {
+            content: ''; position: absolute; inset: 0;
+            background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,0,0,0.1) 2px, rgba(255,0,0,0.1) 4px);
+            z-index: 1; pointer-events: none;
+        }
+        .glitch-text {
+            font-size: 64px; font-weight: 900; color: #ff0000; text-transform: uppercase;
+            text-shadow: 2px 2px #00f, -2px -2px #0f0;
+            animation: glitch 0.5s infinite;
+            z-index: 2; text-align: center; margin-bottom: 20px;
+        }
+        @keyframes glitch {
+            0% { transform: translate(0) }
+            20% { transform: translate(-5px, 5px) }
+            40% { transform: translate(-5px, -5px) }
+            60% { transform: translate(5px, 5px) }
+            80% { transform: translate(5px, -5px) }
+            100% { transform: translate(0) }
+        }
+        .countdown-text {
+            font-size: 120px; font-weight: 900; color: #fff; text-shadow: 0 0 40px #ff0000;
+            z-index: 2; margin-bottom: 40px; font-variant-numeric: tabular-nums;
+        }
+        .btn-override {
+            pointer-events: auto;
+            background: transparent; border: 3px solid #ff0000; color: #ff0000;
+            font-size: 24px; font-weight: 900; padding: 20px 40px; border-radius: 12px;
+            cursor: pointer; text-transform: uppercase; letter-spacing: 5px;
+            box-shadow: 0 0 30px rgba(255,0,0,0.5), inset 0 0 20px rgba(255,0,0,0.5);
+            transition: all 0.2s; z-index: 2;
+        }
+        .btn-override:hover { background: #ff0000; color: #fff; box-shadow: 0 0 60px #ff0000; }
+        
+        #ai-terminal {
+            display: none; position: fixed; inset: 10%; z-index: 5001;
+            background: rgba(0,0,0,0.9); border: 2px solid #ff0000; border-radius: 10px;
+            padding: 30px; font-family: 'JetBrains Mono', monospace; font-size: 16px;
+            color: #0f0; box-shadow: 0 0 50px rgba(255,0,0,0.5); overflow-y: auto;
+        }
+        .typing-cursor::after { content: '█'; animation: blink 1s step-start infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
     </style>
 </head>
 <body>
 <div id="alert-banner"></div>
 <div id="toast-container"></div>
+
+<!-- EPIC UI ELEMENTS -->
+<div id="epic-overlay">
+    <div class="glitch-text">CRITICAL THREAT DETECTED<br>AUTO DEFENSE IMMINENT</div>
+    <div class="countdown-text" id="epic-countdown">10.0</div>
+    <button class="btn-override" onclick="cancelAutoDefense()">MANUAL OVERRIDE</button>
+</div>
+<div id="ai-terminal">
+    <div style="color:#f00; font-weight:900; font-size:24px; margin-bottom:20px; border-bottom:1px solid #f00; padding-bottom:10px;">🛡️ MISTRAL AI DEFENSE AGENT</div>
+    <div id="ai-term-content" class="typing-cursor"></div>
+</div>
 
 <!-- ═══ LOGIN ═══ -->
 <div id="login-screen">
@@ -537,7 +597,7 @@
     <div id="sidebar">
         <div class="sidebar-logo">
             <img src="/static/logo.svg" alt="M" onerror="this.style.display='none'">
-            MIST<span style="letter-spacing: 0; margin: 0; padding: 0;">RAL</span>
+            <span>MIST<span style="letter-spacing: 0; margin: 0; padding: 0;">RAL</span></span>
         </div>
         <div class="tabs">
             <div class="tab active" data-tab="dashboard" onclick="switchTab('dashboard')">Dashboard</div>
@@ -846,6 +906,8 @@ let allIncidents = [];
 let chartRisk = null, chartNet = null, chartType = null;
 let autoDefenseTriggered = false;
 let threatCount = 0;
+let autoDefenseCountdown = 10.0;
+let countdownInterval = null;
 const $ = id => document.getElementById(id);
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
  
@@ -1127,7 +1189,7 @@ function handleMessage(msg) {
                     
                     if (!autoDefenseTriggered) {
                         threatCount++;
-                        if (threatCount >= 3) triggerAutoDefense();
+                        if (threatCount >= 3) startEpicCountdown();
                     }
                 } else {
                     if (!autoDefenseTriggered) {
@@ -1144,7 +1206,17 @@ function handleMessage(msg) {
             if(msg.data?.model){currentModel=msg.data.model;$('model-badge').textContent=currentModel;}
             break;
         case 'ai_result':
-            $('ai-output').textContent = msg.data?.result || '(нет ответа)';
+            const term = $('ai-terminal');
+            if (term && term.style.display === 'block') {
+                const content = $('ai-term-content');
+                content.innerHTML += '<br><span style="color:#0f0">> NEURAL AGENT RESPONSE RECEIVED:</span><br><br>';
+                typeText(content, msg.data?.result || '(нет ответа)', 10, () => {
+                    content.innerHTML += '<br><br><span style="color:#ff0">> COUNTERMEASURES DEPLOYED. SYSTEM SECURED.</span>';
+                    setTimeout(() => { term.style.display = 'none'; }, 10000);
+                });
+            } else {
+                $('ai-output').textContent = msg.data?.result || '(нет ответа)';
+            }
             $('btn-ai-send').disabled = false;
             break;
         case 'ai_error':
@@ -1619,32 +1691,93 @@ function runSecurityScan(type) {
         }
     }));
 }
-function triggerAutoDefense() {
+function startEpicCountdown() {
+    if (autoDefenseTriggered || countdownInterval) return;
     autoDefenseTriggered = true;
-    const banner = $('alert-banner');
-    banner.style.display = 'block';
-    banner.style.fontSize = '18px';
-    banner.style.padding = '24px';
-    banner.style.letterSpacing = '2px';
-    banner.innerHTML = '🚨 AUTO DEFENSE ACTIVATED 🚨<br><span style="font-size:12px;font-weight:600;letter-spacing:1px">CRITICAL THREAT THRESHOLD REACHED. AI INITIATING COUNTERMEASURES...</span>';
     setDefcon(1);
-    switchTab('ai');
-    
-    const threats = allIncidents.filter(i => i.severity==='CRITICAL'||i.severity==='HIGH').slice(0,3);
-    const contextText = threats.map(t => `[${t.severity}] ${t.type}: ${t.description}`).join('\n');
-    $('ai-task').value = "ВНИМАНИЕ! Обнаружена серия атак на сервер. Вот последние 3 угрозы:\n" + contextText + "\n\nДействуй немедленно! Выдай скрипт защиты или команды для блокировки атакующего.";
+    const overlay = $('epic-overlay');
+    const cdText = $('epic-countdown');
+    overlay.style.display = 'flex';
+    autoDefenseCountdown = 10.0;
     
     let flashes = 0;
     const flasher = setInterval(() => {
         document.documentElement.style.setProperty('--defcon-bg', flashes%2===0 ? '#450a0a' : '#050505');
         flashes++;
-        if(flashes > 12) { clearInterval(flasher); document.documentElement.style.setProperty('--defcon-bg', '#1a0505'); }
+        if(flashes > 20) { clearInterval(flasher); document.documentElement.style.setProperty('--defcon-bg', '#1a0505'); }
     }, 200);
 
-    setTimeout(() => {
-        sendAITask();
-        setTimeout(() => { banner.style.display = 'none'; }, 6000);
-    }, 2500);
+    countdownInterval = setInterval(() => {
+        autoDefenseCountdown -= 0.1;
+        if (autoDefenseCountdown <= 0) {
+            autoDefenseCountdown = 0;
+            clearInterval(countdownInterval);
+            countdownInterval = null;
+            executeEpicAutoDefense();
+        }
+        cdText.textContent = autoDefenseCountdown.toFixed(1);
+    }, 100);
+}
+
+function cancelAutoDefense() {
+    if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+    }
+    $('epic-overlay').style.display = 'none';
+    autoDefenseTriggered = false;
+    threatCount = 0;
+    setDefcon(5);
+    showToast('SYSTEM', 'Auto defense cancelled by operator', 'info');
+}
+
+function executeEpicAutoDefense() {
+    $('epic-overlay').style.display = 'none';
+    const term = $('ai-terminal');
+    const content = $('ai-term-content');
+    term.style.display = 'block';
+    
+    const threats = allIncidents.filter(i => i.severity==='CRITICAL'||i.severity==='HIGH').slice(0,3);
+    const contextText = threats.map(t => `[${t.severity}] ${t.type}: ${t.description}`).join('\n');
+    const recentLogs = currentLogsData.slice(0,5).map(l => `[${getAutoLevel(l).toUpperCase()}] ${l.message}`).join('\n');
+    
+    const promptText = `> INITIALIZING NEURAL COUNTERMEASURES...\n> ANALYZING THREAT VECTORS:\n${contextText}\n\n> RECENT SYSTEM LOGS:\n${recentLogs}\n\n> FORMULATING DEFENSE STRATEGY...\n`;
+    
+    typeText(content, promptText, 15, () => {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+            content.innerHTML += '<br><span style="color:#f00">> OFFLINE. CANNOT REACH AI CORE.</span>';
+            return;
+        }
+        ws.send(JSON.stringify({
+            event: 'ai_task',
+            data: {
+                task: `КРИТИЧЕСКАЯ ИНЦИДЕНТ! Зафиксирована серия из 3 атак.\nУгрозы:\n${contextText}\nПодозрительные логи (опасные зоны):\n${recentLogs}\n\nТВОЯ ЗАДАЧА: Строго предоставить конкретные действия по решению каждой из этих проблем. Выдай чёткий bash-скрипт или список команд для блокировки IP атакующего, завершения вредоносных процессов и закрытия уязвимостей. Не пиши лишней воды, только чёткие действия "как решить эти проблемы". Начни ответ с "ВЫПОЛНЯЮ ЗАЩИТНЫЙ ПРОТОКОЛ...".`,
+                model: currentModel
+            }
+        }));
+        content.innerHTML += `<br><span style="color:#0ff">> AI REQUEST SENT. AWAITING NEURAL RESPONSE...</span><br>`;
+    });
+}
+
+function typeText(element, text, speed, callback) {
+    let i = 0;
+    function type() {
+        if (i < text.length) {
+            let char = text.charAt(i);
+            if (char === '\n') {
+                element.appendChild(document.createElement('br'));
+            } else {
+                element.appendChild(document.createTextNode(char));
+            }
+            element.parentElement.scrollTop = element.parentElement.scrollHeight;
+            i++;
+            setTimeout(type, speed);
+        } else {
+            if (callback) callback();
+        }
+    }
+    element.innerHTML = '';
+    type();
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

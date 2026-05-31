@@ -9,6 +9,7 @@ const { startClientServer } = require('./client-server.js');
 
 let mainWindow;
 let splashWindow;
+let currentClientPort = 3001;
 
 function createSplash() {
   splashWindow = new BrowserWindow({
@@ -67,8 +68,8 @@ function createMainWindow() {
     },
   });
 
-  // Load from local HTTP server (client-server.js serves on localhost:3001)
-  mainWindow.loadURL('http://localhost:3001');
+  // Load from local HTTP server (client-server.js serves on dynamic port)
+  mainWindow.loadURL(`http://localhost:${currentClientPort}`);
 
   // Open DevTools in development (or always via Ctrl+Shift+I)
   if (process.env.NODE_ENV === 'development') {
@@ -105,7 +106,8 @@ app.whenReady().then(() => {
   createSplash();
 
   // Start the embedded Node.js client-server BEFORE opening the window
-  startClientServer(() => {
+  startClientServer((port) => {
+    if (port) currentClientPort = port;
     createMainWindow();
   });
 

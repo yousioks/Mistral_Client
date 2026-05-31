@@ -406,12 +406,24 @@ let browserWss = null;
 
 function startClientServer(callback) {
   clientServer = http.createServer(app);
-  clientServer.listen(CLIENT_PORT, () => {
-    logger.info(`MISTRAL Client dashboard HTTP on http://localhost:${CLIENT_PORT}`);
+  let currentPort = CLIENT_PORT;
+
+  clientServer.on('error', (e) => {
+    if (e.code === 'EADDRINUSE') {
+      logger.warn(`Port ${currentPort} is in use, trying ${currentPort + 1}...`);
+      currentPort++;
+      clientServer.listen(currentPort);
+    } else {
+      logger.error('Client server error', { error: e.message });
+    }
+  });
+
+  clientServer.listen(currentPort, () => {
+    logger.info(`MISTRAL Client dashboard HTTP on http://localhost:${currentPort}`);
     browserWss = startBrowserWSS(clientServer);
-    logger.info(`Browser WebSocket endpoint: ws://localhost:${CLIENT_PORT}/client-ws`);
+    logger.info(`Browser WebSocket endpoint: ws://localhost:${currentPort}/client-ws`);
     // Не подключаемся к серверу автоматически — ждём логина из браузера
-    if (callback) callback();
+    if (callback) callback(currentPort);
   });
 
   process.on('SIGINT', () => {
