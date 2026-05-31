@@ -648,12 +648,12 @@
                         </div>
                     </div>
                     <div class="card" style="flex:1;min-height:0;display:flex;flex-direction:column">
-                        <div class="card-hdr"><div class="cd" style="background:var(--red)"></div>SSH / Auth Attempts</div>
+                        <div class="card-hdr"><div class="cd" style="background:var(--red)"></div>DDoS / Flood Attempts</div>
                         <div style="flex:1;overflow-y:auto">
                             <table class="full-tbl" style="font-size:11px">
                                 <thead>
                                     <tr>
-                                        <th>User</th>
+                                        <th>Target/Agent</th>
                                         <th>IP Address</th>
                                         <th>Time</th>
                                         <th>Action</th>
@@ -730,8 +730,8 @@
         <!-- ═══ NETWORK & QUARANTINE ═══ -->
         <div class="panel" id="panel-network">
             <div class="net-grid">
-                <div class="card"><div class="card-hdr"><div class="cd" style="background:var(--orange)"></div>SSH / Auth Attempts</div>
-                    <table class="full-tbl"><thead><tr><th>User</th><th>IP Address</th><th>Time</th><th>Action</th></tr></thead><tbody id="ssh-tbody"><tr><td colspan="4" class="empty-td">Ожидание данных от мониторов...</td></tr></tbody></table>
+                <div class="card"><div class="card-hdr"><div class="cd" style="background:var(--orange)"></div>DDoS / Flood Attempts</div>
+                    <table class="full-tbl"><thead><tr><th>Target/Agent</th><th>IP Address</th><th>Time</th><th>Action</th></tr></thead><tbody id="ssh-tbody"><tr><td colspan="4" class="empty-td">Ожидание данных от мониторов...</td></tr></tbody></table>
                 </div>
                 <div class="card" style="flex:1"><div class="card-hdr"><div class="cd" style="background:var(--red)"></div>Quarantine <span id="q-count" style="background:rgba(239,68,68,0.12);color:var(--red);border-radius:20px;padding:1px 8px;font-size:10px;margin-left:6px">0</span></div>
                     <table class="full-tbl"><thead><tr><th>IP</th><th>Reason</th><th>Blocked</th><th>Action</th></tr></thead><tbody id="quarantine-tbody"><tr><td colspan="4" class="empty-td">Нет заблокированных IP</td></tr></tbody></table>
@@ -967,9 +967,10 @@ function updateChartsFromIncidents(list) {
     let crit=0, high=0, med=0, low=0;
     const types = [0,0,0,0,0,0];
     list.forEach(i => {
-        if(i.severity==='CRITICAL') crit++;
-        else if(i.severity==='HIGH') high++;
-        else if(i.severity==='MEDIUM') med++;
+        const sev = String(i.severity||'').toUpperCase();
+        if(sev==='CRITICAL') crit++;
+        else if(sev==='HIGH') high++;
+        else if(sev==='MEDIUM') med++;
         else low++;
         const t = String(i.type||'').toLowerCase();
         if(t.includes('brute')||t.includes('login')||t.includes('auth')) types[0]++;
@@ -990,14 +991,21 @@ function updateChartsFromIncidents(list) {
     // Risk level table
     $('rl-crit').textContent=crit; $('rl-high').textContent=high; $('rl-med').textContent=med; $('rl-low').textContent=low;
     // Recent alerts (last 8 critical/high)
-    const recent = list.filter(i=>i.severity==='CRITICAL'||i.severity==='HIGH').slice(0,8);
-    const ra = $('recent-alerts'); ra.innerHTML = '';
-    recent.forEach(i => {
-        const d = document.createElement('div');
-        d.style.cssText = 'padding:6px 8px;background:rgba(0,0,0,0.3);border-radius:6px;border-left:3px solid '+(i.severity==='CRITICAL'?'var(--red)':'var(--orange)');
-        d.innerHTML = '<div style="font-weight:700;font-size:11px;color:#fff">'+esc(i.type||'')+'</div><div style="font-size:10px;color:var(--muted);margin-top:2px">'+esc(i.description||'').slice(0,60)+'</div>';
-        ra.appendChild(d);
-    });
+    const recent = list.filter(i=> {
+        const s = String(i.severity||'').toUpperCase();
+        return s==='CRITICAL' || s==='HIGH';
+    }).slice(0,8);
+    const ra = $('recent-alerts'); 
+    if(ra) {
+        ra.innerHTML = '';
+        recent.forEach(i => {
+            const sev = String(i.severity||'').toUpperCase();
+            const d = document.createElement('div');
+            d.style.cssText = 'padding:6px 8px;background:rgba(0,0,0,0.3);border-radius:6px;border-left:3px solid '+(sev==='CRITICAL'?'var(--red)':'var(--orange)');
+            d.innerHTML = '<div style="font-weight:700;font-size:11px;color:#fff">'+esc(i.type||'')+'</div><div style="font-size:10px;color:var(--muted);margin-top:2px">'+esc(i.description||'').slice(0,60)+'</div>';
+            ra.appendChild(d);
+        });
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1609,11 +1617,11 @@ function updateMetrics(data) {
         if (tb) {
             tb.innerHTML = '';
             if(!data.ssh_sessions.length) {
-                tb.innerHTML='<tr><td colspan="4" class="empty-td">Нет SSH-сессий</td></tr>';
+                tb.innerHTML='<tr><td colspan="4" class="empty-td">Ожидание данных DDoS-анализатора...</td></tr>';
             } else {
                 data.ssh_sessions.forEach(s => {
                     const tr = document.createElement('tr');
-                    tr.innerHTML = `<td>${esc(s.user||'?')}</td><td><span class="ip-chip">${esc(s.ip||'?')}</span></td><td>${esc(s.time||'')}</td><td><button class="btn-sm btn-q" onclick="quarantineIp('${esc(s.ip)}','Blocked from SSH table')">🛡 КАРАНТИН</button></td>`;
+                    tr.innerHTML = `<td>${esc(s.user||'?')}</td><td><span class="ip-chip">${esc(s.ip||'?')}</span></td><td>${esc(s.time||'')}</td><td><button class="btn-sm btn-q" onclick="quarantineIp('${esc(s.ip)}','Blocked by Anti-DDoS')">🛡 ЗАБАНИТЬ IP</button></td>`;
                     tb.appendChild(tr);
                 });
             }
@@ -1622,11 +1630,11 @@ function updateMetrics(data) {
         if (dashTb) {
             dashTb.innerHTML = '';
             if(!data.ssh_sessions.length) {
-                dashTb.innerHTML='<tr><td colspan="4" class="empty-td">Нет SSH-сессий</td></tr>';
+                dashTb.innerHTML='<tr><td colspan="4" class="empty-td">Ожидание данных DDoS-анализатора...</td></tr>';
             } else {
                 data.ssh_sessions.forEach(s => {
                     const tr = document.createElement('tr');
-                    tr.innerHTML = `<td>${esc(s.user||'?')}</td><td><span class="ip-chip">${esc(s.ip||'?')}</span></td><td>${esc(s.time||'')}</td><td><button class="btn-sm btn-q" onclick="quarantineIp('${esc(s.ip)}','Blocked from SSH table')">🛡 КАРАНТИН</button></td>`;
+                    tr.innerHTML = `<td>${esc(s.user||'?')}</td><td><span class="ip-chip">${esc(s.ip||'?')}</span></td><td>${esc(s.time||'')}</td><td><button class="btn-sm btn-q" onclick="quarantineIp('${esc(s.ip)}','Blocked by Anti-DDoS')">🛡 ЗАБАНИТЬ IP</button></td>`;
                     dashTb.appendChild(tr);
                 });
             }
