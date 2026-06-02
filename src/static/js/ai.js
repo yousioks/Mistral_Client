@@ -1,0 +1,120 @@
+// ══════════════════════════════════════════════════════════════════════════════
+// ANALYZE (from original)
+// ══════════════════════════════════════════════════════════════════════════════
+window.analyzeLog = function(msgText) {
+    const prompt = `Проанализируй следующую строку логов с сервера. Скажи, нормальное ли это поведение или атака, и что она означает:\n\n${msgText}\n\nУчти строгие правила: ничего не ломать, не отключать.`;
+    $('ai-task').value = prompt; switchTab('ai'); sendAITask();
+};
+window.analyzeContext = function(id) {
+    const inc = allIncidents.find(i => i.id === id);
+    if(!inc) return;
+    
+    let template = $('ai-system-prompt')?.value;
+    if (!template) {
+        template = "Проанализируй опасный участок логов. Тип атаки: {{type}}. Описание: {{description}}.\n\nКонтекст:\n{{context}}\n\nЧто делает атакующий и какие меры предпринять? Ничего не отключай и не ломай.";
+    }
+    
+    const prompt = template
+        .replace(/\{\{type\}\}/g, inc.type || 'Unknown')
+        .replace(/\{\{description\}\}/g, inc.description || 'No description')
+        .replace(/\{\{context\}\}/g, inc.contextBlock || 'Неизвестно');
+        
+    $('ai-task').value = prompt; 
+    switchTab('ai'); 
+    sendAITask();
+};
+ 
+// ══════════════════════════════════════════════════════════════════════════════
+// AI
+// ══════════════════════════════════════════════════════════════════════════════
+
+let chatHistory = [];
+function appendChatMsg(role, text, isHtml = false) {
+    const historyEl = $('ai-chat-history');
+    if(!historyEl) return null;
+    const div = document.createElement('div');
+    div.className = 'ai-msg ' + (role==='user'?'user':'bot');
+    const avatar = document.createElement('div');
+    avatar.className = 'msg-avatar';
+    avatar.textContent = role==='user' ? 'U' : '🤖';
+    const bubble = document.createElement('div');
+    bubble.className = 'msg-bubble';
+    if (isHtml) bubble.innerHTML = text; else bubble.textContent = text;
+    div.appendChild(avatar); div.appendChild(bubble);
+    historyEl.appendChild(div); historyEl.scrollTop = historyEl.scrollHeight;
+    return bubble;
+}
+function parseMarkdown(md) {
+    let html = md.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/\[ \] (.*?)(<br>|\n|$)/g, '<label style="display:flex;align-items:center;gap:6px;margin:4px 0;"><input type="checkbox"> $1</label>$2');
+    html = html.replace(/\[x\] (.*?)(<br>|\n|$)/gi, '<label style="display:flex;align-items:center;gap:6px;margin:4px 0;"><input type="checkbox" checked> $1</label>$2');
+    const codeRegex = /```(bash|sh|shell)?\n([\s\S]*?)```/g;
+    html = html.replace(codeRegex, (match, lang, code) => {
+        const encCode = btoa(unescape(encodeURIComponent(code.trim())));
+        return `<div style="background:#0a0a0a; border:1px solid #333; border-radius:6px; margin:10px 0; overflow:hidden;">
+            <div style="background:#1a1a1a; padding:6px 12px; font-size:10px; font-family:monospace; color:#aaa; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center;">
+                ${lang||'bash'} <button onclick="executeAIScript('${encCode}')" style="background:var(--green); border:none; border-radius:4px; color:#000; font-weight:bold; font-size:9px; padding:4px 8px; cursor:pointer;">⚡ ВЫПОЛНИТЬ</button>
+            </div><pre style="padding:12px; margin:0; font-family:monospace; font-size:11px; overflow-x:auto; color:#fff;">${esc(code.trim())}</pre></div>`;
+    });
+    html = html.replace(/`(.*?)`/g, '<code style="background:rgba(255,255,255,0.1); padding:2px 4px; border-radius:4px; font-family:monospace;">$1</code>');
+    return html.replace(/\n/g, '<br>');
+}
+function executeAIScript(base64code) {
+    const code = decodeURIComponent(escape(atob(base64code)));
+    if(!confirm('ВНИМАНИЕ! Выполнить скрипт на сервере?\n\n' + code)) return;
+    appendChatMsg('user', 'Выполни этот скрипт.');
+    const bubble = appendChatMsg('bot', '⏳ Выполнение...');
+    window.electronAPI.sendApiRequest('/api/execute-ai-script', 'POST', {script: code})
+        .then(res => { bubble.innerHTML = '✅ <strong>Выполнено:</strong><br><pre style="background:#000;padding:10px;color:#0f0;margin-top:5px;">'+(res.output||res.error||'Успешно')+'</pre>'; })
+        .catch(err => { bubble.innerHTML = '❌ <strong>Ошибка:</strong><br>'+err.message; });
+}
+function sendAITask(taskText = null) {
+    const inp = $('ai-task');
+    const task = taskText || (inp ? inp.value.trim() : '');
+    if(!task) return;
+    if(inp) inp.value = '';
+    appendChatMsg('user', task); chatHistory.push({role:'user', content:task});
+    $('btn-ai-send').disabled = true;
+    const bubble = appendChatMsg('bot', '⏳ Анализ...'); bubble.id = 'ai-typing-bubble';
+    if (window.electronAPI) window.electronAPI.sendWsMessage({event:'ai_task', data:{task, history: chatHistory, model:currentModel}});
+}
+window.askAI = function(promptText) { switchTab('ai'); sendAITask(promptText); };
+function generateDailyBriefing() {
+    askAI('Сгенерируй Executive-отчёт (Daily Briefing) за последние 24 часа. Метрики: ' + JSON.stringify({threats: $('s-threats')?.textContent||'0', crit: $('s-critical')?.textContent||'0'}));
+}
+
+function populateAIIncidentDropdown() {
+    const select = $("ai-incident-select");
+    if (!select) return;
+    const currentVal = select.value;
+    select.innerHTML = '<option value="">-- Выберите инцидент для глубокого анализа --</option>';
+    allIncidents.slice(0, 50).forEach(inc => {
+        if(inc.severity !== "CRITICAL" && inc.severity !== "HIGH") return;
+        const opt = document.createElement("option");
+        opt.value = inc.id;
+        opt.textContent = `[${inc.severity}] ${inc.type} | IP: ${inc.ip || "N/A"}`;
+        select.appendChild(opt);
+    });
+    if (currentVal && Array.from(select.options).some(o => o.value === currentVal)) {
+        select.value = currentVal;
+    }
+}
+
+function selectIncidentForAI() {
+    const select = $("ai-incident-select");
+    if (!select || !select.value) return;
+    const inc = allIncidents.find(i => i.id === select.value);
+    if (!inc) return;
+    
+    let template = $('ai-system-prompt')?.value;
+    if (!template) {
+        template = "Проанализируй опасный участок логов. Тип атаки: {{type}}. Описание: {{description}}.\n\nКонтекст:\n{{context}}\n\nЧто делает атакующий и какие меры предпринять? Ничего не отключай и не ломай.";
+    }
+    
+    const prompt = template
+        .replace(/\{\{type\}\}/g, inc.type || 'Unknown')
+        .replace(/\{\{description\}\}/g, inc.description || 'No description')
+        .replace(/\{\{context\}\}/g, inc.contextBlock || 'Неизвестно');
+        
+    $("ai-task").value = prompt;
+}
