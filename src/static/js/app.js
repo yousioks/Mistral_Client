@@ -1094,29 +1094,28 @@ if (logSearchInp) {
     });
 }
 
- f u n c t i o n   p o p u l a t e A I I n c i d e n t D r o p d o w n ( )   { 
-         c o n s t   s e l e c t   =   $ ( " a i - i n c i d e n t - s e l e c t " ) ; 
-         i f   ( ! s e l e c t )   r e t u r n ; 
-         c o n s t   c u r r e n t V a l   =   s e l e c t . v a l u e ; 
-         s e l e c t . i n n e r H T M L   =   " < o p t i o n   v a l u e = \ " \ " > - -   K15@8B5  8=F845=B  4;O  3;C1>:>3>  0=0;870  - - < / o p t i o n > " ; 
-         a l l I n c i d e n t s . s l i c e ( 0 ,   5 0 ) . f o r E a c h ( i n c   = >   { 
-                 i f ( i n c . s e v e r i t y   ! = =   " C R I T I C A L "   & &   i n c . s e v e r i t y   ! = =   " H I G H " )   r e t u r n ; 
-                 c o n s t   o p t   =   d o c u m e n t . c r e a t e E l e m e n t ( " o p t i o n " ) ; 
-                 o p t . v a l u e   =   i n c . i d ; 
-                 o p t . t e x t C o n t e n t   =   ` [ $ { i n c . s e v e r i t y } ]   $ { i n c . t y p e }   |   I P :   $ { i n c . i p   | |   " N / A " } ` ; 
-                 s e l e c t . a p p e n d C h i l d ( o p t ) ; 
-         } ) ; 
-         i f   ( c u r r e n t V a l   & &   A r r a y . f r o m ( s e l e c t . o p t i o n s ) . s o m e ( o   = >   o . v a l u e   = = =   c u r r e n t V a l ) )   { 
-                 s e l e c t . v a l u e   =   c u r r e n t V a l ; 
-         } 
- } 
- 
- f u n c t i o n   s e l e c t I n c i d e n t F o r A I ( )   { 
-         c o n s t   s e l e c t   =   $ ( " a i - i n c i d e n t - s e l e c t " ) ; 
-         i f   ( ! s e l e c t   | |   ! s e l e c t . v a l u e )   r e t u r n ; 
-         c o n s t   i n c   =   a l l I n c i d e n t s . f i n d ( i   = >   i . i d   = = =   s e l e c t . v a l u e ) ; 
-         i f   ( ! i n c )   r e t u r n ; 
-         c o n s t   p r o m p t   =   ` @>0=0;878@C9  >?0A=K9  CG0AB>:  ;>3>2.   "8?  0B0:8:   $ { i n c . t y p e } .   ?8A0=85:   $ { i n c . d e s c r i p t i o n } . \ n \ n >=B5:AB: \ n $ { i n c . c o n t e x t B l o c k   | |   " 58725AB=>" } \ n \ n 'B>  45;05B  0B0:CNI89  8  :0:85  <5@K  ?@54?@8=OBL?   8G53>  =5  >B:;NG09  8  =5  ;><09. ` ; 
-         $ ( " a i - t a s k " ) . v a l u e   =   p r o m p t ; 
- }  
- 
+function populateAIIncidentDropdown() {
+    const select = $("ai-incident-select");
+    if (!select) return;
+    const currentVal = select.value;
+    select.innerHTML = '<option value="">-- Выберите инцидент для глубокого анализа --</option>';
+    allIncidents.slice(0, 50).forEach(inc => {
+        if(inc.severity !== "CRITICAL" && inc.severity !== "HIGH") return;
+        const opt = document.createElement("option");
+        opt.value = inc.id;
+        opt.textContent = `[${inc.severity}] ${inc.type} | IP: ${inc.ip || "N/A"}`;
+        select.appendChild(opt);
+    });
+    if (currentVal && Array.from(select.options).some(o => o.value === currentVal)) {
+        select.value = currentVal;
+    }
+}
+
+function selectIncidentForAI() {
+    const select = $("ai-incident-select");
+    if (!select || !select.value) return;
+    const inc = allIncidents.find(i => i.id === select.value);
+    if (!inc) return;
+    const prompt = `Проанализируй опасный участок логов. Тип атаки: ${inc.type}. Описание: ${inc.description}.\n\nКонтекст:\n${inc.contextBlock || "Неизвестно"}\n\nЧто делает атакующий и какие меры предпринять? Ничего не отключай и не ломай.`;
+    $("ai-task").value = prompt;
+}
