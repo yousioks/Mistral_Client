@@ -23,5 +23,5 @@
 
 1. Запустить Remon (через Docker Compose).
 2. Запустить `Mistral Server/start.sh`.
-3. Открыть скомпилированный `MISTRAL-Defense-Portable-1.4.2.exe`.
+3. Открыть скомпилированный `MISTRAL-Defense-Portable-1.4.3.exe`.
 4. Запустить `Mistral Demo/start_demo.bat` и наблюдать за реакцией системы защиты в клиенте и в Telegram!
