@@ -309,6 +309,13 @@
                     </div>
                 </div>
                 
+                <div class="field-group" style="margin-bottom:12px; margin-top:0">
+                    <label style="font-size:10px; margin-bottom:4px; color:var(--muted); text-transform:uppercase; font-weight:700">Выбор инцидента для контекста ИИ</label>
+                    <select id="ai-incident-select" onchange="selectIncidentForAI()" style="background:rgba(0,0,0,0.5); border:1px solid var(--border); color:#fff; padding:8px 10px; border-radius:6px; font-size:12px; width:100%; outline:none">
+                        <option value="">-- Выберите инцидент для глубокого анализа --</option>
+                    </select>
+                </div>
+                
                 <div class="ai-chat-history" id="ai-chat-history" style="flex:1; overflow-y:auto; background:rgba(0,0,0,0.4); border:1px solid var(--border); border-radius:8px; padding:16px; display:flex; flex-direction:column; gap:12px; margin-bottom:12px; font-size:13px; scroll-behavior:smooth;">
                     <div class="ai-msg bot">
                         <div class="msg-avatar">🤖</div>
