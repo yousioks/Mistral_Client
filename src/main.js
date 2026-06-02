@@ -4,9 +4,11 @@ const fs = require('fs');
 const WebSocket = require('ws');
 const winston = require('winston');
 const DailyRotateFile = require('winston-daily-rotate-file');
-const Store = require('electron-store');
-
-const store = new Store();
+let store;
+import('electron-store').then((module) => {
+  const Store = module.default;
+  store = new Store();
+}).catch(err => console.error("Failed to load electron-store", err));
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  MISTRAL Defense — Electron Desktop Application (IPC mode)
