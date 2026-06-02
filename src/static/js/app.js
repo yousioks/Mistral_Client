@@ -263,15 +263,17 @@ function handleMessage(msg) {
                 allIncidents.unshift(msg.data);
                 if(allIncidents.length>500) allIncidents.pop();
                 
-                // Throttle DOM updates if not active
-                if($('panel-incidents').classList.contains('active')) renderIncidents(allIncidents);
-                else addIncidentCard(msg.data, true, $('incidents-list'));
+                // Update DOM if lists exist
+                const listContainer = $('incidents-list');
+                const dangerousContainer = $('dangerous-list');
+                
+                if (listContainer) addIncidentCard(msg.data, true, listContainer);
                 
                 addRadarBlip(msg.data);
                 updateKillChain(msg.data);
                 
                 if(msg.data.severity==='CRITICAL'||msg.data.severity==='HIGH'){
-                    if(!$('panel-dangerous').classList.contains('active')) addDangerousCard(msg.data, true, $('dangerous-list'));
+                    if (dangerousContainer) addDangerousCard(msg.data, true, dangerousContainer);
                     showAlert(msg.data);
                     
                     if (!autoDefenseTriggered) {
@@ -656,19 +658,19 @@ function updateMetrics(data) {
         showToast('SYSTEM WARNING', `High CPU load detected: ${data.cpu}%`, 'warn');
         setTimeout(() => setDefcon(5), 15000);
     }
-    // SSH sessions for network tab & dashboard
-    if(data.ssh_sessions && Array.isArray(data.ssh_sessions)) {
-        const tb = $('ssh-tbody');
-        const dashTb = $('dash-ssh-tbody');
+    // DDoS indicators for network tab & dashboard (via ddos metrics)
+    if(data.ddos && data.ddos.top_ips && Array.isArray(data.ddos.top_ips)) {
+        const tb = $('ssh-tbody'); // Network tab table body ID
+        const dashTb = $('dash-ssh-tbody'); // Dashboard tab table body ID
         
         if (tb) {
             tb.innerHTML = '';
-            if(!data.ssh_sessions.length) {
-                tb.innerHTML='<tr><td colspan="4" class="empty-td">Ожидание данных DDoS-анализатора...</td></tr>';
+            if(!data.ddos.top_ips.length) {
+                tb.innerHTML='<tr><td colspan="4" class="empty-td">Ожидание данных от DDoS-анализатора (Lua)...</td></tr>';
             } else {
-                data.ssh_sessions.forEach(s => {
+                data.ddos.top_ips.forEach(s => {
                     const tr = document.createElement('tr');
-                    tr.innerHTML = `<td>${esc(s.user||'?')}</td><td><span class="ip-chip">${esc(s.ip||'?')}</span></td><td>${esc(s.time||'')}</td><td><button class="btn-sm btn-q" onclick="quarantineIp('${esc(s.ip)}','Blocked by Anti-DDoS')">🛡 ЗАБАНИТЬ IP</button></td>`;
+                    tr.innerHTML = `<td>DDoS Attacker</td><td><span class="ip-chip">${esc(s.ip||'?')}</span></td><td>${esc(s.count||0)}</td><td><button class="btn-sm btn-q" onclick="quarantineIp('${esc(s.ip)}','Blocked by Anti-DDoS')">🛡 ЗАБАНИТЬ IP</button></td>`;
                     tb.appendChild(tr);
                 });
             }
@@ -676,12 +678,12 @@ function updateMetrics(data) {
         
         if (dashTb) {
             dashTb.innerHTML = '';
-            if(!data.ssh_sessions.length) {
-                dashTb.innerHTML='<tr><td colspan="4" class="empty-td">Ожидание данных DDoS-анализатора...</td></tr>';
+            if(!data.ddos.top_ips.length) {
+                dashTb.innerHTML='<tr><td colspan="4" class="empty-td">Ожидание данных от DDoS-анализатора (Lua)...</td></tr>';
             } else {
-                data.ssh_sessions.forEach(s => {
+                data.ddos.top_ips.forEach(s => {
                     const tr = document.createElement('tr');
-                    tr.innerHTML = `<td>${esc(s.user||'?')}</td><td><span class="ip-chip">${esc(s.ip||'?')}</span></td><td>${esc(s.time||'')}</td><td><button class="btn-sm btn-q" onclick="quarantineIp('${esc(s.ip)}','Blocked by Anti-DDoS')">🛡 ЗАБАНИТЬ IP</button></td>`;
+                    tr.innerHTML = `<td>DDoS Attacker</td><td><span class="ip-chip">${esc(s.ip||'?')}</span></td><td>${esc(s.count||0)}</td><td><button class="btn-sm btn-q" onclick="quarantineIp('${esc(s.ip)}','Blocked by Anti-DDoS')">🛡 ЗАБАНИТЬ IP</button></td>`;
                     dashTb.appendChild(tr);
                 });
             }
