@@ -342,6 +342,7 @@ function handleMessage(msg) {
                 }
             }
 
+            if (window.aiSendTimeout) clearTimeout(window.aiSendTimeout);
             const bubble = $('ai-typing-bubble');
             chatHistory.push({role:'bot', content:ans});
             if (bubble) {
@@ -352,6 +353,7 @@ function handleMessage(msg) {
             if($('btn-ai-send')) $('btn-ai-send').disabled = false;
             break;
         case 'ai_error':
+            if (window.aiSendTimeout) clearTimeout(window.aiSendTimeout);
             const errB = $('ai-typing-bubble');
             if (errB) { errB.removeAttribute('id'); errB.innerHTML = '❌ Ошибка: ' + (msg.data?.error || 'unknown'); }
             if($('btn-ai-send')) $('btn-ai-send').disabled = false;

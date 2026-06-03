@@ -176,10 +176,18 @@ function addLiveEntry(entry) {
         currentLogsData.unshift(entry);
         if (currentLogsData.length > 2000) currentLogsData.pop();
         
-        // Optimize logs-feed filtering by throttling it too if needed, but for now apply Log Filters directly
-        if (feed && (!window.lastFilterTime || Date.now() - window.lastFilterTime > 500)) {
-            window.lastFilterTime = Date.now();
-            requestAnimationFrame(applyLogFilters);
+        // Optimize logs-feed filtering by throttling with trailing edge execution
+        if (feed) {
+            if (!window.lastFilterTime || Date.now() - window.lastFilterTime > 500) {
+                window.lastFilterTime = Date.now();
+                requestAnimationFrame(applyLogFilters);
+            } else {
+                if (window.logFilterTimeout) clearTimeout(window.logFilterTimeout);
+                window.logFilterTimeout = setTimeout(() => {
+                    window.lastFilterTime = Date.now();
+                    applyLogFilters();
+                }, 500);
+            }
         }
     }
     

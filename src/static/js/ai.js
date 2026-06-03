@@ -89,7 +89,12 @@ function executeAIScript(base64code) {
         .then(res => { bubble.innerHTML = '<strong>Выполнено:</strong><br><pre style="background:#000;padding:10px;color:#0f0;margin-top:5px;">'+(res.output||res.error||'Успешно')+'</pre>'; })
         .catch(err => { bubble.innerHTML = '<strong>Ошибка:</strong><br>'+err.message; });
 }
-function sendAITask(taskText = null) {
+window.sendAITask = function(taskText = null) {
+    if (typeof ws === 'undefined' || !ws || ws.readyState !== WebSocket.OPEN) {
+        showToast('ИИ-Агент', 'Нет соединения с сервером. Подключитесь перед отправкой.', 'warn');
+        return;
+    }
+
     const inp = $('ai-task');
     let task = '';
     if (typeof taskText === 'string' && taskText.trim().length > 0) {
@@ -110,26 +115,35 @@ function sendAITask(taskText = null) {
     const bubble = appendChatMsg('bot', 'Анализ...'); 
     if(bubble) bubble.id = 'ai-typing-bubble';
     
+    // Safety timeout: automatically re-enable button after 30 seconds if server doesn't respond
+    if (window.aiSendTimeout) clearTimeout(window.aiSendTimeout);
+    window.aiSendTimeout = setTimeout(() => {
+        if ($('btn-ai-send')) $('btn-ai-send').disabled = false;
+        const tbubble = $('ai-typing-bubble');
+        if (tbubble) {
+            tbubble.removeAttribute('id');
+            tbubble.innerHTML = '⚠️ Превышено время ожидания ответа от сервера.';
+        }
+    }, 30000);
+    
     if (window.electronAPI) {
         window.electronAPI.sendWsMessage({
             event:'ai_task', 
             data: {
                 task: task, 
                 history: chatHistory, 
-                model: typeof currentModel !== 'undefined' ? currentModel : 'deepseek-v4-pro'
+                model: (typeof window.currentModel !== 'undefined' && window.currentModel) ? window.currentModel : 'deepseek-v4-pro'
             }
         });
     }
-}
-window.askAI = function(promptText) { switchTab('ai'); sendAITask(promptText); };
+};
+window.askAI = function(promptText) { switchTab('ai'); window.sendAITask(promptText); };
 function generateDailyBriefing() {
     askAI('Сгенерируй Executive-отчёт (Daily Briefing) за последние 24 часа. Метрики: ' + JSON.stringify({threats: $('s-threats')?.textContent||'0', crit: $('s-critical')?.textContent||'0'}));
 }
 
 window.selectModel = function(model, btn) {
-    if(typeof window.currentModel !== 'undefined') {
-        window.currentModel = model;
-    }
+    window.currentModel = model;
     document.querySelectorAll('.model-btn').forEach(b => b.classList.remove('active'));
     if(btn) btn.classList.add('active');
     

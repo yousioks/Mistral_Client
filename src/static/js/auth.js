@@ -55,13 +55,26 @@ async function loadUsers() {
     try {
         const r = await fetch(`${serverBase}/api/users`);
         const users = await r.json();
-        const el = $('users-list'); el.innerHTML = '';
+        const el = $('users-list'); 
+        if(!el) return;
+        el.innerHTML = '';
+        if (users && users.error) {
+            el.innerHTML = `<div style="color:var(--red); font-size:11px; padding:10px;">Ошибка: ${esc(users.error)}</div>`;
+            return;
+        }
+        if (!Array.isArray(users)) {
+            el.innerHTML = '<div style="color:var(--red); font-size:11px; padding:10px;">Ошибка: неверный формат данных</div>';
+            return;
+        }
         users.forEach(u => {
             const div = document.createElement('div'); div.className='user-card';
             div.innerHTML = `<div class="user-avatar">${(u.username||'?')[0].toUpperCase()}</div><div class="user-info"><div class="name">${esc(u.username)}</div><div class="role role-${u.role||'operator'}">${esc(u.role||'operator')}</div></div>${u.chat_id?'<span class="user-tg">TELEGRAM</span>':''}`;
             el.appendChild(div);
         });
-    } catch(e) {}
+    } catch(e) {
+        const el = $('users-list');
+        if(el) el.innerHTML = `<div style="color:var(--red); font-size:11px; padding:10px;">Ошибка сети: ${esc(e.message)}</div>`;
+    }
 }
 async function addUser() {
     const username=$('nu-user').value.trim(), password=$('nu-pass').value, role=$('nu-role').value;
