@@ -483,6 +483,35 @@ window.MiniGlobeRenderer = MiniGlobeRenderer;
 window.setMapFilter = function(filter) {
     if (cyberMap) {
         cyberMap.filterType = filter;
+        cyberMap.attacks = []; // Clear current flying lines
+        
+        if (window.allIncidents && Array.isArray(window.allIncidents)) {
+            // Filter historical incidents
+            const matching = window.allIncidents.filter(inc => {
+                if (!inc.geo) return false;
+                const typeLower = (inc.type || '').toLowerCase();
+                const descLower = (inc.description || '').toLowerCase();
+                const monitorLower = (inc.monitor || '').toLowerCase();
+                
+                if (filter === 'ALL') return true;
+                if (filter === 'INTRUSION') {
+                    return typeLower.includes('intrusion') || typeLower.includes('scan') || typeLower.includes('phish') || typeLower.includes('malware') || descLower.includes('intrusion') || descLower.includes('scan') || descLower.includes('phish') || descLower.includes('malware');
+                }
+                if (filter === 'DDOS') {
+                    return typeLower.includes('ddos') || typeLower.includes('flood') || typeLower.includes('syn') || descLower.includes('ddos') || descLower.includes('flood') || descLower.includes('syn') || monitorLower.includes('ddos');
+                }
+                if (filter === 'BRUTEFORCE') {
+                    return typeLower.includes('brute') || typeLower.includes('login') || typeLower.includes('auth') || descLower.includes('brute') || descLower.includes('login') || descLower.includes('auth');
+                }
+                return false;
+            });
+            
+            // Limit to the 20 most recent
+            const recent = matching.slice(0, 20);
+            recent.forEach(inc => {
+                cyberMap.animateAttack(inc.geo, inc.type);
+            });
+        }
     }
     document.querySelectorAll('[id^="map-filter-"]').forEach(btn => {
         btn.classList.remove('active');

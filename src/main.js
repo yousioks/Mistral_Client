@@ -167,13 +167,22 @@ function connectToServer(host, port, token) {
         case 'incident':
           if (msg.data) {
              cache.incidents.unshift(msg.data);
-             if ((msg.data.severity === 'CRITICAL' || msg.data.severity === 'HIGH') && Notification.isSupported()) {
-                new Notification({
-                  title: `Угроза ${msg.data.severity}: ${msg.data.type}`,
-                  body: msg.data.description || 'Обнаружена новая атака',
-                  icon: path.join(__dirname, 'static', 'totem.ico')
-                }).show();
-             }
+              if ((msg.data.severity === 'CRITICAL' || msg.data.severity === 'HIGH') && Notification.isSupported()) {
+                 const attackerIp = msg.data.ip || 'Неизвестный IP';
+                 const notification = new Notification({
+                   title: `Угроза ${msg.data.severity}: ${msg.data.type}`,
+                   body: `IP: ${attackerIp}\n${msg.data.description || 'Обнаружена новая атака'}`,
+                   icon: path.join(__dirname, 'static', 'totem.ico')
+                 });
+                 notification.on('click', () => {
+                     if (mainWindow) {
+                         if (mainWindow.isMinimized()) mainWindow.restore();
+                         mainWindow.focus();
+                         mainWindow.webContents.send('notification-click-ip', attackerIp);
+                     }
+                 });
+                 notification.show();
+              }
           }
           trimCache();
           break;

@@ -200,13 +200,65 @@ function renderIncidents(list) {
     if(!tbody) return;
     tbody.innerHTML = '';
     
-    if(!list || !list.length) {
+    if (!list) list = allIncidents;
+    
+    const severity = $('inc-severity-filter')?.value || 'all';
+    const dateFrom = $('inc-date-from')?.value || '';
+    const dateTo = $('inc-date-to')?.value || '';
+    const timeFrom = $('inc-time-from')?.value || '';
+    const timeTo = $('inc-time-to')?.value || '';
+    const search = ($('inc-search')?.value || '').toLowerCase().trim();
+    
+    let filtered = list || [];
+    
+    if (severity !== 'all') {
+        filtered = filtered.filter(i => i.severity === severity);
+    }
+    
+    if (dateFrom || dateTo || timeFrom || timeTo) {
+        filtered = filtered.filter(i => {
+            if (!i.timestamp) return false;
+            const parts = i.timestamp.split('T');
+            const incDate = parts[0];
+            const incTime = parts[1] ? parts[1].slice(0, 8) : '00:00:00';
+            
+            if (dateFrom && incDate < dateFrom) return false;
+            if (dateTo && incDate > dateTo) return false;
+            
+            if (timeFrom) {
+                if (dateFrom && incDate === dateFrom) {
+                    if (incTime < timeFrom) return false;
+                } else if (!dateFrom) {
+                    if (incTime < timeFrom) return false;
+                }
+            }
+            if (timeTo) {
+                if (dateTo && incDate === dateTo) {
+                    if (incTime > timeTo) return false;
+                } else if (!dateTo) {
+                    if (incTime > timeTo) return false;
+                }
+            }
+            return true;
+        });
+    }
+    
+    if (search) {
+        filtered = filtered.filter(i => {
+            const type = (i.type || '').toLowerCase();
+            const desc = (i.description || '').toLowerCase();
+            const ip = (i.ip || i.target || i.monitor || '').toLowerCase();
+            return type.includes(search) || desc.includes(search) || ip.includes(search);
+        });
+    }
+    
+    if(!filtered || !filtered.length) {
         tbody.innerHTML = '<tr><td colspan="6" class="empty-td">Нет зарегистрированных инцидентов</td></tr>';
         return;
     }
     
     // Virtualization / Limit
-    list.slice(0, 150).forEach(i => {
+    filtered.slice(0, 150).forEach(i => {
         addIncidentRow(i, false, tbody);
     });
 }
@@ -243,7 +295,7 @@ function addIncidentRow(inc, prepend, container) {
     tr.innerHTML = `
         <td>${sevBadge}</td>
         <td style="font-weight:700; color:#fff;">${esc(inc.type||'Unknown')}</td>
-        <td><span class="ip-chip">${esc(inc.ip || inc.target || inc.monitor || 'System')}</span></td>
+        <td><span class="ip-chip clickable" onclick="filterLogsByIp('${esc(inc.ip || inc.target || inc.monitor || '')}')">${esc(inc.ip || inc.target || inc.monitor || 'System')}</span></td>
         <td><select class="inc-sel" onchange="patchIncident('${inc.id}',{status:this.value})">${sOpts}</select></td>
         <td style="color:var(--dim); font-family:'JetBrains Mono',monospace; font-size:10px;">${(inc.timestamp||'').slice(0,19).replace('T',' ')}</td>
         <td>
@@ -330,7 +382,7 @@ function openIncidentDrawer(id) {
             <div style="display:flex; gap:10px; margin-top:8px;">
                 <div style="flex:1;">
                     <div style="font-size:9px; color:var(--muted); text-transform:uppercase; margin-bottom:4px;">Target/IP</div>
-                    <div class="ip-chip" style="display:inline-block;">${esc(inc.ip || inc.target || inc.monitor || 'System')}</div>
+                    <div class="ip-chip clickable" style="display:inline-block;" onclick="filterLogsByIp('${esc(inc.ip || inc.target || inc.monitor || '')}')">${esc(inc.ip || inc.target || inc.monitor || 'System')}</div>
                 </div>
                 <div style="flex:1;">
                     <div style="font-size:9px; color:var(--muted); text-transform:uppercase; margin-bottom:4px;">Severity Override</div>
@@ -343,8 +395,9 @@ function openIncidentDrawer(id) {
             ${aiAuditHtml}
             <div id="drawer-ai-report"></div>
             
-            <div style="margin-top:auto; padding-top:16px; border-top:1px solid var(--border); display:flex; gap:10px;">
+            <div style="margin-top:auto; padding-top:16px; border-top:1px solid var(--border); display:flex; gap:8px; flex-wrap:wrap;">
                 <button class="btn-ai" style="flex:1; padding:10px; text-align:center;" onclick="analyzeContext('${inc.id}'); closeIncidentDrawer();">AI ANALYZE</button>
+                <button class="btn-ai-agent" style="flex:1.2; padding:10px; background:linear-gradient(135deg, var(--purple), #581c87); border:none; border-radius:6px; color:#fff; font-weight:700; cursor:pointer; text-align:center;" onclick="triggerAgentManual('${inc.id}'); closeIncidentDrawer();">ИИ-АГЕНТ (РЕАГИРОВАНИЕ)</button>
                 ${inc.ip ? (() => {
                     const isBanned = window.quarantinedIps && window.quarantinedIps.some(q => q.ip === inc.ip);
                     return isBanned 
@@ -645,7 +698,6 @@ function updateMetrics(data) {
     if(data.ddos && data.ddos.top_ips && Array.isArray(data.ddos.top_ips)) {
         const tb = $('ssh-tbody'); // Network tab table body ID
         const dashTb = $('dash-ssh-tbody'); // Dashboard tab table body ID
-        
         if (tb) {
             tb.innerHTML = '';
             if(!data.ddos.top_ips.length) {
@@ -657,7 +709,7 @@ function updateMetrics(data) {
                     const btnHtml = isBanned 
                         ? `<button class="btn-sm" style="background:rgba(16,185,129,0.12);color:var(--green);border:1px solid rgba(16,185,129,0.3)" onclick="unquarantineIp('${esc(s.ip)}')">РАЗБЛОКИРОВАТЬ</button>`
                         : `<button class="btn-sm btn-q" onclick="quarantineIp('${esc(s.ip)}','Blocked by Anti-DDoS')">ЗАБАНИТЬ IP</button>`;
-                    tr.innerHTML = `<td>DDoS Attacker</td><td><span class="ip-chip">${esc(s.ip||'?')}</span></td><td>${esc(s.count||0)}</td><td>${btnHtml}</td>`;
+                    tr.innerHTML = `<td>DDoS Attacker</td><td><span class="ip-chip clickable" onclick="filterLogsByIp('${esc(s.ip)}')">${esc(s.ip||'?')}</span></td><td>${esc(s.count||0)}</td><td>${btnHtml}</td>`;
                     tb.appendChild(tr);
                 });
             }
@@ -674,7 +726,7 @@ function updateMetrics(data) {
                     const btnHtml = isBanned 
                         ? `<button class="btn-sm" style="background:rgba(16,185,129,0.12);color:var(--green);border:1px solid rgba(16,185,129,0.3)" onclick="unquarantineIp('${esc(s.ip)}')">РАЗБЛОКИРОВАТЬ</button>`
                         : `<button class="btn-sm btn-q" onclick="quarantineIp('${esc(s.ip)}','Blocked by Anti-DDoS')">ЗАБАНИТЬ IP</button>`;
-                    tr.innerHTML = `<td>DDoS Attacker</td><td><span class="ip-chip">${esc(s.ip||'?')}</span></td><td>${esc(s.count||0)}</td><td>${btnHtml}</td>`;
+                    tr.innerHTML = `<td>DDoS Attacker</td><td><span class="ip-chip clickable" onclick="filterLogsByIp('${esc(s.ip)}')">${esc(s.ip||'?')}</span></td><td>${esc(s.count||0)}</td><td>${btnHtml}</td>`;
                     dashTb.appendChild(tr);
                 });
             }
@@ -706,7 +758,7 @@ function renderQuarantine(list) {
     tb.innerHTML = '';
     list.forEach(q => {
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td><span class="ip-chip">${esc(q.ip)}</span></td><td>${esc(q.reason||'Manual')}</td><td>${esc((q.timestamp||'').slice(0,19).replace('T',' '))}</td><td><button class="btn-sm btn-unq" onclick="unquarantineIp('${esc(q.ip)}')">РАЗБЛОКИРОВАТЬ</button></td>`;
+        tr.innerHTML = `<td><span class="ip-chip clickable" onclick="filterLogsByIp('${esc(q.ip)}')">${esc(q.ip)}</span></td><td>${esc(q.reason||'Manual')}</td><td>${esc((q.timestamp||'').slice(0,19).replace('T',' '))}</td><td><button class="btn-sm btn-unq" onclick="unquarantineIp('${esc(q.ip)}')">РАЗБЛОКИРОВАТЬ</button></td>`;
         tb.appendChild(tr);
     });
 }
@@ -1226,6 +1278,11 @@ window.loadApplicationsInfo = function() {
 
 window.runTrivyScan = function(containerId) {
     showToast('Trivy Scan', `Запуск сканирования контейнера ${containerId}...`, 'info');
+    switchTab('scanners');
+    $('scan-output').textContent = `Запуск сканирования TRIVY на цели: ${containerId}...\nПожалуйста, подождите, это может занять некоторое время...`;
+    $('btn-run-semgrep').disabled = true;
+    $('btn-run-trivy').disabled = true;
+
     fetch(`${serverBase}/api/scan/trivy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Auth-Token': token },
@@ -1234,13 +1291,28 @@ window.runTrivyScan = function(containerId) {
     .then(r => r.json())
     .then(res => {
         showToast('Trivy Complete', `Сканирование завершено. Найдено ${res.findings ? res.findings.length : 0} уязвимостей`, 'green');
+        if (window.renderScanResultsInTerminal) {
+            window.renderScanResultsInTerminal(res);
+        }
+        $('btn-run-semgrep').disabled = false;
+        $('btn-run-trivy').disabled = false;
         if (window.loadApplicationsInfo) window.loadApplicationsInfo();
     })
-    .catch(err => showToast('Ошибка сканирования', err.message, 'warn'));
+    .catch(err => {
+        showToast('Ошибка сканирования', err.message, 'warn');
+        $('btn-run-semgrep').disabled = false;
+        $('btn-run-trivy').disabled = false;
+        $('scan-output').textContent = `❌ Ошибка сканирования: ${err.message}`;
+    });
 };
 
 window.runSemgrepScan = function(rootPath) {
     showToast('Semgrep Scan', `Запуск SAST-сканирования директории ${rootPath}...`, 'info');
+    switchTab('scanners');
+    $('scan-output').textContent = `Запуск сканирования SEMGREP на цели: ${rootPath}...\nПожалуйста, подождите, это может занять некоторое время...`;
+    $('btn-run-semgrep').disabled = true;
+    $('btn-run-trivy').disabled = true;
+
     fetch(`${serverBase}/api/scan/semgrep`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Auth-Token': token },
@@ -1249,9 +1321,19 @@ window.runSemgrepScan = function(rootPath) {
     .then(r => r.json())
     .then(res => {
         showToast('Semgrep Complete', `Сканирование завершено. Найдено ${res.findings ? res.findings.length : 0} замечаний`, 'green');
+        if (window.renderScanResultsInTerminal) {
+            window.renderScanResultsInTerminal(res);
+        }
+        $('btn-run-semgrep').disabled = false;
+        $('btn-run-trivy').disabled = false;
         if (window.loadApplicationsInfo) window.loadApplicationsInfo();
     })
-    .catch(err => showToast('Ошибка сканирования', err.message, 'warn'));
+    .catch(err => {
+        showToast('Ошибка сканирования', err.message, 'warn');
+        $('btn-run-semgrep').disabled = false;
+        $('btn-run-trivy').disabled = false;
+        $('scan-output').textContent = `❌ Ошибка сканирования: ${err.message}`;
+    });
 };
 
 window.triggerScannerInstallation = function() {
@@ -1498,5 +1580,99 @@ window.triggerDemoReset = function() {
             });
     }
 };
+
+window.filterLogsByIp = function(ip) {
+    if (!ip || ip === 'Неизвестный IP' || ip === 'System') return;
+    switchTab('logs');
+    
+    // Select Server log type to ensure we see network/audit incidents
+    const typeSelect = $('log-type');
+    if (typeSelect) {
+        typeSelect.value = 'server';
+        loadLogs();
+    }
+    
+    const search = $('log-search');
+    if (search) {
+        search.value = ip;
+        // Make sure we give log DOM time to render if tab switches
+        setTimeout(() => {
+            applyLogFilters();
+        }, 100);
+    }
+    showToast('Фильтр логов', `Логи отфильтрованы по IP: ${ip}`, 'info');
+};
+
+window.applyIncidentFilters = function() {
+    renderIncidents(allIncidents);
+};
+
+window.clearIncidentFilters = function() {
+    const sev = $('inc-severity-filter'); if(sev) sev.value = 'all';
+    const df = $('inc-date-from'); if(df) df.value = '';
+    const dt = $('inc-date-to'); if(dt) dt.value = '';
+    const tf = $('inc-time-from'); if(tf) tf.value = '';
+    const tt = $('inc-time-to'); if(tt) tt.value = '';
+    const s = $('inc-search'); if(s) s.value = '';
+    renderIncidents(allIncidents);
+};
+
+window.clearIncidentHistory = function() {
+    if (!confirm('Вы действительно хотите полностью очистить историю инцидентов? Это действие безвозвратно удалит записи из базы данных.')) return;
+    if (window.electronAPI) {
+        window.electronAPI.sendApiRequest('/api/incidents', 'DELETE')
+            .then(res => {
+                if (res && res.success) {
+                    showToast('Очистка', 'История инцидентов успешно очищена', 'green');
+                    allIncidents = [];
+                    renderIncidents([]);
+                    updateChartsFromIncidents([]);
+                } else {
+                    showToast('Ошибка', res.error || 'Не удалось очистить историю', 'warn');
+                }
+            })
+            .catch(err => {
+                showToast('Ошибка сети', err.message, 'warn');
+            });
+    }
+};
+
+window.triggerAgentManual = function(id) {
+    const inc = allIncidents.find(i => i.id === id);
+    if (!inc) return;
+    if (window.triggerSilentAIResponse) {
+        window.triggerSilentAIResponse(inc);
+    } else {
+        showToast('ИИ-Агент', 'Модуль реагирования не инициализирован', 'warn');
+    }
+};
+
+// ── SOC Live Clock Ticker ────────────────────────────────────────────────────
+function updateClock() {
+    const timeEl = document.getElementById('clock-time');
+    const dateEl = document.getElementById('clock-date');
+    if (!timeEl || !dateEl) return;
+    
+    const now = new Date();
+    const hrs = String(now.getHours()).padStart(2, '0');
+    const mins = String(now.getMinutes()).padStart(2, '0');
+    const secs = String(now.getSeconds()).padStart(2, '0');
+    
+    const yr = now.getFullYear();
+    const mon = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    
+    timeEl.textContent = `${hrs}:${mins}:${secs}`;
+    dateEl.textContent = `${yr}-${mon}-${day}`;
+}
+setInterval(updateClock, 1000);
+setTimeout(updateClock, 100);
+
+// ── Continuous Incident Updates ──────────────────────────────────────────────
+setInterval(() => {
+    if (window.electronAPI) {
+        window.electronAPI.sendWsMessage({ event: 'get_incidents' });
+    }
+}, 5000);
 
 

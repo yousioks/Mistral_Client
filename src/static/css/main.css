@@ -396,6 +396,8 @@
         .full-tbl tbody td { padding: 11px 12px; border-bottom: 1px solid rgba(255,255,255,0.03); }
         .full-tbl tbody tr:hover td { background: var(--bg3); }
         .ip-chip { background: rgba(0,0,0,0.4); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+        .ip-chip.clickable { cursor: pointer; transition: all 0.2s; border-color: rgba(6,182,212,0.3); }
+        .ip-chip.clickable:hover { background: rgba(6, 182, 212, 0.15); border-color: var(--cyan); color: var(--cyan); box-shadow: 0 0 8px rgba(6,182,212,0.4); }
         .btn-sm { border: 1px solid var(--border); color: #fff; padding: 5px 12px; border-radius: 5px; cursor: pointer; font-size: 10px; font-weight: 700; background: transparent; transition: 0.15s; letter-spacing: 0.3px; }
         .btn-sm:hover { background: var(--bg4); }
         .btn-q { border-color: rgba(239,68,68,0.4); color: var(--red); }

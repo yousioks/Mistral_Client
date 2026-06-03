@@ -43,6 +43,11 @@ if (window.electronAPI) {
             populateAIIncidentDropdown();
         }
     });
+    window.electronAPI.onNotificationClickIp((ip) => {
+        if (window.filterLogsByIp) {
+            window.filterLogsByIp(ip);
+        }
+    });
 }
 
 // ── Connection diagnostics popup ──────────────────────────────────────────────
@@ -352,35 +357,8 @@ function handleMessage(msg) {
             break;
         case 'bot_notify': if(msg.data) showAlert(msg.data); break;
         case 'scan_result':
-            const scanOutput = $('scan-output');
-            if (scanOutput) {
-                const r = msg.data || {};
-                let text = `[SCAN RESULTS - ${r.scanner ? r.scanner.toUpperCase() : 'UNKNOWN'}]\n`;
-                text += `Target: ${r.target || 'N/A'}\n`;
-                text += `Timestamp: ${r.timestamp || new Date().toLocaleString()}\n`;
-                text += `--------------------------------------------------\n\n`;
-                
-                if (r.error) {
-                    text += `❌ ERROR: ${r.error}\n`;
-                } else if (!r.findings || r.findings.length === 0) {
-                    text += `✅ SUCCESS: No findings / vulnerabilities detected!\n`;
-                } else {
-                    text += `⚠️ Found ${r.findings.length} findings:\n\n`;
-                    r.findings.forEach((f, idx) => {
-                        if (r.scanner === 'semgrep') {
-                            text += `[#${idx + 1}] [${f.severity || 'MEDIUM'}] Rule: ${f.rule || 'N/A'}\n`;
-                            text += `     Path: ${f.path || 'N/A'}:${f.line || '?'}\n`;
-                            text += `     Message: ${f.message || 'No description'}\n\n`;
-                        } else {
-                            text += `[#${idx + 1}] [${f.severity || 'UNKNOWN'}] ${f.vulnId || 'N/A'} in ${f.pkg || 'N/A'}\n`;
-                            text += `     Target: ${f.target || 'N/A'}\n`;
-                            text += `     Title: ${f.title || 'No title'}\n`;
-                            if (f.fixedVersion) text += `     Fixed in: ${f.fixedVersion}\n`;
-                            text += `\n`;
-                        }
-                    });
-                }
-                scanOutput.textContent = text;
+            if (window.renderScanResultsInTerminal) {
+                window.renderScanResultsInTerminal(msg.data || {});
             }
             $('btn-run-semgrep').disabled = false;
             $('btn-run-trivy').disabled = false;
@@ -648,3 +626,33 @@ window.saveSoarSettingsUI = function() {
     });
 };
 
+window.renderScanResultsInTerminal = function(r) {
+    const scanOutput = $('scan-output');
+    if (!scanOutput) return;
+    let text = `[SCAN RESULTS - ${r.scanner ? r.scanner.toUpperCase() : 'UNKNOWN'}]\n`;
+    text += `Target: ${r.target || 'N/A'}\n`;
+    text += `Timestamp: ${r.timestamp || new Date().toLocaleString()}\n`;
+    text += `--------------------------------------------------\n\n`;
+    
+    if (r.error) {
+        text += `❌ ERROR: ${r.error}\n`;
+    } else if (!r.findings || r.findings.length === 0) {
+        text += `✅ SUCCESS: No findings / vulnerabilities detected!\n`;
+    } else {
+        text += `⚠️ Found ${r.findings.length} findings:\n\n`;
+        r.findings.forEach((f, idx) => {
+            if (r.scanner === 'semgrep') {
+                text += `[#${idx + 1}] [${f.severity || 'MEDIUM'}] Rule: ${f.rule || 'N/A'}\n`;
+                text += `     Path: ${f.path || 'N/A'}:${f.line || '?'}\n`;
+                text += `     Message: ${f.message || 'No description'}\n\n`;
+            } else {
+                text += `[#${idx + 1}] [${f.severity || 'UNKNOWN'}] ${f.vulnId || 'N/A'} in ${f.pkg || 'N/A'}\n`;
+                text += `     Target: ${f.target || 'N/A'}\n`;
+                text += `     Title: ${f.title || 'No title'}\n`;
+                if (f.fixedVersion) text += `     Fixed in: ${f.fixedVersion}\n`;
+                text += `\n`;
+            }
+        });
+    }
+    scanOutput.textContent = text;
+};

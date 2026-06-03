@@ -20,4 +20,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onWsMessage: (callback) => ipcRenderer.on('ws-message', (_event, msg) => callback(msg)),
   onConnStatus: (callback) => ipcRenderer.on('conn-status', (_event, state, label) => callback(state, label)),
   onInitialCache: (callback) => ipcRenderer.on('initial-cache', (_event, cache) => callback(cache)),
+  onNotificationClickIp: (callback) => ipcRenderer.on('notification-click-ip', (_event, ip) => callback(ip)),
 });

@@ -87,6 +87,11 @@
                 <input type="text" id="global-search" placeholder="Search IP, Incident, Log... (Ctrl+K)" onkeydown="if(event.key==='Enter') doGlobalSearch(this.value)">
             </div>
             <div class="hdr-right">
+                <div id="soc-clock" style="font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--cyan); background:rgba(6,182,212,0.08); border:1px solid rgba(6,182,212,0.2); padding:6px 12px; border-radius:6px; margin-right:12px; display:flex; align-items:center; gap:6px; box-shadow:0 0 10px rgba(6,182,212,0.1); user-select:none;">
+                    <span style="color:var(--cyan); font-size:8px; animation: pulse 1s infinite;">●</span>
+                    <span id="clock-time">00:00:00</span>
+                    <span style="color:var(--muted); font-size:9px;" id="clock-date">0000-00-00</span>
+                </div>
                 <button class="btn-sm" style="margin-right:16px; background:rgba(255,255,255,0.1); border:1px solid var(--border);" onclick="generateGlobalSOCReport()">📄 EXPORT SOC REPORT</button>
                 <div class="conn-badge" id="conn-badge-btn" onclick="toggleConnDiag()" style="cursor:pointer;user-select:none" title="Нажмите для диагностики соединения">
                     <div class="conn-dot" id="conn-dot"></div><span id="conn-label">—</span>
@@ -442,9 +447,33 @@
         <!-- ═══ INCIDENTS ═══ -->
         <div class="panel" id="panel-incidents">
             <div class="card" style="display:flex;flex-direction:column;height:100%">
-                <div class="card-hdr" style="margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
-                    <div><div class="cd" style="background:var(--orange)"></div>Incident Data Grid</div>
-                    <div style="font-size:10px; font-family:'JetBrains Mono', monospace; color:var(--muted);">Sort: <span style="color:#fff">Severity (Desc)</span></div>
+                <div class="card-hdr" style="flex-direction:column;align-items:stretch;gap:0;padding-bottom:0;border-bottom:none">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;justify-content:space-between">
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <div class="cd" style="background:var(--orange)"></div>
+                            <span>Incident Data Grid</span>
+                        </div>
+                        <button class="btn-sm" style="border-color:rgba(239,68,68,0.4); color:var(--red); font-size:10px; font-weight:800; background:rgba(239,68,68,0.05);" onclick="clearIncidentHistory()">🚨 ОЧИСТИТЬ ИСТОРИЮ</button>
+                    </div>
+                    <div class="log-filter-bar" style="margin-bottom:12px; display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+                        <label>Важность:</label>
+                        <select id="inc-severity-filter" onchange="applyIncidentFilters()">
+                            <option value="all">Все</option>
+                            <option value="CRITICAL">Critical</option>
+                            <option value="HIGH">High</option>
+                            <option value="MEDIUM">Medium</option>
+                            <option value="LOW">Low</option>
+                        </select>
+                        <label>С:</label>
+                        <input type="date" id="inc-date-from" onchange="applyIncidentFilters()">
+                        <input type="time" id="inc-time-from" step="1" onchange="applyIncidentFilters()" style="background:rgba(0,0,0,0.4);border:1px solid var(--border);color:#fff;padding:4px;border-radius:4px;font-size:11px;outline:none;font-family:'JetBrains Mono',monospace">
+                        <label>По:</label>
+                        <input type="date" id="inc-date-to" onchange="applyIncidentFilters()">
+                        <input type="time" id="inc-time-to" step="1" onchange="applyIncidentFilters()" style="background:rgba(0,0,0,0.4);border:1px solid var(--border);color:#fff;padding:4px;border-radius:4px;font-size:11px;outline:none;font-family:'JetBrains Mono',monospace">
+                        <label>Поиск:</label>
+                        <input type="text" id="inc-search" placeholder="Поиск IP, типа, описания..." oninput="applyIncidentFilters()" style="background:rgba(0,0,0,0.4);border:1px solid var(--border);color:#fff;padding:6px 10px;border-radius:6px;font-size:11px;outline:none;width:180px;font-family:'JetBrains Mono',monospace">
+                        <button class="btn-sm-clear" onclick="clearIncidentFilters()">Сбросить</button>
+                    </div>
                 </div>
                 
                 <div style="flex:1;overflow-y:auto;padding-right:4px">
