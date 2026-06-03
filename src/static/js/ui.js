@@ -1375,7 +1375,15 @@ window.loadVulnerabilities = function() {
         window.electronAPI.sendApiRequest('/api/vulnerabilities', 'GET')
             .then(vulns => {
                 tbody.innerHTML = '';
-                if (!vulns || vulns.length === 0) {
+                if (vulns && vulns.error) {
+                    tbody.innerHTML = `<tr><td colspan="6" class="empty-td" style="color:var(--red);">Ошибка загрузки: ${esc(vulns.error)}</td></tr>`;
+                    return;
+                }
+                if (!Array.isArray(vulns)) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="empty-td" style="color:var(--red);">Ошибка загрузки: неверный формат данных от сервера</td></tr>';
+                    return;
+                }
+                if (vulns.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="6" class="empty-td">База уязвимостей пуста</td></tr>';
                     return;
                 }
@@ -1453,6 +1461,14 @@ window.editVulnerability = function(id) {
     if (window.electronAPI) {
         window.electronAPI.sendApiRequest('/api/vulnerabilities', 'GET')
             .then(vulns => {
+                if (vulns && vulns.error) {
+                    alert('Ошибка: ' + vulns.error);
+                    return;
+                }
+                if (!Array.isArray(vulns)) {
+                    alert('Ошибка: неверный формат данных от сервера');
+                    return;
+                }
                 const v = vulns.find(item => item.id === id);
                 if (v) {
                     $('modal-vuln-title').textContent = 'Редактировать уязвимость';
@@ -1498,7 +1514,15 @@ window.loadAiReportsList = function() {
         window.electronAPI.sendApiRequest('/api/ai-reports', 'GET')
             .then(list => {
                 container.innerHTML = '';
-                if (!list || list.length === 0) {
+                if (list && list.error) {
+                    container.innerHTML = `<div style="color:var(--red); font-size:11px; padding:8px 0;">Ошибка: ${esc(list.error)}</div>`;
+                    return;
+                }
+                if (!Array.isArray(list)) {
+                    container.innerHTML = '<div style="color:var(--red); font-size:11px; padding:8px 0;">Ошибка: неверный формат данных от сервера</div>';
+                    return;
+                }
+                if (list.length === 0) {
                     container.innerHTML = '<div style="color:var(--dim); font-size:11px; padding:8px 0;">Архив пуст</div>';
                     return;
                 }
