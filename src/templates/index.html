@@ -818,6 +818,17 @@
                 </div>
             </div>
             <div class="card"><div class="card-hdr"><div class="cd" style="background:var(--blue)"></div>Пользователи</div><div id="users-list" style="display:flex;flex-direction:column;gap:8px"></div></div>
+            <div class="card" style="border:1px solid rgba(239, 68, 68, 0.2); margin-top:16px; background:rgba(239, 68, 68, 0.02);">
+                <div class="card-hdr" style="color:var(--red);">
+                    <div class="cd" style="background:var(--red); box-shadow:0 0 8px var(--red)"></div>Сброс состояния (Демонстрационный режим)
+                </div>
+                <div style="padding:12px; display:flex; flex-direction:column; gap:12px;">
+                    <p style="font-size:11px; color:var(--muted); margin:0;">
+                        Сбросьте систему к первоначальному состоянию: очистка инцидентов, логов и CVE, разблокировка всех IP-адресов в UFW и удаление runtime-отчётов ИИ (за исключением диплома).
+                    </p>
+                    <button onclick="triggerDemoReset()" style="background:var(--red); color:#fff; border:none; padding:10px 16px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; align-self:flex-start; text-transform:uppercase; transition:all 0.2s;" onmouseover="this.style.filter='brightness(1.15)';" onmouseout="this.style.filter='none';">СБРОСИТЬ СОСТОЯНИЕ ДЕМО</button>
+                </div>
+            </div>
         </div>
 
         <!-- ═══ VULNERABILITIES DATABASE ═══ -->

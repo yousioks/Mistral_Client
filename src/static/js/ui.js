@@ -1472,3 +1472,31 @@ window.closeMdViewerModal = function() {
     $('modal-md-viewer').classList.add('hidden');
 };
 
+window.triggerDemoReset = function() {
+    if (!confirm('Вы действительно хотите полностью сбросить состояние демо-режима? Это действие очистит инциденты, логи, CVE-записи, брандмауэр UFW и удалит отчёты ИИ.')) return;
+    
+    if (window.electronAPI) {
+        window.electronAPI.sendApiRequest('/api/reset-demo', 'POST')
+            .then(res => {
+                if (res && res.success) {
+                    showToast('Демо-режим', 'Система успешно сброшена к исходному состоянию', 'green');
+                    // Reset UI memory state too
+                    allIncidents = [];
+                    currentLogsData = [];
+                    // Clear running logs panel
+                    const rFeed = $('running-logs');
+                    if (rFeed) rFeed.innerHTML = '';
+                    updateRlogCount(0);
+                    // Update stats/charts locally
+                    updateChartsFromIncidents([]);
+                } else {
+                    alert('Не удалось сбросить состояние: ' + (res.error || 'неизвестно'));
+                }
+            })
+            .catch(err => {
+                alert('Ошибка сети: ' + err.message);
+            });
+    }
+};
+
+
