@@ -64,8 +64,8 @@ def simulate_progress(task_name, duration_sec):
         print(".", end='', flush=True)
     print(" [DONE]")
 
-def send_metric_spike(cpu, ram, disk, connections=142):
-    api_request('/api/metrics', {
+def send_metric_spike(cpu, ram, disk, connections=142, ddos=None):
+    payload = {
         'cpu': cpu,
         'ram': {'percent': ram, 'used_mb': int(ram * 163.84), 'total_mb': 16384},
         'disk': {'percent': disk, 'used_gb': int(disk * 2.4), 'total_gb': 240},
@@ -76,7 +76,10 @@ def send_metric_spike(cpu, ram, disk, connections=142):
         'docker': {'healthy': True, 'count': 4, 'containers': []},
         'systemd': {'failed_count': 0, 'failed_units': []},
         'nginx': {'active': True}
-    })
+    }
+    if ddos:
+        payload['ddos'] = ddos
+    api_request('/api/metrics', payload)
 
 def is_ip_quarantined(ip):
     res_str = api_request('/api/quarantine', method='GET')
@@ -85,6 +88,16 @@ def is_ip_quarantined(ip):
     try:
         q_list = json.loads(res_str)
         return any(q.get('ip') == ip for q in q_list)
+    except:
+        return False
+
+def check_ddos_blocked():
+    res_str = api_request('/api/quarantine', method='GET')
+    if not res_str:
+        return False
+    try:
+        q_list = json.loads(res_str)
+        return any(q.get('ip') == '82.102.0.0' or (q.get('ip') and q.get('ip').startswith('82.102.')) for q in q_list)
     except:
         return False
 
@@ -296,35 +309,72 @@ def run_ddos_flood():
     input(" Нажмите ENTER для запуска флуда...")
 
     print_color(" [!] ЗАПУСК FLOOD-АТАКИ... СПАМ ЛОГОВ...", "red")
+    print_color(" [*] Для отражения атаки добавьте 82.102.0.0 в карантин или включите ИИ-Автозащиту.", "yellow")
+    print()
     
     # Send Incident
-    api_request('/api/incidents', {
+    inc_res = api_request('/api/incidents', {
         'severity': 'HIGH',
         'monitor': 'NetworkMonitor',
         'type': 'DDOS_FLOOD_ACTIVE',
         'description': 'Massive SYN-Flood / HTTP-Flood attack detected from botnet subnet 82.102.0.0/16. Ingress connections spiked.'
     })
+    
+    incident_id = None
+    if inc_res:
+        try:
+            incident_id = json.loads(inc_res).get('incidentId')
+        except:
+            pass
 
     # Rapid logs and metric spikes
     conn_count = 100
-    for i in range(1, 41):
-        conn_count += 150
-        cpu_val = min(40 + i * 2, 100)
-        ram_val = min(50 + i, 98)
+    blocked = False
+    max_steps = 80 # up to 40 seconds
+    
+    for i in range(1, max_steps + 1):
+        conn_count += 120
+        cpu_val = min(40 + i * 2, 98)
+        ram_val = min(50 + int(i / 2), 92)
         
-        send_metric_spike(cpu_val, ram_val, 88, connections=conn_count)
+        ddos_data = {
+            'syn_recv': conn_count - 50,
+            'established': 100,
+            'top_ips': [
+                {'ip': '82.102.0.0', 'count': conn_count},
+                {'ip': f'82.102.32.{i % 254}', 'count': int(conn_count / 3)}
+            ]
+        }
+        
+        send_metric_spike(cpu_val, ram_val, 88, connections=conn_count, ddos=ddos_data)
         
         api_request('/api/logs', {
             'type': 'server',
             'level': 'warn',
-            'message': f'[Firewall] SYN FLOOD packet dropped: source=82.102.32.{i} target=port_80'
+            'message': f'[Firewall] SYN FLOOD packet dropped: source=82.102.32.{i % 254} target=port_80'
         })
-        print(f"\r  Отправлено {i*5} сетевых пакетов... Активных соединений: {conn_count}", end='', flush=True)
-        time.sleep(0.1)
+        
+        print(f"\r  Отправлено {i*5} сетевых пакетов... Соединений: {conn_count} (CPU: {cpu_val}%)", end='', flush=True)
+        
+        # Check quarantine status every 2 steps (~1 second)
+        if i % 2 == 0:
+            if check_ddos_blocked():
+                blocked = True
+                break
+                
+        time.sleep(0.5)
 
     print()
-    print_color("\n  -> [HIGH] Инцидент DDOS_FLOOD_ACTIVE зарегистрирован.", "yellow")
-    print_color("  -> Сетевая активность на графиках клиента должна показывать резкий пик.", "green")
+    
+    if blocked:
+        print_color("\n [🛡️] ОБНАРУЖЕНО ИЗМЕНЕНИЕ ПРАВИЛ БРАНДМАУЭРА! (IP/Subnet 82.102.0.0/16 заблокирован в UFW)", "green")
+        print_color("  -> Входящие пакеты от атакующей подсети успешно сбрасываются брандмауэром.", "green")
+        print_color("  -> DDoS-атака успешно нейтрализована!", "green")
+        if incident_id:
+            wait_for_ai_mitigation(incident_id)
+    else:
+        print_color("\n [!] Время симуляции истекло. Атака не была заблокирована.", "red")
+        print_color("  -> Сетевая активность на графиках клиента показывала резкий пик.", "green")
     
     time.sleep(2)
     print_color("\n [!] Стабилизация показателей метрик...", "blue")
