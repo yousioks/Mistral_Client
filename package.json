@@ -1,6 +1,6 @@
 {
   "name": "mistral-defense-client",
-  "version": "1.5.0",
+  "version": "1.0.0",
   "description": "MISTRAL Defense Command Center - Desktop Application",
   "main": "src/main.js",
   "scripts": {
@@ -67,7 +67,7 @@
           ]
         }
       ],
-      "icon": "src/static/logo.ico",
+      "icon": "src/static/totem.ico",
       "publisherName": "MISTRAL Defense",
       "requestedExecutionLevel": "asInvoker"
     },
@@ -78,7 +78,8 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "MISTRAL Defense",
-      "license": "LICENSE.txt"
+      "license": "LICENSE.txt",
+      "language": "1049"
     },
     "portable": {
       "artifactName": "MISTRAL-Defense-Portable-${version}.exe"

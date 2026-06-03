@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // IPC for Mistral Backend communication
   connectServer: (credentials) => ipcRenderer.invoke('connect-server', credentials),
   disconnectServer: () => ipcRenderer.invoke('disconnect-server'),
+  disconnectWs: () => ipcRenderer.invoke('disconnect-ws'),
+  reconnectServer: () => ipcRenderer.invoke('reconnect-server'),
   sendApiRequest: (path, method, body) => ipcRenderer.invoke('send-api-request', path, method, body),
   sendWsMessage: (msg) => ipcRenderer.send('send-ws-message', msg),
   

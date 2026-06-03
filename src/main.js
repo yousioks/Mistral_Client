@@ -42,6 +42,7 @@ const logger = winston.createLogger({
 let wsClient = null;
 let reconnectTimer = null;
 let reconnectAttempts = 0;
+let userDisconnected = false;
 const MAX_RECONNECT_DELAY = 30000;
 let serverConfig = { host: '', port: 8080, url: '', token: '' };
 
@@ -64,10 +65,12 @@ function createSplash() {
     alwaysOnTop: true, resizable: false,
     webPreferences: { nodeIntegration: false, contextIsolation: true },
   });
-  splashWindow.loadURL(`data:text/html,${encodeURIComponent(`
+  splashWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
     <!DOCTYPE html>
     <html>
-    <head><style>
+    <head>
+      <meta charset="UTF-8">
+      <style>
       *{margin:0;padding:0;box-sizing:border-box}
       body{background:#080808;color:#f5f5f5;font-family:'Segoe UI',system-ui;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;}
       .logo{font-size:48px;margin-bottom:16px;text-shadow:0 0 20px rgba(229,9,20,.4)}
@@ -79,7 +82,7 @@ function createSplash() {
       .status{margin-top:16px;font-size:11px;color:#999}
     </style></head>
     <body>
-      <div class="logo">⚔️</div>
+      <div class="logo" style="display:flex; justify-content:center; align-items:center;"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#e50914" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
       <div class="title">MIST<span>RAL</span></div>
       <div class="loader"><div class="loader-fill"></div></div>
       <div class="status">Инициализация системы...</div>
@@ -124,6 +127,7 @@ function createMainWindow() {
 
 // --- WebSocket logic ---
 function connectToServer(host, port, token) {
+  userDisconnected = false;
   if (wsClient) { try { wsClient.terminate(); } catch(_) {} wsClient = null; }
   if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
   serverConfig = { host, port, token, url: `http://${host}:${port}` };
@@ -175,8 +179,8 @@ function connectToServer(host, port, token) {
           break;
         case 'incident_updated':
           if (msg.data) {
-            const idx = cache.incidents.findIndex(i => i.id === msg.data.id);
-            if (idx !== -1) cache.incidents[idx] = msg.data;
+             const idx = cache.incidents.findIndex(i => i.id === msg.data.id);
+             if (idx !== -1) cache.incidents[idx] = msg.data;
           }
           break;
         case 'metrics': cache.metrics = msg.data; break;
@@ -189,7 +193,13 @@ function connectToServer(host, port, token) {
   wsClient.on('close', (code, reason) => {
     logger.warn(`WS closed: ${code}`);
     wsClient = null;
-    if (mainWindow) mainWindow.webContents.send('conn-status', 'error', `Отключён (${code})`);
+    if (mainWindow) {
+      if (userDisconnected) {
+        mainWindow.webContents.send('conn-status', 'error', 'Отключён пользователем');
+      } else {
+        mainWindow.webContents.send('conn-status', 'error', `Отключён (${code})`);
+      }
+    }
     scheduleReconnect();
   });
   
@@ -202,6 +212,7 @@ function connectToServer(host, port, token) {
 }
 
 function scheduleReconnect() {
+  if (userDisconnected) return;
   if (reconnectTimer || !serverConfig.host) return;
   const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), MAX_RECONNECT_DELAY);
   reconnectAttempts++;
@@ -237,7 +248,7 @@ ipcMain.handle('connect-server', async (event, { host, port, username, password 
       setTimeout(() => {
         if (mainWindow) mainWindow.webContents.send('initial-cache', cache);
       }, 500);
-      return { success: true, base: `http://${host}:${port}` };
+      return { success: true, base: `http://${host}:${port}`, token: data.token };
     }
     return { success: false, error: data.error || 'Login failed' };
   } catch (err) {
@@ -246,10 +257,34 @@ ipcMain.handle('connect-server', async (event, { host, port, username, password 
 });
 
 ipcMain.handle('disconnect-server', () => {
-  if (wsClient) { wsClient.terminate(); wsClient = null; }
+  userDisconnected = true;
+  if (wsClient) {
+    try { wsClient.terminate(); } catch(_) {}
+    wsClient = null;
+  }
   if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
   serverConfig = { host: '', port: 8080, url: '', token: '' };
   return true;
+});
+
+ipcMain.handle('disconnect-ws', () => {
+  userDisconnected = true;
+  if (wsClient) {
+    try { wsClient.terminate(); } catch(_) {}
+    wsClient = null;
+  }
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  if (mainWindow) mainWindow.webContents.send('conn-status', 'error', 'Отключён пользователем');
+  return true;
+});
+
+ipcMain.handle('reconnect-server', () => {
+  if (serverConfig.host) {
+    userDisconnected = false;
+    connectToServer(serverConfig.host, serverConfig.port, serverConfig.token);
+    return { success: true };
+  }
+  return { success: false, error: 'Конфигурация подключения отсутствует' };
 });
 
 ipcMain.handle('send-api-request', async (event, path, method, body) => {
@@ -257,7 +292,11 @@ ipcMain.handle('send-api-request', async (event, path, method, body) => {
   try {
     const res = await fetch(`${serverConfig.url}${path}`, {
       method,
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Auth-Token': serverConfig.token,
+        'X-API-Key': serverConfig.token
+      },
       body: body ? JSON.stringify(body) : undefined
     });
     return await res.json();

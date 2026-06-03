@@ -23,7 +23,7 @@
             --green-dark: #166534;
             --orange: #F59E0B;
             --orange-dark: #92400E;
-            --blue: #FF0000;
+            --blue: #3B82F6;
             --purple: #A855F7;
             --cyan: #06B6D4;
             --pink: #EC4899;
@@ -577,3 +577,116 @@
     justify-content: space-between;
     align-items: center;
 }
+
+/* === INCIDENT DRAWER === */
+.drawer {
+    position: fixed; top: 0; right: -450px; width: 450px; height: 100vh;
+    background: rgba(15, 19, 25, 0.95); backdrop-filter: blur(20px);
+    border-left: 1px solid var(--border); box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+    z-index: 4000; display: flex; flex-direction: column; transition: right 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.drawer.open { right: 0; }
+.drawer-header {
+    padding: 20px; border-bottom: 1px solid var(--border); display: flex;
+    justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2);
+}
+.drawer-close { cursor: pointer; color: var(--muted); font-size: 18px; transition: color 0.2s; }
+.drawer-close:hover { color: #fff; }
+.drawer-content { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+
+/* === CONTEXT MENU === */
+.context-menu {
+    position: fixed; background: rgba(20, 25, 35, 0.95); backdrop-filter: blur(10px);
+    border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    padding: 6px 0; min-width: 180px; z-index: 5000; display: none;
+    font-size: 11px; font-weight: 600; color: #fff;
+}
+.ctx-item {
+    padding: 8px 16px; cursor: pointer; transition: background 0.15s;
+    display: flex; align-items: center; gap: 8px;
+}
+.ctx-item:hover { background: rgba(255,255,255,0.05); }
+
+/* === GLOBAL SEARCH === */
+.hdr-search {
+    display: flex; align-items: center; background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border); border-radius: 8px; padding: 0 12px;
+    width: 300px; height: 36px; transition: 0.2s;
+}
+.hdr-search:focus-within { border-color: var(--cyan); box-shadow: 0 0 10px rgba(6, 182, 212, 0.2); background: rgba(0,0,0,0.5); }
+.hdr-search input {
+    background: transparent; border: none; color: #fff; outline: none; flex: 1;
+    font-size: 12px; font-family: 'Inter', sans-serif;
+}
+.hdr-search input::placeholder { color: var(--dim); }
+
+/* Action Buttons in Table */
+.btn-txt {
+    background: transparent; border: none; cursor: pointer; font-size: 10px;
+    font-weight: 700; color: var(--blue); text-transform: uppercase; letter-spacing: 0.5px;
+}
+.btn-txt:hover { text-decoration: underline; }
+
+/* === CYBER MAP & SOAR STYLING === */
+@keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slideIn {
+    from { transform: translateX(-20px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+.t-critical {
+    border-left: 4px solid var(--red) !important;
+    background: rgba(239, 68, 68, 0.1) !important;
+}
+
+.t-green {
+    border-left: 4px solid var(--green) !important;
+    background: rgba(16, 185, 129, 0.1) !important;
+}
+
+/* Scrollbar for Map Log Overlay */
+#map-log-overlay::-webkit-scrollbar {
+    width: 4px;
+}
+#map-log-overlay::-webkit-scrollbar-track {
+    background: transparent;
+}
+#map-log-overlay::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+}
+#map-log-overlay::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Glow Effects mode */
+body.glow-active .card {
+    box-shadow: 0 0 18px rgba(0, 102, 255, 0.12), var(--glass-shadow);
+    border-color: rgba(0, 102, 255, 0.22);
+}
+body.glow-active #cyber-map {
+    box-shadow: inset 0 0 20px rgba(0, 150, 255, 0.15);
+}
+body.glow-active .conn-dot.connected {
+    box-shadow: 0 0 12px var(--green), 0 0 20px var(--green);
+}
+body.glow-active .conn-dot.error {
+    box-shadow: 0 0 12px var(--red), 0 0 20px var(--red);
+}
+body.glow-active .conn-dot.connecting {
+    box-shadow: 0 0 12px var(--orange), 0 0 20px var(--orange);
+}
+body.glow-active .inc-card.CRITICAL {
+    box-shadow: 0 0 10px rgba(255, 0, 0, 0.15);
+}
+body.glow-active .inc-card.HIGH {
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.15);
+}
+body.glow-active .btn-sm.active {
+    box-shadow: 0 0 10px rgba(6, 182, 212, 0.4);
+}
+

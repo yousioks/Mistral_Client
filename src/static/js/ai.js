@@ -11,13 +11,34 @@ window.analyzeContext = function(id) {
     
     let template = $('ai-system-prompt')?.value;
     if (!template) {
-        template = "Проанализируй опасный участок логов. Тип атаки: {{type}}. Описание: {{description}}.\n\nКонтекст:\n{{context}}\n\nЧто делает атакующий и какие меры предпринять? Ничего не отключай и не ломай.";
+        template = `ПРОТОКОЛ АВТОЗАЩИТЫ MISTRAL.
+Проанализируй инцидент и предоставь подробный отчет строго в следующем формате:
+
+1. ПРИЧИНА АКТИВИЗАЦИИ АГЕНТА:
+   [Подробное описание, почему включился ИИ-агент безопасности, оценка степени угрозы]
+
+2. ПРЕДШЕСТВУЮЩЕЕ СОБЫТИЕ (ТРИГГЕР):
+   [Детальный разбор события, которое вызвало алерт: тип инцидента, источник атаки, время, логи и контекст]
+
+3. ПРЕДПРИНЯТЫЕ ДЕЙСТВИЯ И МИТИГАЦИЯ:
+   [Какие меры были предприняты или рекомендуются. Если требуется блокировка, укажи [AUTOBAN: {{ip}}] и [INCIDENT_ID: {{incident_id}}]]
+
+4. РЕКОМЕНДАЦИИ ДЛЯ АДМИНИСТРАТОРА:
+   [Дальнейшие шаги по укреплению защиты системы]
+
+Контекст инцидента:
+Тип атаки: {{type}}
+Описание: {{description}}
+Контекст логов:
+{{context}}`;
     }
     
     const prompt = template
         .replace(/\{\{type\}\}/g, inc.type || 'Unknown')
         .replace(/\{\{description\}\}/g, inc.description || 'No description')
-        .replace(/\{\{context\}\}/g, inc.contextBlock || 'Неизвестно');
+        .replace(/\{\{context\}\}/g, inc.contextBlock || 'Неизвестно')
+        .replace(/\{\{ip\}\}/g, inc.ip || 'N/A')
+        .replace(/\{\{incident_id\}\}/g, inc.id || 'N/A');
         
     $('ai-task').value = prompt; 
     switchTab('ai'); 
@@ -36,7 +57,7 @@ function appendChatMsg(role, text, isHtml = false) {
     div.className = 'ai-msg ' + (role==='user'?'user':'bot');
     const avatar = document.createElement('div');
     avatar.className = 'msg-avatar';
-    avatar.textContent = role==='user' ? 'U' : '🤖';
+    avatar.textContent = role==='user' ? 'USR' : 'AI';
     const bubble = document.createElement('div');
     bubble.className = 'msg-bubble';
     if (isHtml) bubble.innerHTML = text; else bubble.textContent = text;
@@ -53,7 +74,7 @@ function parseMarkdown(md) {
         const encCode = btoa(unescape(encodeURIComponent(code.trim())));
         return `<div style="background:#0a0a0a; border:1px solid #333; border-radius:6px; margin:10px 0; overflow:hidden;">
             <div style="background:#1a1a1a; padding:6px 12px; font-size:10px; font-family:monospace; color:#aaa; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center;">
-                ${lang||'bash'} <button onclick="executeAIScript('${encCode}')" style="background:var(--green); border:none; border-radius:4px; color:#000; font-weight:bold; font-size:9px; padding:4px 8px; cursor:pointer;">⚡ ВЫПОЛНИТЬ</button>
+                ${lang||'bash'} <button onclick="executeAIScript('${encCode}')" style="background:var(--green); border:none; border-radius:4px; color:#000; font-weight:bold; font-size:9px; padding:4px 8px; cursor:pointer;">ВЫПОЛНИТЬ</button>
             </div><pre style="padding:12px; margin:0; font-family:monospace; font-size:11px; overflow-x:auto; color:#fff;">${esc(code.trim())}</pre></div>`;
     });
     html = html.replace(/`(.*?)`/g, '<code style="background:rgba(255,255,255,0.1); padding:2px 4px; border-radius:4px; font-family:monospace;">$1</code>');
@@ -63,36 +84,88 @@ function executeAIScript(base64code) {
     const code = decodeURIComponent(escape(atob(base64code)));
     if(!confirm('ВНИМАНИЕ! Выполнить скрипт на сервере?\n\n' + code)) return;
     appendChatMsg('user', 'Выполни этот скрипт.');
-    const bubble = appendChatMsg('bot', '⏳ Выполнение...');
+    const bubble = appendChatMsg('bot', 'Выполнение...');
     window.electronAPI.sendApiRequest('/api/execute-ai-script', 'POST', {script: code})
-        .then(res => { bubble.innerHTML = '✅ <strong>Выполнено:</strong><br><pre style="background:#000;padding:10px;color:#0f0;margin-top:5px;">'+(res.output||res.error||'Успешно')+'</pre>'; })
-        .catch(err => { bubble.innerHTML = '❌ <strong>Ошибка:</strong><br>'+err.message; });
+        .then(res => { bubble.innerHTML = '<strong>Выполнено:</strong><br><pre style="background:#000;padding:10px;color:#0f0;margin-top:5px;">'+(res.output||res.error||'Успешно')+'</pre>'; })
+        .catch(err => { bubble.innerHTML = '<strong>Ошибка:</strong><br>'+err.message; });
 }
 function sendAITask(taskText = null) {
     const inp = $('ai-task');
-    const task = taskText || (inp ? inp.value.trim() : '');
+    let task = '';
+    if (typeof taskText === 'string' && taskText.trim().length > 0) {
+        task = taskText;
+    } else if (inp) {
+        task = inp.value.trim();
+    }
+    
     if(!task) return;
     if(inp) inp.value = '';
-    appendChatMsg('user', task); chatHistory.push({role:'user', content:task});
-    $('btn-ai-send').disabled = true;
-    const bubble = appendChatMsg('bot', '⏳ Анализ...'); bubble.id = 'ai-typing-bubble';
-    if (window.electronAPI) window.electronAPI.sendWsMessage({event:'ai_task', data:{task, history: chatHistory, model:currentModel}});
+    
+    appendChatMsg('user', task); 
+    chatHistory.push({role:'user', content:task});
+    
+    const btn = $('btn-ai-send');
+    if(btn) btn.disabled = true;
+    
+    const bubble = appendChatMsg('bot', 'Анализ...'); 
+    if(bubble) bubble.id = 'ai-typing-bubble';
+    
+    if (window.electronAPI) {
+        window.electronAPI.sendWsMessage({
+            event:'ai_task', 
+            data: {
+                task: task, 
+                history: chatHistory, 
+                model: typeof currentModel !== 'undefined' ? currentModel : 'deepseek-v4-pro'
+            }
+        });
+    }
 }
 window.askAI = function(promptText) { switchTab('ai'); sendAITask(promptText); };
 function generateDailyBriefing() {
     askAI('Сгенерируй Executive-отчёт (Daily Briefing) за последние 24 часа. Метрики: ' + JSON.stringify({threats: $('s-threats')?.textContent||'0', crit: $('s-critical')?.textContent||'0'}));
 }
 
+window.selectModel = function(model, btn) {
+    if(typeof window.currentModel !== 'undefined') {
+        window.currentModel = model;
+    }
+    document.querySelectorAll('.model-btn').forEach(b => b.classList.remove('active'));
+    if(btn) btn.classList.add('active');
+    
+    if (window.electronAPI) {
+        window.electronAPI.sendWsMessage({
+            event: 'switch_model',
+            data: { model: model }
+        });
+    }
+};
+
+window.promptCustomModel = function() {
+    const modelName = prompt('Enter custom neural network model ID (e.g., gpt-4o, llama-3):');
+    if (!modelName || !modelName.trim()) return;
+    
+    const container = document.getElementById('ai-models-container');
+    if (container) {
+        const btn = document.createElement('button');
+        btn.className = 'model-btn active';
+        btn.textContent = modelName.trim();
+        btn.onclick = function() { window.selectModel(modelName.trim(), this); };
+        
+        container.insertBefore(btn, container.lastElementChild);
+        window.selectModel(modelName.trim(), btn);
+    }
+};
+
 function populateAIIncidentDropdown() {
     const select = $("ai-incident-select");
     if (!select) return;
     const currentVal = select.value;
     select.innerHTML = '<option value="">-- Выберите инцидент для глубокого анализа --</option>';
-    allIncidents.slice(0, 50).forEach(inc => {
-        if(inc.severity !== "CRITICAL" && inc.severity !== "HIGH") return;
+    allIncidents.slice(0, 100).forEach(inc => {
         const opt = document.createElement("option");
         opt.value = inc.id;
-        opt.textContent = `[${inc.severity}] ${inc.type} | IP: ${inc.ip || "N/A"}`;
+        opt.textContent = `[${inc.severity || 'LOW'}] ${inc.type} | IP: ${inc.ip || "N/A"}`;
         select.appendChild(opt);
     });
     if (currentVal && Array.from(select.options).some(o => o.value === currentVal)) {
@@ -108,13 +181,34 @@ function selectIncidentForAI() {
     
     let template = $('ai-system-prompt')?.value;
     if (!template) {
-        template = "Проанализируй опасный участок логов. Тип атаки: {{type}}. Описание: {{description}}.\n\nКонтекст:\n{{context}}\n\nЧто делает атакующий и какие меры предпринять? Ничего не отключай и не ломай.";
+        template = `ПРОТОКОЛ АВТОЗАЩИТЫ MISTRAL.
+Проанализируй инцидент и предоставь подробный отчет строго в следующем формате:
+
+1. ПРИЧИНА АКТИВИЗАЦИИ АГЕНТА:
+   [Подробное описание, почему включился ИИ-агент безопасности, оценка степени угрозы]
+
+2. ПРЕДШЕСТВУЮЩЕЕ СОБЫТИЕ (ТРИГГЕР):
+   [Детальный разбор события, которое вызвало алерт: тип инцидента, источник атаки, время, логи и контекст]
+
+3. ПРЕДПРИНЯТЫЕ ДЕЙСТВИЯ И МИТИГАЦИЯ:
+   [Какие меры были предприняты или рекомендуются. Если требуется блокировка, укажи [AUTOBAN: {{ip}}] и [INCIDENT_ID: {{incident_id}}]]
+
+4. РЕКОМЕНДАЦИИ ДЛЯ АДМИНИСТРАТОРА:
+   [Дальнейшие шаги по укреплению защиты системы]
+
+Контекст инцидента:
+Тип атаки: {{type}}
+Описание: {{description}}
+Контекст логов:
+{{context}}`;
     }
     
     const prompt = template
         .replace(/\{\{type\}\}/g, inc.type || 'Unknown')
         .replace(/\{\{description\}\}/g, inc.description || 'No description')
-        .replace(/\{\{context\}\}/g, inc.contextBlock || 'Неизвестно');
+        .replace(/\{\{context\}\}/g, inc.contextBlock || 'Неизвестно')
+        .replace(/\{\{ip\}\}/g, inc.ip || 'N/A')
+        .replace(/\{\{incident_id\}\}/g, inc.id || 'N/A');
         
     $("ai-task").value = prompt;
 }

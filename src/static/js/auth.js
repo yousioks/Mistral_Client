@@ -2,27 +2,35 @@
 // LOGIN
 // ══════════════════════════════════════════════════════════════════════════════
 async function doLogin() {
-    const host = $('inp-host').value.trim();
-    const port = $('inp-port').value.trim() || '8080';
-    const username = $('inp-user').value.trim();
-    const password = $('inp-pass').value;
-    const errEl = $('login-error'), statusEl = $('login-status'), btn = $('btn-login');
-    if (!host) { errEl.textContent = 'Укажите IP/хост сервера'; return; }
-    if (!username || !password) { errEl.textContent = 'Введите логин и пароль'; return; }
-    errEl.textContent = ''; btn.disabled = true; statusEl.textContent = 'Проверка соединения...';
-    
-    if (window.electronAPI) {
-        const res = await window.electronAPI.connectServer({ host, port, username, password });
-        if (res.success) {
-            serverBase = res.base;
-            statusEl.textContent = 'Авторизован. Подключение к WebSocket...';
-            $('login-screen').classList.add('hidden');
-            $('app').classList.remove('hidden');
-            btn.disabled = false;
-            initCharts(); loadUsers(); loadQuarantine();
-        } else {
-            errEl.textContent = res.error || 'Неверный логин или пароль'; btn.disabled = false; statusEl.textContent = ''; return;
+    try {
+        const host = $('inp-host').value.trim();
+        const port = $('inp-port').value.trim() || '8080';
+        const username = $('inp-user').value.trim();
+        const password = $('inp-pass').value;
+        const errEl = $('login-error'), statusEl = $('login-status'), btn = $('btn-login');
+        if (!host) { errEl.textContent = 'Укажите IP/хост сервера'; return; }
+        if (!username || !password) { errEl.textContent = 'Введите логин и пароль'; return; }
+        errEl.textContent = ''; btn.disabled = true; statusEl.textContent = 'Проверка соединения...';
+        
+        if (window.electronAPI) {
+            const res = await window.electronAPI.connectServer({ host, port, username, password });
+            if (res.success) {
+                serverBase = res.base;
+                token = res.token;
+                statusEl.textContent = 'Авторизован. Подключение к WebSocket...';
+                $('login-screen').classList.add('hidden');
+                $('app').classList.remove('hidden');
+                btn.disabled = false;
+                try { updateIPDisplays(); } catch(e) { console.error(e); }
+                try { initCharts(); } catch(e) { console.error(e); }
+                try { loadUsers(); } catch(e) { console.error(e); }
+                try { loadQuarantine(); } catch(e) { console.error(e); }
+            } else {
+                errEl.textContent = res.error || 'Неверный логин или пароль'; btn.disabled = false; statusEl.textContent = ''; return;
+            }
         }
+    } catch (err) {
+        alert("Login Error: " + err.message);
     }
 }
 function doLogout() {
@@ -102,7 +110,7 @@ if (logSearchInp) {
         if(e.key === 'Enter') {
             const query = logSearchInp.value.trim();
             if (query && query.length > 10 && !query.includes('=')) {
-                logSearchInp.value = '⏳ Анализ...';
+                logSearchInp.value = 'Анализ...';
                 window.electronAPI.sendApiRequest('/api/ai-nlp-search', 'POST', {query}).then(res => {
                     logSearchInp.value = query;
                     if (res && res.filter) {

@@ -13,19 +13,12 @@
 <div id="alert-banner"></div>
 <div id="toast-container"></div>
 
-<!-- AI TERMINAL NOTIFICATION -->
-<div id="ai-terminal">
-    <div class="ai-term-close" onclick="closeAITerminal()" title="Перехватить управление">×</div>
-    <div style="color:#f00; font-weight:900; font-size:18px; margin-bottom:15px; border-bottom:1px solid #f00; padding-bottom:10px;">🛡️ MISTRAL AI DEFENSE AGENT</div>
-    <div id="ai-term-content" class="typing-cursor"></div>
-    <input type="text" id="ai-term-input" placeholder="> Введите команду или поправку..." onkeydown="if(event.key==='Enter') sendAITerminalInput(this.value)">
-</div>
 
 <!-- ═══ LOGIN ═══ -->
 <div id="login-screen">
     <div class="login-box">
         <div class="login-logo">
-            <img src="../static/logo.svg" alt="M" onerror="this.style.display='none'">
+            <img src="../static/totem.ico" alt="M" onerror="this.style.display='none'">
             <h1>MIST<span style="letter-spacing: 0; margin: 0; padding: 0;">RAL</span></h1>
             <p>Enterprise Security</p>
         </div>
@@ -62,26 +55,38 @@
     <!-- Left Sidebar Navigation -->
     <div id="sidebar">
         <div class="sidebar-logo">
-            <img src="../static/logo.svg" alt="M" onerror="this.style.display='none'">
+            <img src="../static/totem.ico" alt="M" onerror="this.style.display='none'">
             <span>MIST<span style="letter-spacing: 0; margin: 0; padding: 0;">RAL</span></span>
         </div>
         <div class="tabs">
             <div class="tab active" data-tab="dashboard" onclick="switchTab('dashboard')">Dashboard</div>
-            <div class="tab" data-tab="network" onclick="switchTab('network')">Network</div>
+            <div class="tab" data-tab="server_info" onclick="switchTab('server_info')">Server Info</div>
+            <div class="tab" data-tab="apps" onclick="switchTab('apps')">Applications</div>
             <div class="tab" data-tab="incidents" onclick="switchTab('incidents')">Incidents</div>
-            <div class="tab" data-tab="dangerous" onclick="switchTab('dangerous')">🚨 Threats</div>
-            <div class="tab" data-tab="logs" onclick="switchTab('logs')">Logs</div>
-            <div class="tab" data-tab="metrics" onclick="switchTab('metrics')">Metrics</div>
-            <div class="tab" data-tab="scanners" onclick="switchTab('scanners')">🛡️ Scanners</div>
+            <div class="tab" data-tab="network" onclick="switchTab('network')">Network & DDoS</div>
+            <div class="tab" data-tab="map" onclick="switchTab('map')">Threat Map</div>
+            <div class="tab" data-tab="logs" onclick="switchTab('logs')">System Logs</div>
+            <div class="tab" data-tab="scanners" onclick="switchTab('scanners')">Security Scanners</div>
+            <div class="tab" data-tab="mitre" onclick="switchTab('mitre')">MITRE ATT&CK Matrix</div>
             <div class="tab" data-tab="ai" onclick="switchTab('ai')">AI Analysis</div>
-            <div class="tab" data-tab="users" onclick="switchTab('users')">Users & Access</div>
+            <div class="tab" data-tab="metrics" onclick="switchTab('metrics')">Metrics</div>
+            <div class="tab" data-tab="users" onclick="switchTab('users')">Users & Settings</div>
+        </div>
+        <div style="flex:1;"></div>
+        <div class="mascot-container" style="padding: 20px; text-align: center; opacity: 0.8;">
+            <img src="../static/totem.ico" style="width: 80%; max-width: 120px; filter: drop-shadow(0 0 15px rgba(255, 0, 0, 0.2)); transition: all 0.3s;" alt="Totem" onmouseover="this.style.filter='drop-shadow(0 0 25px rgba(255, 0, 0, 0.6))'; this.style.transform='scale(1.05)';" onmouseout="this.style.filter='drop-shadow(0 0 15px rgba(255, 0, 0, 0.2))'; this.style.transform='scale(1)';">
         </div>
     </div>
 
     <!-- Right Explorer Container -->
     <div id="main-area">
         <header>
+            <div class="hdr-search">
+                <span style="color:var(--dim); margin-right:8px; display:inline-flex; align-items:center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></span>
+                <input type="text" id="global-search" placeholder="Search IP, Incident, Log... (Ctrl+K)" onkeydown="if(event.key==='Enter') doGlobalSearch(this.value)">
+            </div>
             <div class="hdr-right">
+                <button class="btn-sm" style="margin-right:16px; background:rgba(255,255,255,0.1); border:1px solid var(--border);" onclick="generateGlobalSOCReport()">📄 EXPORT SOC REPORT</button>
                 <div class="conn-badge" id="conn-badge-btn" onclick="toggleConnDiag()" style="cursor:pointer;user-select:none" title="Нажмите для диагностики соединения">
                     <div class="conn-dot" id="conn-dot"></div><span id="conn-label">—</span>
                     <span style="font-size:9px;color:var(--dim);margin-left:3px">&#9432;</span>
@@ -91,14 +96,15 @@
             </div>
         </header>
         <!-- WS Diagnostics Popup -->
-        <div id="conn-diag" style="display:none;position:fixed;top:68px;right:20px;z-index:9999;background:#0a0a0a;border:1px solid var(--border);border-radius:10px;padding:16px 20px;min-width:300px;box-shadow:0 10px 40px rgba(0,0,0,0.8);font-family:'JetBrains Mono',monospace;font-size:11px">
+        <div id="conn-diag" style="display:none;position:fixed;top:68px;right:20px;z-index:9999;background:rgba(10,14,25,0.95);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:18px 22px;min-width:320px;box-shadow:0 20px 50px rgba(0,0,0,0.9);font-family:'JetBrains Mono',monospace;font-size:11px">
             <div style="font-weight:800;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:12px;display:flex;justify-content:space-between">
                 WS Диагностика <span onclick="toggleConnDiag()" style="cursor:pointer;color:var(--dim)">✕</span>
             </div>
             <div id="diag-content" style="display:flex;flex-direction:column;gap:8px;color:#ccc;line-height:1.8"></div>
-            <div style="margin-top:14px;display:flex;gap:8px">
-                <button onclick="diagReconnect()" style="flex:1;background:rgba(255,0,0,0.1);border:1px solid rgba(255,0,0,0.3);color:var(--red);padding:7px;border-radius:6px;cursor:pointer;font-size:10px;font-weight:700;font-family:'JetBrains Mono',monospace">⚡ ПЕРЕПОДКЛЮЧИТЬ</button>
-                <button onclick="toggleConnDiag()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 12px;border-radius:6px;cursor:pointer;font-size:10px;font-weight:700;font-family:'JetBrains Mono',monospace">Закрыть</button>
+            <div style="margin-top:16px;display:flex;gap:8px">
+                <button onclick="diagReconnect()" style="flex:1;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#fca5a5;padding:8px;border-radius:6px;cursor:pointer;font-size:9px;font-weight:700;font-family:'JetBrains Mono',monospace;letter-spacing:0.5px;transition:all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.2)'" onmouseout="this.style.background='rgba(239,68,68,0.1)'">ПЕРЕПОДКЛЮЧИТЬ</button>
+                <button onclick="diagDisconnect()" style="flex:1;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;padding:8px;border-radius:6px;cursor:pointer;font-size:9px;font-weight:700;font-family:'JetBrains Mono',monospace;letter-spacing:0.5px;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background='rgba(255,255,255,0.03)'">ОТКЛЮЧИТЬСЯ</button>
+                <button onclick="toggleConnDiag()" style="background:transparent;border:1px solid rgba(255,255,255,0.08);color:#94a3b8;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:9px;font-weight:700;font-family:'JetBrains Mono',monospace;transition:all 0.2s;" onmouseover="this.style.borderColor='rgba(255,255,255,0.2)';this.style.color='#fff'" onmouseout="this.style.borderColor='rgba(255,255,255,0.08)';this.style.color='#94a3b8'">Закрыть</button>
             </div>
         </div>
 
@@ -151,12 +157,12 @@
                     </div>
                     <div class="dash-hdr-actions" style="display:flex; justify-content:space-between; align-items:center; margin-top:-16px; margin-bottom:16px;">
     <div style="font-size:14px; font-weight:700;">Global Statistics</div>
-    <button onclick="generateDailyBriefing()" style="background:var(--blue); color:#fff; border:none; padding:6px 12px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px;">📊 СГЕНЕРИРОВАТЬ ОТЧЁТ (AI)</button>
+    <button onclick="generateDailyBriefing()" style="background:var(--blue); color:#fff; border:none; padding:6px 12px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px;">СГЕНЕРИРОВАТЬ ОТЧЁТ (AI)</button>
 </div>
 <div class="stats-row" style="margin-top:0">
-                        <div class="stat-box s-red"><div class="stat-icon">🔴</div><div class="stat-val" id="s-critical">0</div><div class="stat-lbl">Critical Alerts</div></div>
-                        <div class="stat-box s-orange"><div class="stat-icon">⚡</div><div class="stat-val" id="s-threats">0</div><div class="stat-lbl">Active Threats</div></div>
-                        <div class="stat-box s-blue"><div class="stat-icon">🔍</div><div class="stat-val" id="s-vuln">0</div><div class="stat-lbl">CVE Events</div></div>
+                        <div class="stat-box s-red"><div class="stat-icon" style="color:var(--red);">●</div><div class="stat-val" id="s-critical">0</div><div class="stat-lbl">Critical Alerts</div></div>
+                        <div class="stat-box s-orange"><div class="stat-icon" style="color:var(--orange);">●</div><div class="stat-val" id="s-threats">0</div><div class="stat-lbl">Active Threats</div></div>
+                        <div class="stat-box s-blue"><div class="stat-icon" style="color:var(--blue);">●</div><div class="stat-val" id="s-vuln">0</div><div class="stat-lbl">CVE Events</div></div>
                     </div>
                     <div class="card" style="flex:0"><div class="card-hdr"><div class="cd" style="background:var(--green)"></div>Network Activity</div><div class="chart-box" style="height:110px"><canvas id="chart-network"></canvas></div></div>
                     <div class="card" style="flex:1;min-height:0;display:flex;flex-direction:column">
@@ -196,9 +202,186 @@
                             <tr><td><span class="risk-dot" style="background:var(--muted)"></span>Low</td><td style="text-align:right;font-weight:700" id="rl-low">0</td></tr>
                         </table>
                     </div>
-                    <div class="card" style="flex:1;min-height:0;display:flex;flex-direction:column">
-                        <div class="card-hdr"><div class="cd" style="background:var(--orange)"></div>Recent Alerts</div>
-                        <div id="recent-alerts" style="flex:1;overflow-y:auto;font-size:12px;display:flex;flex-direction:column;gap:6px"></div>
+                    <div class="card" style="flex:1;min-height:0;display:flex;flex-direction:column; background:rgba(0,0,0,0.6); border:1px solid rgba(0,255,136,0.2);">
+                        <div class="card-hdr" style="color:#fff;"><div class="cd" style="background:var(--green); box-shadow:0 0 8px var(--green)"></div>AI Defense Posture</div>
+                        <div style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:12px; font-size:12px;">
+                            
+                            <!-- DEFCON -->
+                            <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:10px; border-radius:6px;">
+                                <div style="color:var(--muted); font-weight:700;">SYSTEM THREAT LEVEL</div>
+                                <div id="defcon-status" style="font-weight:900; font-size:14px; color:var(--green);">DEFCON 5</div>
+                            </div>
+                            
+                            <!-- SHIELDS -->
+                            <div style="display:flex; flex-direction:column; gap:6px;">
+                                <div style="color:var(--muted); font-size:10px; font-weight:800; text-transform:uppercase;">Security Shields</div>
+                                
+                                <div style="display:flex; justify-content:space-between; align-items:center; border:1px solid var(--border); padding:8px 10px; border-radius:4px;">
+                                    <span style="font-family:'JetBrains Mono', monospace;">Network Firewall</span>
+                                    <span style="color:var(--green); font-weight:bold; font-size:10px; display:flex; align-items:center; gap:6px;"><div style="width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 5px var(--green)"></div>ACTIVE</span>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center; border:1px solid var(--border); padding:8px 10px; border-radius:4px;">
+                                    <span style="font-family:'JetBrains Mono', monospace;">MISTRAL AI Core</span>
+                                    <span id="shield-ai" style="color:var(--green); font-weight:bold; font-size:10px; display:flex; align-items:center; gap:6px;"><div style="width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 5px var(--green)"></div>ARMED</span>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center; border:1px solid var(--border); padding:8px 10px; border-radius:4px;">
+                                    <span style="font-family:'JetBrains Mono', monospace;">Log Parsers</span>
+                                    <span style="color:var(--green); font-weight:bold; font-size:10px; display:flex; align-items:center; gap:6px;"><div style="width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 5px var(--green)"></div>SYNCED</span>
+                                </div>
+                            </div>
+                    
+                            <!-- STATS & LAST ACTION -->
+                            <div style="margin-top:auto; background:rgba(0,0,0,0.5); padding:10px; border-radius:6px; border-left:3px solid var(--blue);">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                                    <span style="color:var(--dim); font-size:10px;">AI Mitigations Today:</span>
+                                    <span id="ai-mitigated-count" style="color:#fff; font-weight:bold; font-family:'JetBrains Mono',monospace;">0</span>
+                                </div>
+                                <div style="color:var(--dim); font-size:10px;">Last Action:</div>
+                                <div id="ai-last-action" style="color:var(--cyan); font-size:11px; margin-top:2px; font-family:'JetBrains Mono',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">No active threats mitigated yet.</div>
+                            </div>
+                            
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ SERVER INFO ═══ -->
+        <div class="panel" id="panel-server_info">
+            <div style="display:grid; grid-template-columns: 2fr 1fr; gap:16px; margin-bottom:16px;">
+                <!-- Host Details -->
+                <div class="card" style="border:1px solid rgba(6, 182, 212, 0.2);">
+                    <div class="card-hdr">
+                        <div class="cd" style="background:var(--cyan)"></div>Характеристики & Спецификации Сервера
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; font-size:12px; font-family:'JetBrains Mono', monospace;">
+                        <div style="background:rgba(0,0,0,0.2); padding:10px; border-radius:6px; border:1px solid var(--border);">
+                            <span style="color:var(--muted); display:block; font-size:9px; margin-bottom:2px;">ИМЯ ХОСТА</span>
+                            <strong id="si-hostname" style="color:#fff;">Загрузка...</strong>
+                        </div>
+                        <div style="background:rgba(0,0,0,0.2); padding:10px; border-radius:6px; border:1px solid var(--border);">
+                            <span style="color:var(--muted); display:block; font-size:9px; margin-bottom:2px;">ОПЕРАЦИОННАЯ СИСТЕМА</span>
+                            <strong id="si-os" style="color:#fff;">GNU/Linux Ubuntu 22.04 LTS</strong>
+                        </div>
+                        <div style="background:rgba(0,0,0,0.2); padding:10px; border-radius:6px; border:1px solid var(--border);">
+                            <span style="color:var(--muted); display:block; font-size:9px; margin-bottom:2px;">ЯДРО LINUX</span>
+                            <strong id="si-kernel" style="color:#fff;">Linux 5.15.0-88-generic x86_64</strong>
+                        </div>
+                        <div style="background:rgba(0,0,0,0.2); padding:10px; border-radius:6px; border:1px solid var(--border);">
+                            <span style="color:var(--muted); display:block; font-size:9px; margin-bottom:2px;">ПРОЦЕССОР (CPU)</span>
+                            <strong id="si-cpu-model" style="color:#fff;">Intel(R) Xeon(R) Gold 6130 CPU @ 2.10GHz</strong>
+                        </div>
+                        <div style="background:rgba(0,0,0,0.2); padding:10px; border-radius:6px; border:1px solid var(--border);">
+                            <span style="color:var(--muted); display:block; font-size:9px; margin-bottom:2px;">АПТАЙМ СЕРВЕРА</span>
+                            <strong id="si-uptime" style="color:var(--green);">0 дней, 00:00:00</strong>
+                        </div>
+                        <div style="background:rgba(0,0,0,0.2); padding:10px; border-radius:6px; border:1px solid var(--border);">
+                            <span style="color:var(--muted); display:block; font-size:9px; margin-bottom:2px;">ТЕМПЕРАТУРА ЯДРА</span>
+                            <strong id="si-temp" style="color:var(--orange);">0°C</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Control Audit -->
+                <div class="card" style="display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; border:1px solid rgba(220, 38, 38, 0.2);">
+                    <div class="card-hdr" style="margin-bottom:8px;">
+                        <div class="cd" style="background:var(--red)"></div>Безопасность системы
+                    </div>
+                    <p style="font-size:10px; color:var(--muted); margin-bottom:12px;">Управляйте утилитами аудита и запускайте проверку целостности.</p>
+                    <button class="btn-sm" onclick="triggerScannerInstallation()" style="width:100%; margin-bottom:8px; border-color:var(--cyan); color:var(--cyan); background:rgba(6,182,212,0.05);">Установка Trivy & Semgrep</button>
+                    <button class="btn-login" onclick="triggerServerAudit()" style="width:100%; padding:10px; font-size:10px; letter-spacing:1px; background:linear-gradient(135deg, var(--red), #7f1d1d); border:none; border-radius:6px; color:#fff; font-weight:800; cursor:pointer;">Запуск Аудита</button>
+                </div>
+            </div>
+
+            <!-- Daemons Grid & Network Ports -->
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; flex:1; min-height:0;">
+                <!-- Daemons Card -->
+                <div class="card" style="display:flex; flex-direction:column;">
+                    <div class="card-hdr">
+                        <div class="cd" style="background:var(--orange)"></div>Системные Демоны & Службы (systemd)
+                    </div>
+                    <div style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px;" id="si-daemons-list">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+
+                <!-- Network Ports & Listening Sockets -->
+                <div class="card" style="display:flex; flex-direction:column;">
+                    <div class="card-hdr">
+                        <div class="cd" style="background:var(--blue)"></div>Активные Сетевые Порты (ss -tlnp)
+                    </div>
+                    <div style="flex:1; overflow-y:auto;">
+                        <table class="full-tbl" style="font-size:11px;">
+                            <thead>
+                                <tr><th>Порт</th><th>Протокол</th><th>Процесс</th><th>PID</th></tr>
+                            </thead>
+                            <tbody id="si-ports-tbody">
+                                <!-- Filled by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ APPLICATIONS ═══ -->
+        <div class="panel" id="panel-apps">
+            <!-- Docker Containers and Nginx Sites -->
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+                <!-- Docker Containers Card -->
+                <div class="card" style="display:flex; flex-direction:column; height:240px; border:1px solid rgba(37,99,235,0.2);">
+                    <div class="card-hdr">
+                        <div class="cd" style="background:var(--blue)"></div>Контейнеры Docker
+                    </div>
+                    <div style="flex:1; overflow-y:auto;">
+                        <table class="full-tbl" style="font-size:11px;">
+                            <thead>
+                                <tr><th>ID / Имя</th><th>Образ</th><th>Статус</th><th>Действие</th></tr>
+                            </thead>
+                            <tbody id="apps-docker-tbody">
+                                <!-- Filled by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Nginx Sites Card -->
+                <div class="card" style="display:flex; flex-direction:column; height:240px; border:1px solid rgba(6,182,212,0.2);">
+                    <div class="card-hdr">
+                        <div class="cd" style="background:var(--cyan)"></div>Приложения Nginx / Сайты
+                    </div>
+                    <div style="flex:1; overflow-y:auto;">
+                        <table class="full-tbl" style="font-size:11px;">
+                            <thead>
+                                <tr><th>Домен</th><th>Порт</th><th>Корневая директория</th><th>Действие</th></tr>
+                            </thead>
+                            <tbody id="apps-nginx-tbody">
+                                <!-- Filled by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vulnerability Findings & Data Leaks -->
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; flex:1; min-height:0;">
+                <!-- Data Leaks Card -->
+                <div class="card" style="display:flex; flex-direction:column; border:1px solid rgba(239,68,68,0.2);">
+                    <div class="card-hdr">
+                        <div class="cd" style="background:var(--red)"></div>Утечки Данных / Чувствительные Файлы
+                    </div>
+                    <div style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px;" id="apps-leaks-feed">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+
+                <!-- Security Scan Results Cache (Semgrep & Trivy) -->
+                <div class="card" style="display:flex; flex-direction:column; border:1px solid rgba(168,85,247,0.2);">
+                    <div class="card-hdr">
+                        <div class="cd" style="background:var(--purple)"></div>Результаты сканирования уязвимостей
+                    </div>
+                    <div style="flex:1; overflow-y:auto; font-family:'JetBrains Mono', monospace; font-size:10px;" id="apps-vulns-log">
+                        <!-- Filled by JS -->
                     </div>
                 </div>
             </div>
@@ -206,12 +389,51 @@
 
         <!-- ═══ NETWORK & QUARANTINE ═══ -->
         <div class="panel" id="panel-network">
+            <div class="net-status-bar" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; padding:12px; background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:8px; font-family:'JetBrains Mono', monospace; font-size:12px;">
+                <div><span class="state-dot connected" style="display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--green); margin-right:6px; box-shadow:0 0 5px var(--green)"></span> <span style="color:var(--muted)">Мой IP (Клиент):</span> <span id="client-ip-display" style="color:var(--green); font-weight:bold;">Загрузка...</span></div>
+                <div><span style="color:var(--muted)">IP сервера:</span> <span id="server-ip-display" style="color:var(--cyan); font-weight:bold;">Загрузка...</span></div>
+                <label style="display:flex; align-items:center; cursor:pointer; color:var(--muted); font-size:11px;" title="Блокирует повторные всплывающие уведомления для одного и того же типа атаки / IP на 3 минуты">
+                    <input type="checkbox" id="chk-suppress-ddos" checked style="margin-right:6px; accent-color:var(--orange);"> Подавление дубликатов DDoS
+                </label>
+            </div>
             <div class="net-grid">
                 <div class="card"><div class="card-hdr"><div class="cd" style="background:var(--orange)"></div>DDoS / Flood Attempts</div>
                     <table class="full-tbl"><thead><tr><th>Target/Agent</th><th>IP Address</th><th>Total Conns</th><th>Action</th></tr></thead><tbody id="ssh-tbody"><tr><td colspan="4" class="empty-td">Ожидание данных от DDoS-монитора...</td></tr></tbody></table>
                 </div>
                 <div class="card" style="flex:1"><div class="card-hdr"><div class="cd" style="background:var(--red)"></div>Quarantine <span id="q-count" style="background:rgba(239,68,68,0.12);color:var(--red);border-radius:20px;padding:1px 8px;font-size:10px;margin-left:6px">0</span></div>
+                    <div style="display:flex; gap:8px; margin-bottom:12px; padding:0 0 12px 0; border-bottom:1px solid var(--border);">
+                        <input id="inp-manual-ban-ip" type="text" placeholder="IP адрес (например, 192.168.1.100)" style="flex:2; background:rgba(0,0,0,0.3); border:1px solid var(--border); padding:6px 10px; border-radius:6px; color:#fff; font-size:11px; outline:none; font-family:'JetBrains Mono',monospace;">
+                        <input id="inp-manual-ban-reason" type="text" placeholder="Причина (опционально)" style="flex:3; background:rgba(0,0,0,0.3); border:1px solid var(--border); padding:6px 10px; border-radius:6px; color:#fff; font-size:11px; outline:none;">
+                        <button onclick="submitManualBan()" style="background:var(--red); color:#fff; border:none; padding:0 14px; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer; text-transform:uppercase;">ЗАБАНЯТЬ</button>
+                    </div>
                     <table class="full-tbl"><thead><tr><th>IP</th><th>Reason</th><th>Blocked</th><th>Action</th></tr></thead><tbody id="quarantine-tbody"><tr><td colspan="4" class="empty-td">Нет заблокированных IP</td></tr></tbody></table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ THREAT MAP ═══ -->
+        <div class="panel" id="panel-map" style="height:100%; overflow:hidden;">
+            <div class="card" style="display:flex; flex-direction:column; height:100%; border:1px solid rgba(0, 150, 255, 0.2); margin-bottom:0;">
+                <div class="card-hdr" style="font-size:16px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <div class="cd" style="background:var(--blue)"></div>Global Threat Cyber Map
+                    </div>
+                    <div style="display:flex; gap:6px; align-items:center;">
+                        <span style="font-size:9px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-right:4px;">Фильтр:</span>
+                        <button class="btn-sm active" id="map-filter-all" onclick="setMapFilter('ALL')" style="font-size:9px; padding:3px 8px; background:rgba(0,150,255,0.12); border-color:var(--cyan);">Все</button>
+                        <button class="btn-sm" id="map-filter-intrusion" onclick="setMapFilter('INTRUSION')" style="font-size:9px; padding:3px 8px; background:transparent;">Вторжения</button>
+                        <button class="btn-sm" id="map-filter-ddos" onclick="setMapFilter('DDOS')" style="font-size:9px; padding:3px 8px; background:transparent;">DDoS</button>
+                        <button class="btn-sm" id="map-filter-bruteforce" onclick="setMapFilter('BRUTEFORCE')" style="font-size:9px; padding:3px 8px; background:transparent;">Брутфорс</button>
+                    </div>
+                </div>
+                <div style="flex:1; background:#000; position:relative; overflow:hidden; border-radius:8px;">
+                    <canvas id="cyber-map" style="width:100%; height:100%; display:block; background:#020205;"></canvas>
+                    <div id="map-log-overlay" style="position:absolute; bottom:20px; left:20px; max-height:160px; width:340px; background:rgba(0,0,0,0.85); border:1px solid var(--border); border-radius:6px; padding:12px; font-family:'JetBrains Mono',monospace; font-size:10px; color:#fff; overflow-y:auto; display:flex; flex-direction:column; gap:4px; box-shadow:0 10px 30px rgba(0,0,0,0.7); pointer-events:none; border-left:3px solid var(--cyan);">
+                        <div style="font-weight:bold; color:var(--cyan); margin-bottom:4px; text-transform:uppercase; font-size:9px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:3px;">Live Cyber Intelligence Stream</div>
+                        <div id="map-log-feed" style="display:flex; flex-direction:column-reverse; gap:4px;">
+                            <div style="color:var(--dim)">Ожидание кибер-активности...</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -219,30 +441,28 @@
         <!-- ═══ INCIDENTS ═══ -->
         <div class="panel" id="panel-incidents">
             <div class="card" style="display:flex;flex-direction:column;height:100%">
-                <div class="card-hdr" style="margin-bottom:8px;"><div class="cd" style="background:var(--orange)"></div>Все инциденты</div>
-                
-                <!-- Kill-Chain Timeline -->
-                <div class="killchain-wrap">
-                    <div class="kc-step" id="kc-recon"><div class="kc-dot"></div><div class="kc-lbl">Reconnaissance</div></div>
-                    <div class="kc-line"><div class="kc-line-fill"></div></div>
-                    <div class="kc-step" id="kc-initial"><div class="kc-dot"></div><div class="kc-lbl">Initial Access</div></div>
-                    <div class="kc-line"><div class="kc-line-fill"></div></div>
-                    <div class="kc-step" id="kc-exec"><div class="kc-dot"></div><div class="kc-lbl">Execution</div></div>
-                    <div class="kc-line"><div class="kc-line-fill"></div></div>
-                    <div class="kc-step" id="kc-priv"><div class="kc-dot"></div><div class="kc-lbl">Privilege Esc.</div></div>
-                    <div class="kc-line"><div class="kc-line-fill"></div></div>
-                    <div class="kc-step" id="kc-impact"><div class="kc-dot"></div><div class="kc-lbl">Impact</div></div>
+                <div class="card-hdr" style="margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                    <div><div class="cd" style="background:var(--orange)"></div>Incident Data Grid</div>
+                    <div style="font-size:10px; font-family:'JetBrains Mono', monospace; color:var(--muted);">Sort: <span style="color:#fff">Severity (Desc)</span></div>
                 </div>
-
-                <div id="incidents-list" class="inc-list" style="flex:1;overflow-y:auto;padding-right:4px"></div>
-            </div>
-        </div>
-
-        <!-- ═══ DANGEROUS (THREATS) ═══ -->
-        <div class="panel" id="panel-dangerous">
-            <div class="card" style="display:flex;flex-direction:column;height:100%">
-                <div class="card-hdr" style="color:var(--red)"><div class="cd" style="background:var(--red)"></div>🚨 Критические инциденты и уязвимости</div>
-                <div id="dangerous-list" class="inc-list" style="flex:1;overflow-y:auto;padding-right:4px"></div>
+                
+                <div style="flex:1;overflow-y:auto;padding-right:4px">
+                    <table class="full-tbl" id="incidents-table" style="width:100%;">
+                        <thead>
+                            <tr>
+                                <th>Severity</th>
+                                <th>Type</th>
+                                <th>Target/IP</th>
+                                <th>Status</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="incidents-tbody">
+                            <!-- Populated dynamically via ui.js -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -302,23 +522,38 @@
         <div class="panel" id="panel-ai">
             <div class="ai-wrap" style="display:flex; flex-direction:column; height:100%;">
                 <div class="card" style="flex:0; display:flex; gap:16px; align-items:center; flex-wrap:wrap; margin-bottom:8px">
-                    <div class="ai-models" style="margin-right:auto">
+                    <div class="ai-models" style="margin-right:auto" id="ai-models-container">
                         <button class="model-btn active" onclick="selectModel('deepseek-v4-pro',this)">DeepSeek V4 Pro</button>
                         <button class="model-btn" onclick="selectModel('kimi-k2.6',this)">Kimi K2.6</button>
                         <button class="model-btn" onclick="selectModel('claude-sonnet-4.6',this)">Claude Sonnet 4.6</button>
+                        <button class="model-btn" onclick="promptCustomModel()" style="border: 1px dashed var(--border); background: rgba(255,255,255,0.05); color: var(--cyan);">+ Add Custom</button>
                     </div>
                 </div>
                 
                 <details style="margin-bottom:12px; background:rgba(0,0,0,0.5); border:1px solid var(--border); border-radius:6px;">
-                    <summary style="padding:10px; cursor:pointer; font-size:11px; font-weight:700; color:var(--muted); outline:none; user-select:none">⚙️ Настройки системного промпта ИИ</summary>
+                    <summary style="padding:10px; cursor:pointer; font-size:11px; font-weight:700; color:var(--muted); outline:none; user-select:none">Настройки системного промпта ИИ</summary>
                     <div style="padding:10px; border-top:1px solid var(--border);">
-                        <textarea id="ai-system-prompt" style="width:100%; height:80px; background:rgba(0,0,0,0.3); border:1px solid var(--glass-border); border-radius:4px; padding:8px; color:var(--muted); font-family:'JetBrains Mono',monospace; font-size:11px; resize:none; outline:none">Проанализируй опасный участок логов. Тип атаки: {{type}}. Описание: {{description}}.
+                        <textarea id="ai-system-prompt" style="width:100%; height:160px; background:rgba(0,0,0,0.3); border:1px solid var(--glass-border); border-radius:4px; padding:8px; color:var(--muted); font-family:'JetBrains Mono',monospace; font-size:11px; resize:none; outline:none">ПРОТОКОЛ АВТОЗАЩИТЫ MISTRAL.
+Проанализируй инцидент и предоставь подробный отчет строго в следующем формате:
 
-Контекст:
-{{context}}
+1. ПРИЧИНА АКТИВИЗАЦИИ АГЕНТА:
+   [Подробное описание, почему включился ИИ-агент безопасности, оценка степени угрозы]
 
-Что делает атакующий и какие меры предпринять? Ничего не отключай и не ломай.</textarea>
-                        <div style="font-size:9px; color:var(--dim); margin-top:4px;">Доступные переменные: {{type}}, {{description}}, {{context}}</div>
+2. ПРЕДШЕСТВУЮЩЕЕ СОБЫТИЕ (ТРИГГЕР):
+   [Детальный разбор события, которое вызвало алерт: тип инцидента, источник атаки, время, логи и контекст]
+
+3. ПРЕДПРИНЯТЫЕ ДЕЙСТВИЯ И МИТИГАЦИЯ:
+   [Какие меры были предприняты или рекомендуются. Если требуется блокировка, укажи [AUTOBAN: {{ip}}] и [INCIDENT_ID: {{incident_id}}]]
+
+4. РЕКОМЕНДАЦИИ ДЛЯ АДМИНИСТРАТОРА:
+   [Дальнейшие шаги по укреплению защиты системы]
+
+Контекст инцидента:
+Тип атаки: {{type}}
+Описание: {{description}}
+Контекст логов:
+{{context}}</textarea>
+                        <div style="font-size:9px; color:var(--dim); margin-top:4px;">Доступные переменные: {{type}}, {{description}}, {{context}}, {{ip}}, {{incident_id}}</div>
                     </div>
                 </details>
 
@@ -331,7 +566,7 @@
                 
                 <div class="ai-chat-history" id="ai-chat-history" style="flex:1; overflow-y:auto; background:rgba(0,0,0,0.4); border:1px solid var(--border); border-radius:8px; padding:16px; display:flex; flex-direction:column; gap:12px; margin-bottom:12px; font-size:13px; scroll-behavior:smooth;">
                     <div class="ai-msg bot">
-                        <div class="msg-avatar">🤖</div>
+                        <div class="msg-avatar">AI</div>
                         <div class="msg-bubble">
                             Система ИИ-анализа MISTRAL инициализирована.<br>Я готов помочь с анализом инцидентов, поиском угроз и написанием защитных скриптов.
                         </div>
@@ -373,6 +608,98 @@
             </div>
         </div>
 
+        <!-- ═══ MITRE MATRIX ═══ -->
+        <div class="panel" id="panel-mitre" style="height:100%; overflow:hidden;">
+            <div class="card" style="display:flex; flex-direction:column; height:100%; border:1px solid rgba(255,100,100,0.2);">
+                <div class="card-hdr" style="font-size:16px; justify-content:space-between; display:flex;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <div class="cd" style="background:var(--red);"></div>
+                        MITRE ATT&CK® Enterprise Matrix Heatmap
+                    </div>
+                    <div style="font-size:10px; color:var(--dim); font-weight:normal; display:flex; align-items:center; gap:8px;">
+                        <div><span style="display:inline-block; width:10px;height:10px;background:rgba(255,255,255,0.05);border:1px solid var(--border);margin-right:4px;"></span>No Activity</div>
+                        <div><span style="display:inline-block; width:10px;height:10px;background:rgba(255,50,50,0.2);border:1px solid var(--red);margin-right:4px;box-shadow:0 0 5px var(--red)"></span>Active Threat</div>
+                    </div>
+                </div>
+                
+                <div style="flex:1; overflow-x:auto; overflow-y:auto; padding:16px;">
+                    <div style="display:flex; gap:16px; margin-bottom:16px; align-items:stretch;">
+                        <div class="card" style="flex:1; margin-bottom:0; display:flex; align-items:center; padding:12px 20px; background:rgba(0,0,0,0.4); border:1px solid var(--border); border-radius:8px;">
+                            <div>
+                                <h3 style="margin:0 0 4px 0; color:#fff; font-size:14px; font-weight:700;">Live Attack Mapping to MITRE ATT&CK</h3>
+                                <p style="margin:0; font-size:11px; color:var(--muted)">Когда система фиксирует атаку, источник (гео-локация) и техника связываются в реальном времени.</p>
+                            </div>
+                            <div style="flex:1"></div>
+                            <!-- Mini Cyber Globe -->
+                            <div style="position:relative; width:80px; height:80px; margin-left:16px;">
+                                <canvas id="mitre-mini-globe" width="80" height="80" style="display:block;"></canvas>
+                                <div style="position:absolute; top:0; left:0; width:100%; height:100%; border-radius:50%; box-shadow:inset 0 0 15px rgba(0,150,255,0.3); pointer-events:none;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <style>
+                        .mitre-grid { display:grid; grid-template-columns:repeat(10, 1fr); gap:8px; min-width:1400px; }
+                        .mitre-header { background:rgba(0,0,0,0.6); padding:10px; border-bottom:2px solid var(--cyan); font-weight:bold; font-size:12px; text-align:center; color:#fff; }
+                        .mitre-cell { background:rgba(255,255,255,0.03); border:1px solid var(--border); padding:8px; font-size:11px; border-radius:4px; cursor:default; transition:all 0.3s; color:var(--muted); display:flex; flex-direction:column; gap:4px;}
+                        .mitre-cell:hover { background:rgba(255,255,255,0.1); }
+                        .mitre-cell.active-threat { background:rgba(255,50,50,0.15); border:1px solid var(--red); color:#fff; box-shadow:0 0 10px rgba(255,50,50,0.3); font-weight:bold; }
+                        .mitre-tech { font-family:'JetBrains Mono', monospace; font-size:9px; color:var(--cyan); }
+                        .mitre-cell.active-threat .mitre-tech { color:#ff8888; }
+                    </style>
+                    <div class="mitre-grid" id="mitre-grid-container">
+                        <!-- Headers -->
+                        <div class="mitre-header">Initial Access<br><span style="font-size:9px;color:var(--dim);font-weight:normal">TA0001</span></div>
+                        <div class="mitre-header">Execution<br><span style="font-size:9px;color:var(--dim);font-weight:normal">TA0002</span></div>
+                        <div class="mitre-header">Persistence<br><span style="font-size:9px;color:var(--dim);font-weight:normal">TA0003</span></div>
+                        <div class="mitre-header">Privilege Escalation<br><span style="font-size:9px;color:var(--dim);font-weight:normal">TA0004</span></div>
+                        <div class="mitre-header">Defense Evasion<br><span style="font-size:9px;color:var(--dim);font-weight:normal">TA0005</span></div>
+                        <div class="mitre-header">Credential Access<br><span style="font-size:9px;color:var(--dim);font-weight:normal">TA0006</span></div>
+                        <div class="mitre-header">Discovery<br><span style="font-size:9px;color:var(--dim);font-weight:normal">TA0007</span></div>
+                        <div class="mitre-header">Lateral Movement<br><span style="font-size:9px;color:var(--dim);font-weight:normal">TA0008</span></div>
+                        <div class="mitre-header">Command & Control<br><span style="font-size:9px;color:var(--dim);font-weight:normal">TA0011</span></div>
+                        <div class="mitre-header">Impact<br><span style="font-size:9px;color:var(--dim);font-weight:normal">TA0040</span></div>
+                        
+                        <!-- Row 1 -->
+                        <div class="mitre-cell" id="T1190"><span class="mitre-tech">T1190</span>Exploit Public-Facing App</div>
+                        <div class="mitre-cell" id="T1059"><span class="mitre-tech">T1059</span>Command & Scripting</div>
+                        <div class="mitre-cell" id="T1098"><span class="mitre-tech">T1098</span>Account Manipulation</div>
+                        <div class="mitre-cell" id="T1548"><span class="mitre-tech">T1548</span>Abuse Elevation Control</div>
+                        <div class="mitre-cell" id="T1070"><span class="mitre-tech">T1070</span>Indicator Removal</div>
+                        <div class="mitre-cell" id="T1110"><span class="mitre-tech">T1110</span>Brute Force</div>
+                        <div class="mitre-cell" id="T1083"><span class="mitre-tech">T1083</span>File & Dir Discovery</div>
+                        <div class="mitre-cell" id="T1021"><span class="mitre-tech">T1021</span>Remote Services</div>
+                        <div class="mitre-cell" id="T1071"><span class="mitre-tech">T1071</span>App Layer Protocol</div>
+                        <div class="mitre-cell" id="T1486"><span class="mitre-tech">T1486</span>Data Encrypted (Ransom)</div>
+
+                        <!-- Row 2 -->
+                        <div class="mitre-cell" id="T1078"><span class="mitre-tech">T1078</span>Valid Accounts</div>
+                        <div class="mitre-cell" id="T1204"><span class="mitre-tech">T1204</span>User Execution</div>
+                        <div class="mitre-cell" id="T1136"><span class="mitre-tech">T1136</span>Create Account</div>
+                        <div class="mitre-cell" id="T1078_2"><span class="mitre-tech">T1078</span>Valid Accounts</div>
+                        <div class="mitre-cell" id="T1562"><span class="mitre-tech">T1562</span>Impair Defenses</div>
+                        <div class="mitre-cell" id="T1555"><span class="mitre-tech">T1555</span>Credentials in Files</div>
+                        <div class="mitre-cell" id="T1046"><span class="mitre-tech">T1046</span>Network Service Scan</div>
+                        <div class="mitre-cell" id="T1091"><span class="mitre-tech">T1091</span>Removable Media</div>
+                        <div class="mitre-cell" id="T1573"><span class="mitre-tech">T1573</span>Encrypted Channel</div>
+                        <div class="mitre-cell" id="T1485"><span class="mitre-tech">T1485</span>Data Destruction</div>
+
+                        <!-- Row 3 -->
+                        <div class="mitre-cell" id="T1566"><span class="mitre-tech">T1566</span>Phishing</div>
+                        <div class="mitre-cell" id="T1053"><span class="mitre-tech">T1053</span>Scheduled Task/Job</div>
+                        <div class="mitre-cell" id="T1543"><span class="mitre-tech">T1543</span>Create System Process</div>
+                        <div class="mitre-cell" id="T1053_2"><span class="mitre-tech">T1053</span>Scheduled Task/Job</div>
+                        <div class="mitre-cell" id="T1222"><span class="mitre-tech">T1222</span>File/Dir Permissions</div>
+                        <div class="mitre-cell" id="T1040"><span class="mitre-tech">T1040</span>Network Sniffing</div>
+                        <div class="mitre-cell" id="T1057"><span class="mitre-tech">T1057</span>Process Discovery</div>
+                        <div class="mitre-cell" id="T1570"><span class="mitre-tech">T1570</span>Lateral Tool Transfer</div>
+                        <div class="mitre-cell" id="T1105"><span class="mitre-tech">T1105</span>Ingress Tool Transfer</div>
+                        <div class="mitre-cell" id="T1498"><span class="mitre-tech">T1498</span>Network DoS (DDoS)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- ═══ USERS ═══ -->
         <div class="panel" id="panel-users">
             <div class="card" style="margin-bottom:16px">
@@ -384,21 +711,128 @@
                     <button class="btn-add" onclick="addUser()">+ ДОБАВИТЬ</button>
                 </div>
             </div>
+            <div class="card" style="margin-bottom:16px; border:1px solid rgba(0, 150, 255, 0.2);">
+                <div class="card-hdr">
+                    <div class="cd" style="background:var(--blue)"></div>SOAR Playbooks & Auto-Mitigation
+                </div>
+                <div style="padding:12px; display:flex; flex-direction:column; gap:12px;">
+                    <p style="font-size:11px; color:var(--muted); margin:0;">
+                        Настройте правила автоматического реагирования на инциденты информационной безопасности. При срабатывании триггеров IP-адрес атакующего будет мгновенно отправлен в карантин (заблокирован через ufw).
+                    </p>
+                    <div style="display:flex; flex-direction:column; gap:10px; margin-top:8px;">
+                        <label style="display:flex; align-items:center; gap:10px; cursor:pointer; color:#fff; font-size:12px; background:rgba(255,255,255,0.03); padding:10px; border-radius:6px; border:1px solid var(--border);">
+                            <input type="checkbox" id="soar-autoban-ddos" style="width:16px; height:16px; accent-color:var(--blue);" onchange="saveSoarSettingsUI()">
+                            <div>
+                                <strong style="display:block; color:var(--blue);">Автоматическая блокировка DDoS-атак</strong>
+                                <span style="font-size:10px; color:var(--muted);">Авто-бан IP при обнаружении SYN-flood/HTTP-flood событий.</span>
+                            </div>
+                        </label>
+                        <label style="display:flex; align-items:center; gap:10px; cursor:pointer; color:#fff; font-size:12px; background:rgba(255,255,255,0.03); padding:10px; border-radius:6px; border:1px solid var(--border);">
+                            <input type="checkbox" id="soar-autoban-bruteforce" style="width:16px; height:16px; accent-color:var(--blue);" onchange="saveSoarSettingsUI()">
+                            <div>
+                                <strong style="display:block; color:var(--blue);">Автоматическое пресечение брутфорса</strong>
+                                <span style="font-size:10px; color:var(--muted);">Авто-бан IP при фиксации множественных попыток входа (SSH/Web).</span>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div style="margin-top:16px; border-top:1px dashed var(--border); padding-top:16px;">
+                        <strong style="font-size:12px; color:#fff; display:block; margin-bottom:10px;">ИИ-Автозащита (Autonomous AI Defense Agent)</strong>
+                        
+                        <label style="display:flex; align-items:center; gap:10px; cursor:pointer; color:#fff; font-size:12px; background:rgba(255,255,255,0.03); padding:10px; border-radius:6px; border:1px solid var(--border); margin-bottom:10px;">
+                            <input type="checkbox" id="soar-ai-enabled" style="width:16px; height:16px; accent-color:var(--purple);" onchange="saveSoarSettingsUI()">
+                            <div>
+                                <strong style="display:block; color:var(--purple);">Активировать автономного ИИ-агента</strong>
+                                <span style="font-size:10px; color:var(--muted);">Разрешить нейросети автоматически реагировать на критические инциденты.</span>
+                            </div>
+                        </label>
+                        
+                        <label style="display:flex; align-items:center; gap:10px; cursor:pointer; color:#fff; font-size:12px; background:rgba(255,255,255,0.03); padding:10px; border-radius:6px; border:1px solid var(--border); margin-bottom:10px;">
+                            <input type="checkbox" id="soar-ai-make-changes" style="width:16px; height:16px; accent-color:var(--purple);" onchange="saveSoarSettingsUI()">
+                            <div>
+                                <strong style="display:block; color:var(--purple);">Разрешить ИИ-агенту вносить изменения (автономный режим)</strong>
+                                <span style="font-size:10px; color:var(--muted);">Если включено, ИИ автоматически нейтрализует угрозу (например, авто-бан) и пишет подробный лог. Если отключено — выдает подробное руководство для оператора.</span>
+                            </div>
+                        </label>
+                        
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:10px;">
+                            <div class="field-group" style="gap:4px;">
+                                <label style="font-size:9px; color:var(--muted); text-transform:uppercase;">Нейросетевая модель</label>
+                                <select id="soar-ai-model" style="padding:8px; font-size:11px; background:rgba(0,0,0,0.5); border:1px solid var(--border); border-radius:6px; color:#fff; font-family:'JetBrains Mono',monospace;" onchange="saveSoarSettingsUI()">
+                                    <option value="deepseek-v4-pro">DeepSeek V4 Pro</option>
+                                    <option value="kimi-k2.6">Kimi K2.6</option>
+                                    <option value="claude-sonnet-4.6">Claude Sonnet 4.6</option>
+                                </select>
+                            </div>
+                            <div class="field-group" style="gap:4px;">
+                                <label style="font-size:9px; color:var(--muted); text-transform:uppercase;">Порог частоты инцидентов</label>
+                                <input type="number" id="soar-ai-threshold" value="3" min="1" max="10" style="padding:8px; font-size:11px; background:rgba(0,0,0,0.5); border:1px solid var(--border); border-radius:6px; color:#fff; font-family:'JetBrains Mono',monospace;" onchange="saveSoarSettingsUI()">
+                            </div>
+                        </div>
+                        
+                        <div style="display:flex; flex-direction:column; gap:8px;">
+                            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#fff; font-size:11px;">
+                                <input type="checkbox" id="soar-ai-leaks" style="width:14px; height:14px; accent-color:var(--purple);" onchange="saveSoarSettingsUI()">
+                                <span>Срабатывать при утечках данных (Data Leaks)</span>
+                            </label>
+                            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#fff; font-size:11px;">
+                                <input type="checkbox" id="soar-ai-critical" style="width:14px; height:14px; accent-color:var(--purple);" onchange="saveSoarSettingsUI()">
+                                <span>Срабатывать при критических уязвимостях (CRITICAL)</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card" style="margin-bottom:16px; border:1px solid rgba(0, 150, 255, 0.2);">
+                <div class="card-hdr">
+                    <div class="cd" style="background:var(--cyan)"></div>Интерфейс & Звук (SOC Alert Systems)
+                </div>
+                <div style="padding:12px; display:flex; flex-direction:column; gap:12px;">
+                    <p style="font-size:11px; color:var(--muted); margin:0;">
+                        Настройка интерактивных оповещений и визуальных эффектов для оператора SOC.
+                    </p>
+                    <div style="display:flex; flex-direction:column; gap:10px; margin-top:8px;">
+                        <label style="display:flex; align-items:center; gap:10px; cursor:pointer; color:#fff; font-size:12px; background:rgba(255,255,255,0.03); padding:10px; border-radius:6px; border:1px solid var(--border);">
+                            <input type="checkbox" id="ui-audio-alerts" style="width:16px; height:16px; accent-color:var(--cyan);" onchange="toggleAudioAlertsSetting(this.checked)">
+                            <div>
+                                <strong style="display:block; color:var(--cyan);">Звуковые оповещения о кибератаках</strong>
+                                <span style="font-size:10px; color:var(--muted);">Синтезировать высокотехнологичный звуковой сигнал при обнаружении критических или важных угроз.</span>
+                            </div>
+                        </label>
+                        <label style="display:flex; align-items:center; gap:10px; cursor:pointer; color:#fff; font-size:12px; background:rgba(255,255,255,0.03); padding:10px; border-radius:6px; border:1px solid var(--border);">
+                            <input type="checkbox" id="ui-glow-effects" style="width:16px; height:16px; accent-color:var(--cyan);" onchange="toggleGlowEffectsSetting(this.checked)">
+                            <div>
+                                <strong style="display:block; color:var(--cyan);">Футуристический неоновый глоу-эффект</strong>
+                                <span style="font-size:10px; color:var(--muted);">Добавить размытие и свечение для интерактивных графиков, карты угроз и кнопок в стиле кибер-хада.</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            </div>
             <div class="card"><div class="card-hdr"><div class="cd" style="background:var(--blue)"></div>Пользователи</div><div id="users-list" style="display:flex;flex-direction:column;gap:8px"></div></div>
         </div>
     </div> <!-- closes .content -->
-
-    <!-- Status Bar at bottom -->
-    <div id="ticker-container">
-        <div id="ticker-label">DEFCON 5</div>
-        <div id="ticker-scroll">
-            <span id="ticker-text">SYSTEM SECURE | ALL SERVICES ONLINE | ROUTINE MONITORING ACTIVE | NO THREATS DETECTED</span>
-            <span id="ticker-text2">SYSTEM SECURE | ALL SERVICES ONLINE | ROUTINE MONITORING ACTIVE | NO THREATS DETECTED</span>
-        </div>
-    </div>
 </div> <!-- closes #main-area -->
 </div> <!-- closes #app -->
 
+<!-- ═══ INCIDENT DRAWER ═══ -->
+<div id="incident-drawer" class="drawer">
+    <div class="drawer-header">
+        <div style="font-size:14px; font-weight:800; color:#fff;">Incident Details</div>
+        <div class="drawer-close" onclick="closeIncidentDrawer()">✕</div>
+    </div>
+    <div class="drawer-content" id="drawer-content"></div>
+</div>
+
+<!-- ═══ CONTEXT MENU ═══ -->
+<div id="context-menu" class="context-menu">
+    <div class="ctx-item" id="ctx-lookup" onclick="ctxAction('lookup')">Threat Intel Lookup</div>
+    <div class="ctx-item" id="ctx-analyze" onclick="ctxAction('analyze')">AI Analyze IP</div>
+    <div class="ctx-item" id="ctx-ban" onclick="ctxAction('ban')" style="color:var(--red)">Ban IP</div>
+    <div class="ctx-item" id="ctx-filter" onclick="ctxAction('filter')">Filter Logs by IP</div>
+</div>
+
+<script src="../static/js/cyber-map.js"></script>
 <script src="../static/js/core.js"></script>
 <script src="../static/js/ui.js"></script>
 <script src="../static/js/ai.js"></script>

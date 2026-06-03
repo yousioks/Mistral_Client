@@ -14,14 +14,16 @@ function initCharts() {
         data: { labels: Array(30).fill(''), datasets: [{ data: Array(30).fill(0), borderColor:'#FFFFFF', backgroundColor:'rgba(255,255,255,0.05)', borderWidth:1.5, tension:0.4, fill:true, pointRadius:0 }] },
         options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{display:false},x:{display:false}} }
     });
-    chartType = new Chart($('chart-type').getContext('2d'), {
-        type: 'bar',
-        data: {
-            labels: ['Brute Force','SQLi','DDoS','Malware','XSS','Other'],
-            datasets: [{ data:[0,0,0,0,0,0], backgroundColor:['#EF4444','#F59E0B','#22C55E','#3B82F6','#A855F7','#6B7280'], borderRadius:4, borderWidth:0 }]
-        },
-        options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{grid:{color:'rgba(255,255,255,0.08)'},beginAtZero:true},x:{grid:{display:false}}} }
-    });
+    if ($('chart-type')) {
+        chartType = new Chart($('chart-type').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: ['Brute Force','SQLi','DDoS','Malware','XSS','Other'],
+                datasets: [{ data:[0,0,0,0,0,0], backgroundColor:['#EF4444','#F59E0B','#22C55E','#3B82F6','#A855F7','#6B7280'], borderRadius:4, borderWidth:0 }]
+            },
+            options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{grid:{color:'rgba(255,255,255,0.08)'},beginAtZero:true},x:{grid:{display:false}}} }
+        });
+    }
 }
 
 function updateChartsFromIncidents(list) {
@@ -70,52 +72,6 @@ function updateChartsFromIncidents(list) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// DEFCON & TICKER TAPE
-// ══════════════════════════════════════════════════════════════════════════════
-function setDefcon(level) {
-    if (level === 1 && window.currentDefcon !== 1) {
-        speakAlert('Внимание! Зафиксирована критическая угроза. Инициализирую защитные протоколы.');
-    }
-    window.currentDefcon = level;
-    const root = document.documentElement;
-    const tickerLbl = $('ticker-label');
-    const tickerText1 = $('ticker-text');
-    const tickerText2 = $('ticker-text2');
-    
-    if (level === 1) {
-        root.style.setProperty('--defcon-bg', '#000000');
-        root.style.setProperty('--defcon-border', '#ef4444');
-        root.style.setProperty('--defcon-accent', '#ef4444');
-        root.style.setProperty('--defcon-glow', 'rgba(239, 68, 68, 0.15)');
-        tickerLbl.textContent = 'DEFCON 1';
-        tickerLbl.style.background = 'var(--red)';
-        const tMsg = '[CRITICAL ALERT] UNAUTHORIZED ACTIVITY DETECTED | INITIATING DEFENSE PROTOCOLS | SYSTEM UNDER ATTACK ';
-        tickerText1.textContent = tMsg; tickerText2.textContent = tMsg;
-        tickerText1.style.color = '#fca5a5'; tickerText2.style.color = '#fca5a5';
-    } else if (level === 2) {
-        root.style.setProperty('--defcon-bg', '#000000');
-        root.style.setProperty('--defcon-border', '#f59e0b');
-        root.style.setProperty('--defcon-accent', '#f59e0b');
-        root.style.setProperty('--defcon-glow', 'rgba(245, 158, 11, 0.1)');
-        tickerLbl.textContent = 'DEFCON 2';
-        tickerLbl.style.background = 'var(--orange)';
-        const tMsg = '[WARNING] SUSPICIOUS ANOMALIES DETECTED | ELEVATING SECURITY POSTURE | INVESTIGATION REQUIRED ';
-        tickerText1.textContent = tMsg; tickerText2.textContent = tMsg;
-        tickerText1.style.color = '#fcd34d'; tickerText2.style.color = '#fcd34d';
-    } else {
-        root.style.setProperty('--defcon-bg', '#000000');
-        root.style.setProperty('--defcon-border', '#cc0000');
-        root.style.setProperty('--defcon-accent', '#ff0000');
-        root.style.setProperty('--defcon-glow', 'rgba(255, 0, 0, 0.1)');
-        tickerLbl.textContent = 'DEFCON 5';
-        tickerLbl.style.background = 'var(--blue)';
-        const tMsg = 'SYSTEM SECURE | ALL SERVICES ONLINE | ROUTINE MONITORING ACTIVE | NO THREATS DETECTED ';
-        tickerText1.textContent = tMsg; tickerText2.textContent = tMsg;
-        tickerText1.style.color = 'var(--text)'; tickerText2.style.color = 'var(--text)';
-    }
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
 // STATS
 // ══════════════════════════════════════════════════════════════════════════════
 function updateStats(data) {
@@ -145,6 +101,41 @@ function getAutoLevel(entry) {
     }
     return level;
 }
+
+window.updateMitreMatrix = function() {
+    document.querySelectorAll('.mitre-cell').forEach(c => c.classList.remove('active-threat'));
+    const activeThreats = allIncidents.filter(i => i.status !== 'resolved');
+    
+    activeThreats.forEach(inc => {
+        const type = (inc.type || '').toLowerCase();
+        const desc = (inc.description || '').toLowerCase();
+        let targetTech = '';
+        
+        if (type.includes('ssh') || type.includes('brute') || type.includes('login') || desc.includes('auth')) targetTech = 'T1110';
+        else if (type.includes('ddos') || type.includes('flood') || type.includes('syn')) targetTech = 'T1498';
+        else if (type.includes('ransomware') || type.includes('encrypt') || desc.includes('ransom')) targetTech = 'T1486';
+        else if (type.includes('privilege') || type.includes('root') || type.includes('sudo') || desc.includes('root') || type.includes('escalation')) targetTech = 'T1548';
+        else if (type.includes('malware') || type.includes('virus') || desc.includes('malware') || desc.includes('payload')) targetTech = 'T1059';
+        else if (type.includes('scan') || type.includes('nmap') || type.includes('port') || desc.includes('scan')) targetTech = 'T1046';
+        else if (type.includes('sql') || type.includes('xss') || type.includes('web') || type.includes('injection')) targetTech = 'T1190';
+        else if (type.includes('phish') || desc.includes('email')) targetTech = 'T1566';
+        else if (type.includes('anomaly') || desc.includes('anomaly')) targetTech = 'T1071';
+        
+        // Если ничего не подошло, но это критическая угроза, ставим дефолтную тактику
+        if (!targetTech && (inc.severity === 'CRITICAL' || inc.severity === 'HIGH')) {
+            // Используем ID инцидента, чтобы всегда выдавать одну и ту же случайную тактику для конкретного инцидента
+            const fallbackTechs = ['T1078', 'T1105', 'T1070', 'T1083', 'T1021'];
+            const idStr = inc.id != null ? String(inc.id) : '';
+            const hash = idStr.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
+            targetTech = fallbackTechs[hash % fallbackTechs.length];
+        }
+        
+        if (targetTech) {
+            const el = document.getElementById(targetTech);
+            if (el) el.classList.add('active-threat');
+        }
+    });
+};
 
 let rLogBuffer = [];
 let rLogFrame = null;
@@ -202,79 +193,295 @@ function addLiveEntry(entry) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// INCIDENTS (with status/severity controls)
+// INCIDENTS (Data Grid & Drawer)
 // ══════════════════════════════════════════════════════════════════════════════
 function renderIncidents(list) {
-    const el = $('incidents-list');
-    const dEl = $('dangerous-list');
-    el.innerHTML = '';
-    if(dEl) dEl.innerHTML = '';
-    // limit DOM nodes to prevent freezing
-    list.slice(0, 100).forEach(i => {
-        addIncidentCard(i, false, el);
-        if(i.severity==='CRITICAL'||i.severity==='HIGH') addDangerousCard(i, false, dEl);
+    const tbody = $('incidents-tbody');
+    if(!tbody) return;
+    tbody.innerHTML = '';
+    
+    if(!list || !list.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-td">Нет зарегистрированных инцидентов</td></tr>';
+        return;
+    }
+    
+    // Virtualization / Limit
+    list.slice(0, 150).forEach(i => {
+        addIncidentRow(i, false, tbody);
     });
+}
+
+function addIncidentRow(inc, prepend, container) {
+    if(!container) container = $('incidents-tbody');
+    // Remove "empty-td" if it exists
+    if(container.firstChild && container.firstChild.querySelector('.empty-td')) {
+        container.innerHTML = '';
+    }
+    
+    const tr = document.createElement('tr');
+    tr.style.cursor = 'pointer';
+    tr.onclick = (e) => {
+        // Prevent opening drawer if clicked on a select or button
+        if(e.target.tagName === 'SELECT' || e.target.tagName === 'BUTTON') return;
+        openIncidentDrawer(inc.id);
+    };
+    
+    // Right-click context menu
+    tr.oncontextmenu = (e) => {
+        e.preventDefault();
+        openContextMenu(e.pageX, e.pageY, inc.ip || inc.target || '');
+    };
+    
+    let sevBadge = `<span class="inc-sev LOW">LOW</span>`;
+    if(inc.severity === 'CRITICAL') sevBadge = `<span class="inc-sev CRITICAL">CRITICAL</span>`;
+    else if(inc.severity === 'HIGH') sevBadge = `<span class="inc-sev HIGH">HIGH</span>`;
+    else if(inc.severity === 'MEDIUM') sevBadge = `<span class="inc-sev MEDIUM">MEDIUM</span>`;
+    
+    const sOpts = [['new','Новый'],['in_review','В рассмотрении'],['resolved','Решён']]
+        .map(([v,l])=>`<option value="${v}"${inc.status===v?' selected':''}>${l}</option>`).join('');
+        
+    tr.innerHTML = `
+        <td>${sevBadge}</td>
+        <td style="font-weight:700; color:#fff;">${esc(inc.type||'Unknown')}</td>
+        <td><span class="ip-chip">${esc(inc.ip || inc.target || inc.monitor || 'System')}</span></td>
+        <td><select class="inc-sel" onchange="patchIncident('${inc.id}',{status:this.value})">${sOpts}</select></td>
+        <td style="color:var(--dim); font-family:'JetBrains Mono',monospace; font-size:10px;">${(inc.timestamp||'').slice(0,19).replace('T',' ')}</td>
+        <td>
+            <button class="btn-txt" onclick="openIncidentDrawer('${inc.id}')">DETAILS</button>
+        </td>
+    `;
+    
+    if(prepend) container.insertBefore(tr, container.firstChild);
+    else container.appendChild(tr);
 }
 
 function patchIncident(id, body) {
     fetch(`${serverBase}/api/incidents/${id}`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}).catch(console.error);
 }
 
-function addIncidentCard(inc, prepend, container) {
-    if(!container) container = $('incidents-list');
-    const div = document.createElement('div');
-    div.className = `inc-card ${inc.severity||'LOW'}`;
-    const sOpts = [['new','Новый'],['in_review','В рассмотрении'],['resolved','Решён']].map(([v,l])=>`<option value="${v}"${inc.status===v?' selected':''}>${l}</option>`).join('');
-    const svOpts = ['CRITICAL','HIGH','MEDIUM','LOW'].map(s=>`<option value="${s}"${inc.severity===s?' selected':''}>${s}</option>`).join('');
-    div.innerHTML = `
-        <div style="display:flex; flex-direction:column; gap:8px; width:100%;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span class="inc-sev ${inc.severity}">${inc.severity}</span>
-                <span class="inc-meta" style="background:rgba(255,255,255,0.05); padding:3px 8px; border-radius:4px; border:1px solid var(--glass-border);">${esc(inc.monitor||'')}</span>
+// Drawer Logic
+function openIncidentDrawer(id) {
+    const inc = allIncidents.find(i => i.id === id);
+    if(!inc) return;
+    
+    const content = $('drawer-content');
+    let ctxHtml = '';
+    if(inc.contextBlock) {
+        ctxHtml = `<div style="margin-top:16px;">
+            <div style="font-size:10px; font-weight:800; color:var(--muted); text-transform:uppercase; margin-bottom:8px;">Raw Context / Logs</div>
+            <pre style="background:rgba(0,0,0,0.4); border:1px solid var(--border); border-radius:6px; padding:12px; font-family:'JetBrains Mono', monospace; font-size:10px; color:var(--muted); white-space:pre-wrap; overflow-x:auto;">${esc(inc.contextBlock)}</pre>
+        </div>`;
+    }
+    
+    let aiAuditHtml = '';
+    if(inc.aiAudit) {
+        aiAuditHtml = `<div style="margin-top:16px; background:rgba(34,197,94,0.05); border:1px solid rgba(34,197,94,0.3); border-radius:8px; padding:16px;">
+            <div style="font-size:11px; font-weight:900; color:var(--green); text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                <span>AI AUDIT TRAIL</span>
+                <span style="background:var(--green); color:#000; padding:2px 6px; border-radius:4px; font-size:9px;">MITIGATED</span>
             </div>
-            <div class="inc-type" style="font-size:15px; font-weight:800; color:#fff; letter-spacing:0.5px; margin-top:4px;">${esc(inc.type||'')}</div>
-            <div class="inc-desc" style="color:var(--muted); font-size:12px; line-height:1.5;">${esc(inc.description||'')}</div>
-            <div style="height:1px; background:var(--glass-border); margin:4px 0;"></div>
-            <div class="inc-ctrls">
-                <select class="inc-sel" onchange="patchIncident('${inc.id}',{status:this.value})">${sOpts}</select>
-                <select class="inc-sel" onchange="patchIncident('${inc.id}',{severity:this.value})">${svOpts}</select>
-                <button class="btn-ai" onclick="analyzeContext('${inc.id}')">🧠 ИИ Анализ</button>
-                <span style="margin-left:auto; font-size:10px; font-family:'JetBrains Mono',monospace; color:var(--dim);">${(inc.timestamp||'').slice(0,19).replace('T',' ')}</span>
+            <div style="font-size:11px; color:var(--muted); line-height:1.5; white-space:pre-wrap; font-family:'JetBrains Mono', monospace;">${esc(inc.aiAudit)}</div>
+        </div>`;
+    }
+    
+    let geoHtml = '';
+    if (inc.geo) {
+        const flag = inc.geo.code ? `<span style="font-size:11px; font-weight:700; color:var(--cyan); margin-right:6px; font-family:'JetBrains Mono',monospace;">${getFlagEmojiLocal(inc.geo.code)}</span>` : '';
+        const rep = inc.geo.reputation || 0;
+        const scoreColor = rep > 70 ? 'var(--red)' : rep > 40 ? 'var(--orange)' : 'var(--green)';
+        geoHtml = `
+        <div style="margin-top:16px; background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:10px;">
+            <div style="font-size:10px; font-weight:800; color:var(--muted); text-transform:uppercase; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:6px;">Threat Intelligence Feed</div>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <span style="font-size:10px; color:var(--muted); display:block; text-transform:uppercase; margin-bottom:2px;">Атакующий регион</span>
+                    <span style="font-weight:700; color:#fff; display:flex; align-items:center;">${flag} ${esc(inc.geo.country || 'Unknown')}</span>
+                </div>
+                <div style="text-align:right;">
+                    <span style="font-size:10px; color:var(--muted); display:block; text-transform:uppercase; margin-bottom:2px;">ISP / Хостер</span>
+                    <span style="font-weight:500; font-size:11px; color:#fff;">${esc(inc.geo.isp || 'Unknown')}</span>
+                </div>
+            </div>
+            <div>
+                <div style="display:flex; justify-content:space-between; align-items:center; font-size:10px; margin-bottom:4px;">
+                    <span style="color:var(--muted);">Danger Reputation Score</span>
+                    <span style="font-weight:700; color:${scoreColor};">${rep}% Malicious</span>
+                </div>
+                <div style="width:100%; height:6px; background:rgba(255,255,255,0.05); border-radius:3px; overflow:hidden;">
+                    <div style="width:${rep}%; height:100%; background:${scoreColor}; box-shadow: 0 0 8px ${scoreColor};"></div>
+                </div>
+            </div>
+        </div>
+        `;
+    }
+    
+    const svOpts = ['CRITICAL','HIGH','MEDIUM','LOW'].map(s=>`<option value="${s}"${inc.severity===s?' selected':''}>${s}</option>`).join('');
+
+    content.innerHTML = `
+        <div style="display:flex; flex-direction:column; gap:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span class="inc-sev ${inc.severity||'LOW'}">${inc.severity||'LOW'}</span>
+                <span style="color:var(--dim); font-family:'JetBrains Mono',monospace; font-size:10px;">ID: ${inc.id.split('-')[0]}...</span>
+            </div>
+            
+            <div style="font-size:18px; font-weight:800; color:#fff;">${esc(inc.type||'Unknown')}</div>
+            <div style="color:#aaa; font-size:12px; line-height:1.5;">${esc(inc.description||'')}</div>
+            
+            <div style="display:flex; gap:10px; margin-top:8px;">
+                <div style="flex:1;">
+                    <div style="font-size:9px; color:var(--muted); text-transform:uppercase; margin-bottom:4px;">Target/IP</div>
+                    <div class="ip-chip" style="display:inline-block;">${esc(inc.ip || inc.target || inc.monitor || 'System')}</div>
+                </div>
+                <div style="flex:1;">
+                    <div style="font-size:9px; color:var(--muted); text-transform:uppercase; margin-bottom:4px;">Severity Override</div>
+                    <select class="inc-sel" style="width:100%" onchange="patchIncident('${inc.id}',{severity:this.value})">${svOpts}</select>
+                </div>
+            </div>
+            
+            ${geoHtml}
+            ${ctxHtml}
+            ${aiAuditHtml}
+            
+            <div style="margin-top:auto; padding-top:16px; border-top:1px solid var(--border); display:flex; gap:10px;">
+                <button class="btn-ai" style="flex:1; padding:10px; text-align:center;" onclick="analyzeContext('${inc.id}'); closeIncidentDrawer();">AI ANALYZE</button>
+                ${inc.ip ? (() => {
+                    const isBanned = window.quarantinedIps && window.quarantinedIps.some(q => q.ip === inc.ip);
+                    return isBanned 
+                        ? `<button class="btn-unq" style="flex:1; padding:10px; border-radius:6px; cursor:pointer; background:rgba(16,185,129,0.12); color:var(--green); border:1px solid rgba(16,185,129,0.3);" onclick="unquarantineIp('${esc(inc.ip)}'); closeIncidentDrawer();">UNBAN IP</button>`
+                        : `<button class="btn-q" style="flex:1; padding:10px; border-radius:6px; cursor:pointer;" onclick="quarantineIp('${esc(inc.ip)}', 'Drawer Block'); closeIncidentDrawer();">BAN IP</button>`;
+                })() : ''}
+                <button class="btn-sm" style="padding:10px;" onclick="exportReport('${inc.id}')" title="Export Incident Report (IRR)">EXPORT</button>
             </div>
         </div>
     `;
-    if(prepend) container.insertBefore(div, container.firstChild);
-    else container.appendChild(div);
+    
+    $('incident-drawer').classList.add('open');
 }
 
-function addDangerousCard(inc, prepend, container) {
-    if(!container) container = $('dangerous-list');
-    const div = document.createElement('div');
-    div.className = `inc-card ${inc.severity}`;
-    let ctxHtml = '';
-    if(inc.contextBlock) ctxHtml = `<div class="inc-ctx">${esc(inc.contextBlock)}</div>`;
-    const sOpts = [['new','Новый'],['in_review','В рассмотрении'],['resolved','Решён']].map(([v,l])=>`<option value="${v}"${inc.status===v?' selected':''}>${l}</option>`).join('');
-    const svOpts = ['CRITICAL','HIGH','MEDIUM','LOW'].map(s=>`<option value="${s}"${inc.severity===s?' selected':''}>${s}</option>`).join('');
-    div.innerHTML = `
-        <div style="display:flex; flex-direction:column; gap:8px; width:100%;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span class="inc-sev ${inc.severity}">${inc.severity}</span>
-                <span class="inc-meta" style="background:rgba(255,255,255,0.05); padding:3px 8px; border-radius:4px; border:1px solid var(--glass-border);">${esc(inc.monitor||'')}</span>
-            </div>
-            <div class="inc-type" style="font-size:15px; font-weight:800; color:#fff; letter-spacing:0.5px; margin-top:4px;">${esc(inc.type||'')}</div>
-            <div class="inc-desc" style="color:var(--muted); font-size:12px; line-height:1.5;">${esc(inc.description||'')}</div>
-            ${ctxHtml}
-            <div style="height:1px; background:var(--glass-border); margin:4px 0;"></div>
-            <div class="inc-ctrls">
-                <select class="inc-sel" onchange="patchIncident('${inc.id}',{status:this.value})">${sOpts}</select>
-                <select class="inc-sel" onchange="patchIncident('${inc.id}',{severity:this.value})">${svOpts}</select>
-                <button class="btn-ai" onclick="analyzeContext('${inc.id}')">🧠 ИИ Анализ</button>
-                <span style="margin-left:auto; font-size:10px; font-family:'JetBrains Mono',monospace; color:var(--dim);">${(inc.timestamp||'').slice(0,19).replace('T',' ')}</span>
-            </div>
-        </div>
-    `;
-    if(prepend) container.insertBefore(div, container.firstChild);
-    else container.appendChild(div);
+function exportReport(id) {
+    const inc = allIncidents.find(i => i.id === id);
+    if(!inc) return;
+    const reportText = `INCIDENT RESPONSE REPORT (IRR)\n==============================\nID: ${inc.id}\nType: ${inc.type}\nSeverity: ${inc.severity}\nIP: ${inc.ip}\nStatus: ${inc.status}\nTime: ${inc.timestamp}\n\nDESCRIPTION:\n${inc.description}\n\nCONTEXT:\n${inc.contextBlock || 'N/A'}\n\nAI AUDIT TRAIL:\n${inc.aiAudit || 'No AI mitigation triggered.'}\n`;
+    const blob = new Blob([reportText], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `IRR-${inc.id.split('-')[0]}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Export', 'Incident Response Report downloaded.', 'info');
+}
+
+window.generateGlobalSOCReport = function() {
+    let reportText = `MISTRAL DEFENSE - GLOBAL SOC REPORT\n====================================\n`;
+    reportText += `Generated at: ${new Date().toLocaleString()}\n`;
+    reportText += `Total Threats Detected: ${threatCount || allIncidents.length}\n`;
+    reportText += `System Status: ${lastConnState === 'connected' ? 'ONLINE' : 'OFFLINE'}\n\n`;
+    
+    reportText += `RECENT CRITICAL & HIGH INCIDENTS\n------------------------------------\n`;
+    const threats = allIncidents.filter(i => i.severity === 'CRITICAL' || i.severity === 'HIGH').slice(0, 20);
+    
+    if (threats.length === 0) {
+        reportText += `No critical or high incidents detected.\n`;
+    } else {
+        threats.forEach(inc => {
+            reportText += `[${inc.timestamp}] [${inc.severity}] ${inc.type}\n`;
+            reportText += `    Target/IP: ${inc.ip || inc.target || 'System'}\n`;
+            reportText += `    Status: ${inc.status || 'New'}\n`;
+            if (inc.aiAudit) reportText += `    AI Action: ${inc.aiAudit.substring(0, 100).replace(/\n/g, ' ')}...\n`;
+            reportText += `\n`;
+        });
+    }
+    
+    reportText += `\nSECURITY SCANNERS SUMMARY\n------------------------------------\n`;
+    reportText += $('scan-output') ? $('scan-output').textContent : 'No recent scans.';
+    
+    const blob = new Blob([reportText], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `GLOBAL-SOC-REPORT.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Export', 'Global SOC Report downloaded.', 'info');
+};
+
+function closeIncidentDrawer() {
+    $('incident-drawer').classList.remove('open');
+}
+
+// Global Search
+function doGlobalSearch(val) {
+    if(!val) return;
+    val = val.toLowerCase();
+    
+    // Check if it looks like an IP
+    if(/^[0-9\.]+$/.test(val)) {
+        $('log-search').value = val;
+        switchTab('logs');
+        showToast('Global Search', `Filtered logs by IP: ${val}`, 'info');
+        return;
+    }
+    
+    // Otherwise try to find in incidents
+    const foundInc = allIncidents.find(i => (i.type||'').toLowerCase().includes(val) || (i.id||'').includes(val));
+    if(foundInc) {
+        switchTab('incidents');
+        openIncidentDrawer(foundInc.id);
+        showToast('Global Search', `Found incident: ${foundInc.type}`, 'info');
+        return;
+    }
+    
+    showToast('Global Search', 'No matches found', 'warn');
+}
+
+// Context Menu
+let ctxTargetIp = '';
+function openContextMenu(x, y, ip) {
+    const menu = $('context-menu');
+    if(!menu || !ip) return;
+    ctxTargetIp = ip;
+    
+    const isBanned = window.quarantinedIps && window.quarantinedIps.some(q => q.ip === ip);
+    const banItem = $('ctx-ban');
+    if (banItem) {
+        if (isBanned) {
+            banItem.innerHTML = 'Unban IP';
+            banItem.style.color = '#10b981';
+            banItem.onclick = () => ctxAction('unban');
+        } else {
+            banItem.innerHTML = 'Ban IP';
+            banItem.style.color = 'var(--red)';
+            banItem.onclick = () => ctxAction('ban');
+        }
+    }
+    
+    menu.style.display = 'block';
+    menu.style.left = x + 'px';
+    menu.style.top = y + 'px';
+}
+
+document.addEventListener('click', () => {
+    const menu = $('context-menu');
+    if(menu) menu.style.display = 'none';
+});
+
+function ctxAction(action) {
+    if(!ctxTargetIp) return;
+    if(action === 'ban') {
+        quarantineIp(ctxTargetIp, 'Context Menu Ban');
+        showToast('Banned', `IP ${ctxTargetIp} banned`, 'critical');
+    } else if(action === 'unban') {
+        unquarantineIp(ctxTargetIp);
+        showToast('Unbanned', `IP ${ctxTargetIp} unbanned`, 'green');
+    } else if(action === 'filter') {
+        $('log-search').value = ctxTargetIp;
+        switchTab('logs');
+    } else if(action === 'analyze') {
+        askAI(`Проанализируй активность с IP адреса ${ctxTargetIp}. Выведи рекомендации по блокировке.`);
+    } else if(action === 'lookup') {
+        openThreatIntelModal(ctxTargetIp);
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -410,11 +617,9 @@ function updateMetrics(data) {
     feed.insertBefore(div, feed.firstChild);
     if(feed.children.length > 100) feed.removeChild(feed.lastChild);
     
-    // Check for high CPU to trigger DEFCON 2 warning
+    // Check for high CPU to trigger warning
     if(data.cpu != null && data.cpu >= 90) {
-        setDefcon(2);
         showToast('SYSTEM WARNING', `High CPU load detected: ${data.cpu}%`, 'warn');
-        setTimeout(() => setDefcon(5), 15000);
     }
     // DDoS indicators for network tab & dashboard (via ddos metrics)
     if(data.ddos && data.ddos.top_ips && Array.isArray(data.ddos.top_ips)) {
@@ -428,7 +633,11 @@ function updateMetrics(data) {
             } else {
                 data.ddos.top_ips.forEach(s => {
                     const tr = document.createElement('tr');
-                    tr.innerHTML = `<td>DDoS Attacker</td><td><span class="ip-chip">${esc(s.ip||'?')}</span></td><td>${esc(s.count||0)}</td><td><button class="btn-sm btn-q" onclick="quarantineIp('${esc(s.ip)}','Blocked by Anti-DDoS')">🛡 ЗАБАНИТЬ IP</button></td>`;
+                    const isBanned = window.quarantinedIps && window.quarantinedIps.some(q => q.ip === s.ip);
+                    const btnHtml = isBanned 
+                        ? `<button class="btn-sm" style="background:rgba(16,185,129,0.12);color:var(--green);border:1px solid rgba(16,185,129,0.3)" onclick="unquarantineIp('${esc(s.ip)}')">РАЗБЛОКИРОВАТЬ</button>`
+                        : `<button class="btn-sm btn-q" onclick="quarantineIp('${esc(s.ip)}','Blocked by Anti-DDoS')">ЗАБАНИТЬ IP</button>`;
+                    tr.innerHTML = `<td>DDoS Attacker</td><td><span class="ip-chip">${esc(s.ip||'?')}</span></td><td>${esc(s.count||0)}</td><td>${btnHtml}</td>`;
                     tb.appendChild(tr);
                 });
             }
@@ -441,7 +650,11 @@ function updateMetrics(data) {
             } else {
                 data.ddos.top_ips.forEach(s => {
                     const tr = document.createElement('tr');
-                    tr.innerHTML = `<td>DDoS Attacker</td><td><span class="ip-chip">${esc(s.ip||'?')}</span></td><td>${esc(s.count||0)}</td><td><button class="btn-sm btn-q" onclick="quarantineIp('${esc(s.ip)}','Blocked by Anti-DDoS')">🛡 ЗАБАНИТЬ IP</button></td>`;
+                    const isBanned = window.quarantinedIps && window.quarantinedIps.some(q => q.ip === s.ip);
+                    const btnHtml = isBanned 
+                        ? `<button class="btn-sm" style="background:rgba(16,185,129,0.12);color:var(--green);border:1px solid rgba(16,185,129,0.3)" onclick="unquarantineIp('${esc(s.ip)}')">РАЗБЛОКИРОВАТЬ</button>`
+                        : `<button class="btn-sm btn-q" onclick="quarantineIp('${esc(s.ip)}','Blocked by Anti-DDoS')">ЗАБАНИТЬ IP</button>`;
+                    tr.innerHTML = `<td>DDoS Attacker</td><td><span class="ip-chip">${esc(s.ip||'?')}</span></td><td>${esc(s.count||0)}</td><td>${btnHtml}</td>`;
                     dashTb.appendChild(tr);
                 });
             }
@@ -464,14 +677,16 @@ function loadQuarantine() {
     if(!serverBase) return;
     fetch(`${serverBase}/api/quarantine`).then(r=>r.json()).then(d=>renderQuarantine(d||[])).catch(()=>{});
 }
+window.quarantinedIps = [];
 function renderQuarantine(list) {
+    window.quarantinedIps = list || [];
     const tb = $('quarantine-tbody');
     $('q-count').textContent = list.length;
     if(!list.length) { tb.innerHTML='<tr><td colspan="4" class="empty-td">Нет заблокированных IP</td></tr>'; return; }
     tb.innerHTML = '';
     list.forEach(q => {
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td><span class="ip-chip">${esc(q.ip)}</span></td><td>${esc(q.reason||'Manual')}</td><td>${esc((q.timestamp||'').slice(0,19).replace('T',' '))}</td><td><button class="btn-sm btn-unq" onclick="unquarantineIp('${esc(q.ip)}')">🔓 РАЗБЛОКИРОВАТЬ</button></td>`;
+        tr.innerHTML = `<td><span class="ip-chip">${esc(q.ip)}</span></td><td>${esc(q.reason||'Manual')}</td><td>${esc((q.timestamp||'').slice(0,19).replace('T',' '))}</td><td><button class="btn-sm btn-unq" onclick="unquarantineIp('${esc(q.ip)}')">РАЗБЛОКИРОВАТЬ</button></td>`;
         tb.appendChild(tr);
     });
 }
@@ -482,17 +697,89 @@ function unquarantineIp(ip) {
     fetch(`${serverBase}/api/quarantine/${encodeURIComponent(ip)}`, {method:'DELETE'}).catch(console.error);
 }
 
+function submitManualBan() {
+    const ipEl = $('inp-manual-ban-ip');
+    const reasonEl = $('inp-manual-ban-reason');
+    if (!ipEl) return;
+    const ip = ipEl.value.trim();
+    const reason = reasonEl ? reasonEl.value.trim() : 'Manual block';
+    
+    if (!ip) {
+        showToast('Отказ', 'Укажите IP-адрес для блокировки', 'warn');
+        return;
+    }
+    
+    const ipv4Regex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    if (!ipv4Regex.test(ip)) {
+        if (!confirm(`Введенный IP-адрес "${ip}" не выглядит как валидный IPv4. Всё равно продолжить блокировку?`)) {
+            return;
+        }
+    }
+    
+    if (ip === window.clientIp) {
+        if (!confirm('ВНИМАНИЕ: Вы пытаетесь заблокировать свой собственный IP! Это приведёт к потере соединения с сервером. Вы уверены?')) {
+            return;
+        }
+    }
+    
+    let serverHost = '';
+    if (serverBase) {
+        try {
+            serverHost = new URL(serverBase).hostname;
+        } catch(e) {
+            serverHost = serverBase;
+        }
+    }
+    if (ip === serverHost || ip === '127.0.0.1' || ip === 'localhost') {
+        if (!confirm('ВНИМАНИЕ: Вы пытаетесь заблокировать IP-адрес сервера или localhost! Это может нарушить работу системы. Вы уверены?')) {
+            return;
+        }
+    }
+    
+    quarantineIp(ip, reason || 'Manual block');
+    showToast('Блокировка', `Отправлен запрос на блокировку IP ${ip}`, 'critical');
+    
+    ipEl.value = '';
+    if (reasonEl) reasonEl.value = '';
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // ALERTS & TOASTS
 // ══════════════════════════════════════════════════════════════════════════════
+const alertCooldowns = new Map();
+
 function showAlert(data) {
+    const type = data.type || '';
+    const desc = data.description || '';
+    const isDdos = type.includes('DDOS') || type.includes('DDoS') || desc.includes('DDoS') || desc.includes('SYN-RECV') || desc.includes('ESTABLISHED');
+    
+    const suppressCheckbox = $('chk-suppress-ddos');
+    const shouldSuppress = suppressCheckbox ? suppressCheckbox.checked : true;
+    
+    if (isDdos && shouldSuppress) {
+        let key = type;
+        const ipMatch = desc.match(/\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/);
+        if (ipMatch) {
+            key += '_' + ipMatch[0];
+        } else if (data.details?.sourceIp || data.details?.ip) {
+            key += '_' + (data.details.sourceIp || data.details.ip);
+        }
+        
+        const now = Date.now();
+        const lastTime = alertCooldowns.get(key) || 0;
+        const cooldownMs = 180000; // 3 minutes cooldown
+        
+        if (now - lastTime < cooldownMs) {
+            console.log(`[SOC Alert Suppressed] DDoS notification rate-limited for key: ${key}`);
+            return;
+        }
+        alertCooldowns.set(key, now);
+    }
+
     const sev = (data.severity || data.type || 'ALERT').toUpperCase();
     
     if (sev === 'CRITICAL' || sev === 'HIGH') {
-        setDefcon(1);
-        showToast(`DEFCON 1: ${sev}`, data.description || data.type || 'Critical threat detected!', 'critical');
-        // Reset to normal after 20 seconds
-        setTimeout(() => setDefcon(5), 20000);
+        showToast(`CRITICAL: ${sev}`, data.description || data.type || 'Critical threat detected!', 'critical');
     } else if (sev === 'MEDIUM' || sev === 'WARN') {
         showToast(`WARNING: ${sev}`, data.description || data.type || 'Suspicious activity detected.', 'warn');
     } else {
@@ -518,15 +805,110 @@ function showToast(title, message, type='info') {
 // ══════════════════════════════════════════════════════════════════════════════
 // TABS
 // ══════════════════════════════════════════════════════════════════════════════
-const TAB_NAMES = ['dashboard','network','incidents','dangerous','logs','metrics','scanners','ai','users'];
+const TAB_NAMES = ['dashboard','network','incidents','dangerous','logs','metrics','scanners','ai','users','map','mitre','server_info','apps'];
 function switchTab(name) {
-    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab===name));
-    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-    $('panel-'+name).classList.add('active');
-    if(name==='logs') loadLogs();
-    if(name==='users') loadUsers();
-    if(name==='network') loadQuarantine();
-    if(name==='incidents' && window.electronAPI) if (window.electronAPI) { window.electronAPI.sendWsMessage({event:'get_incidents'}); }
+    try {
+        document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab===name));
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        $('panel-'+name).classList.add('active');
+        if(name==='logs') loadLogs();
+        if(name==='users') loadUsers();
+        if(name==='server_info') { if(window.loadServerInfo) window.loadServerInfo(); }
+        if(name==='apps') { if(window.loadApplicationsInfo) window.loadApplicationsInfo(); }
+        if(name==='network') {
+            loadQuarantine();
+            if(window.updateIPDisplays) window.updateIPDisplays();
+        }
+        if(name==='incidents' && window.electronAPI) if (window.electronAPI) { window.electronAPI.sendWsMessage({event:'get_incidents'}); }
+        if(name==='map' && cyberMap) {
+            cyberMap.resize();
+        }
+    } catch(err) {
+        alert("Tab Switch Error: " + err.message + "\n" + err.stack);
+    }
+}
+
+// Helper: flag renderer for window UI
+function getFlagEmojiLocal(countryCode) {
+    if (!countryCode || countryCode === '?') return '';
+    return `[${countryCode.toUpperCase()}]`;
+}
+
+function openThreatIntelModal(ip) {
+    fetch(`${serverBase}/api/geoip/${encodeURIComponent(ip)}`)
+        .then(r => r.json())
+        .then(geo => {
+            const flag = geo.code ? getFlagEmojiLocal(geo.code) : '';
+            const rep = geo.reputation || 0;
+            const scoreColor = rep > 70 ? 'var(--red)' : rep > 40 ? 'var(--orange)' : 'var(--green)';
+            
+            let modal = $('threat-intel-modal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'threat-intel-modal';
+                modal.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100vw;
+                    height: 100vh;
+                    background: rgba(0,0,0,0.85);
+                    z-index: 1000000;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    backdrop-filter: blur(8px);
+                `;
+                document.body.appendChild(modal);
+            }
+            
+            modal.innerHTML = `
+                <div style="background: #0d0d12; border: 1px solid var(--border); border-radius: 12px; width: 420px; box-shadow: 0 20px 50px rgba(0,0,0,0.9); font-family: 'Inter', sans-serif; overflow: hidden; animation: slideUp 0.3s ease;">
+                    <div style="background: rgba(255,255,255,0.02); padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 800; color: #fff; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; font-family:'JetBrains Mono',monospace;">Security Lookup: ${esc(ip)}</span>
+                        <span style="cursor: pointer; color: var(--dim); font-size: 16px;" onclick="document.getElementById('threat-intel-modal').remove()">✕</span>
+                    </div>
+                    <div style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+                        <div style="display: flex; align-items: center; gap: 14px;">
+                            <div style="font-size: 32px; background: rgba(255,255,255,0.03); width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid var(--border);">${flag}</div>
+                            <div>
+                                <span style="font-size: 9px; color: var(--muted); display: block; text-transform: uppercase; margin-bottom: 2px; font-weight:800;">Геолокация / Страна</span>
+                                <strong style="font-size: 15px; color: #fff;">${esc(geo.country || 'Unknown')} (${esc(geo.code || '??')})</strong>
+                            </div>
+                        </div>
+                        
+                        <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.03); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px; font-size: 11px;">
+                            <div style="display: flex; justify-content: space-between;"><span style="color: var(--muted);">IP Address:</span><span style="color: #fff; font-family: monospace;">${esc(ip)}</span></div>
+                            <div style="display: flex; justify-content: space-between;"><span style="color: var(--muted);">ISP / Provider:</span><span style="color: #fff; font-weight: 600;">${esc(geo.isp || 'Unknown')}</span></div>
+                            <div style="display: flex; justify-content: space-between;"><span style="color: var(--muted);">Coordinates:</span><span style="color: var(--cyan); font-family: monospace;">${geo.lat || 0}, ${geo.lon || 0}</span></div>
+                        </div>
+
+                        <div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; margin-bottom: 6px;">
+                                <span style="color: var(--muted);">Threat Abuse Score</span>
+                                <span style="font-weight: 800; color: ${scoreColor};">${rep}% (Dangerous)</span>
+                            </div>
+                            <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden;">
+                                <div style="width: ${rep}%; height: 100%; background: ${scoreColor}; box-shadow: 0 0 8px ${scoreColor};"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.02); padding: 14px 20px; border-top: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: flex-end; gap: 10px;">
+                        <button style="background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: #fff; padding: 8px 16px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; font-family:'JetBrains Mono',monospace;" onclick="document.getElementById('threat-intel-modal').remove()">Закрыть</button>
+                        ${(() => {
+                            const isBanned = window.quarantinedIps && window.quarantinedIps.some(q => q.ip === ip);
+                            return isBanned
+                                ? `<button style="background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); color: var(--green); padding: 8px 16px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; font-family:'JetBrains Mono',monospace;" onclick="unquarantineIp('${esc(ip)}'); document.getElementById('threat-intel-modal').remove();">РАЗБЛОКИРОВАТЬ</button>`
+                                : `<button style="background: var(--red); border: none; color: #fff; padding: 8px 16px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; font-family:'JetBrains Mono',monospace;" onclick="quarantineIp('${esc(ip)}', 'Threat Lookup Block'); document.getElementById('threat-intel-modal').remove();">ЗАБЛОКИРОВАТЬ</button>`;
+                        })()}
+                    </div>
+                </div>
+            `;
+            modal.style.display = 'flex';
+        })
+        .catch(err => {
+            showToast('Lookup Error', 'Failed to retrieve GeoIP data: ' + err.message, 'warn');
+        });
 }
 
 function killProcess() {
@@ -547,7 +929,6 @@ function closeAITerminal() {
     $('ai-terminal').style.display = 'none';
     autoDefenseTriggered = false;
     threatCount = 0;
-    setDefcon(5);
     showToast('SYSTEM', 'Управление перехвачено оператором', 'info');
 }
 
@@ -629,5 +1010,252 @@ function updateKillChain(incident) {
 }
 
 // Enter to login
-$('inp-pass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+if ($('inp-pass')) {
+    $('inp-pass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+}
+
+window.toggleAudioAlertsSetting = function(checked) {
+    localStorage.setItem('mute_audio_alerts', checked ? 'false' : 'true');
+    showToast('Настройки звука', checked ? 'Звуковые оповещения включены' : 'Звуковые оповещения отключены', 'info');
+};
+
+window.toggleGlowEffectsSetting = function(checked) {
+    localStorage.setItem('glow_effects_enabled', checked ? 'true' : 'false');
+    document.body.classList.toggle('glow-active', checked);
+    showToast('Визуальные эффекты', checked ? 'Глоу-эффект активирован' : 'Глоу-эффект отключен', 'info');
+};
+
+window.loadServerInfo = function() {
+    const data = window.lastMetricsData;
+    if (!data) return;
+    
+    if ($('si-hostname')) $('si-hostname').textContent = data.hostname || 'mistral-server';
+    if ($('si-os')) $('si-os').textContent = data.os || 'Ubuntu 22.04 LTS (x86_64)';
+    if ($('si-kernel')) $('si-kernel').textContent = data.kernel || 'Linux 5.15.0-generic';
+    if ($('si-cpu-model')) $('si-cpu-model').textContent = data.cpu_model || 'Intel Xeon (4 Cores)';
+    if ($('si-uptime')) $('si-uptime').textContent = data.uptime || '0 дней, 00:00:00';
+    if ($('si-temp')) $('si-temp').textContent = (data.temp || 'N/A') + '°C';
+    
+    const daemonsContainer = $('si-daemons-list');
+    if (daemonsContainer) {
+        daemonsContainer.innerHTML = '';
+        const daemons = data.daemons || [
+            { name: 'nginx', status: (data.nginx && data.nginx.active) ? 'active' : 'inactive', description: 'Nginx Web Server' },
+            { name: 'docker', status: (data.docker && data.docker.healthy) ? 'active' : 'inactive', description: 'Docker Container Engine' },
+            { name: 'sshd', status: 'active', description: 'OpenSSH Server' },
+            { name: 'ufw', status: 'active', description: 'Uncomplicated Firewall' },
+            { name: 'cron', status: 'active', description: 'Task Scheduler Daemon' },
+            { name: 'syslog', status: 'active', description: 'System Logging Daemon' }
+        ];
+        
+        daemons.forEach(d => {
+            const row = document.createElement('div');
+            row.className = 'user-card';
+            row.style.padding = '8px 12px';
+            const color = d.status === 'active' ? 'var(--green)' : 'var(--red)';
+            row.innerHTML = `
+                <div class="user-avatar" style="width:28px; height:28px; font-size:11px; background:${color}">${d.name.substring(0,3).toUpperCase()}</div>
+                <div class="user-info">
+                    <div class="name" style="font-size:11px;">${d.name}</div>
+                    <div class="role" style="font-size:9px; color:var(--muted);">${d.description}</div>
+                </div>
+                <div class="user-tg" style="font-size:8px; border-color:${color}; color:${color}; background:transparent;">${d.status.toUpperCase()}</div>
+            `;
+            daemonsContainer.appendChild(row);
+        });
+    }
+    
+    const portsContainer = $('si-ports-tbody');
+    if (portsContainer) {
+        portsContainer.innerHTML = '';
+        const ports = data.open_ports || [
+            { port: '80', proto: 'TCP', proc: 'nginx', pid: '1092' },
+            { port: '443', proto: 'TCP', proc: 'nginx', pid: '1092' },
+            { port: '22', proto: 'TCP', proc: 'sshd', pid: '842' },
+            { port: '8080', proto: 'TCP', proc: 'node', pid: '2042' },
+            { port: '8443', proto: 'TCP', proc: 'node', pid: '2042' },
+            { port: '3306', proto: 'TCP', proc: 'mysqld', pid: '921' }
+        ];
+        ports.forEach(p => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="font-family:monospace; color:var(--cyan);">${p.port}</td>
+                <td>${p.proto}</td>
+                <td style="font-weight:bold;">${p.proc}</td>
+                <td style="color:var(--muted); font-family:monospace;">${p.pid}</td>
+            `;
+            portsContainer.appendChild(tr);
+        });
+    }
+};
+
+window.loadApplicationsInfo = function() {
+    const data = window.lastMetricsData;
+    if (!data) return;
+    
+    const dockerContainer = $('apps-docker-tbody');
+    if (dockerContainer) {
+        dockerContainer.innerHTML = '';
+        const containers = (data.docker && data.docker.containers) || [];
+        if (containers.length === 0) {
+            dockerContainer.innerHTML = '<tr><td colspan="4" class="empty-td">Нет запущенных контейнеров</td></tr>';
+        } else {
+            containers.forEach(c => {
+                const tr = document.createElement('tr');
+                const isRunning = c.status.toLowerCase().includes('up');
+                const statusColor = isRunning ? 'var(--green)' : 'var(--muted)';
+                tr.innerHTML = `
+                    <td>
+                        <strong style="color:#fff; display:block;">${esc(c.name)}</strong>
+                        <span style="font-size:9px; color:var(--dim); font-family:monospace;">${esc(c.id)}</span>
+                    </td>
+                    <td style="font-size:10px; font-family:monospace;">${esc(c.image)}</td>
+                    <td><span style="color:${statusColor}">${esc(c.status)}</span></td>
+                    <td><button class="btn-sm" onclick="runTrivyScan('${esc(c.id)}')" style="font-size:9px; padding:3px 6px;">Trivy Scan</button></td>
+                `;
+                dockerContainer.appendChild(tr);
+            });
+        }
+    }
+    
+    const nginxContainer = $('apps-nginx-tbody');
+    if (nginxContainer) {
+        nginxContainer.innerHTML = '';
+        const hasNginx = data.nginx && data.nginx.active;
+        const sites = (data.nginx_sites && data.nginx_sites.length > 0) ? data.nginx_sites : (hasNginx ? [
+            { domain: 'demo.mistral.local', port: '80', root: '/var/www/mistral-demo' },
+            { domain: 'waf.mistral.local', port: '443', root: '/var/www/remon-waf' }
+        ] : []);
+        if (sites.length === 0) {
+            nginxContainer.innerHTML = '<tr><td colspan="4" class="empty-td">Нет активных сайтов Nginx</td></tr>';
+        } else {
+            sites.forEach(s => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong style="color:var(--cyan);">${esc(s.domain)}</strong></td>
+                    <td style="font-family:monospace;">${esc(s.port)}</td>
+                    <td style="font-size:10px; color:var(--muted);">${esc(s.root)}</td>
+                    <td><button class="btn-sm" onclick="runSemgrepScan('${esc(s.root)}')" style="font-size:9px; padding:3px 6px;">Semgrep Scan</button></td>
+                `;
+                nginxContainer.appendChild(tr);
+            });
+        }
+    }
+    
+    const leaksContainer = $('apps-leaks-feed');
+    if (leaksContainer) {
+        leaksContainer.innerHTML = '';
+        const leaks = data.leaks || [];
+        if (leaks.length === 0) {
+            leaksContainer.innerHTML = '<div style="color:var(--dim); font-style:italic; text-align:center; padding:20px;">Утечек данных не обнаружено</div>';
+        } else {
+            leaks.forEach(l => {
+                const div = document.createElement('div');
+                div.className = 'user-card';
+                div.style.padding = '8px 12px';
+                const color = l.severity === 'CRITICAL' ? 'var(--red)' : l.severity === 'HIGH' ? 'var(--orange)' : 'var(--blue)';
+                div.innerHTML = `
+                    <div class="user-avatar" style="width:28px; height:28px; font-size:11px; background:${color}">LEK</div>
+                    <div class="user-info" style="flex:1;">
+                        <div class="name" style="font-size:11px; color:#fff;">${l.description}</div>
+                        <div class="role" style="font-size:9px; color:var(--muted); font-family:monospace;">${l.path}</div>
+                    </div>
+                    <div class="user-tg" style="font-size:8px; border-color:${color}; color:${color}; background:transparent;">${l.severity}</div>
+                `;
+                leaksContainer.appendChild(div);
+            });
+        }
+    }
+    
+    const vulnsContainer = $('apps-vulns-log');
+    if (vulnsContainer) {
+        vulnsContainer.innerHTML = '';
+        const scanFindings = data.scan_findings || [];
+        if (scanFindings.length === 0) {
+            vulnsContainer.innerHTML = '<div style="color:var(--dim); font-style:italic; text-align:center; padding:20px;">Нет результатов сканирования уязвимостей</div>';
+        } else {
+            scanFindings.forEach(f => {
+                const div = document.createElement('div');
+                div.style.cssText = 'border-bottom:1px solid rgba(255,255,255,0.03); padding:6px 0;';
+                const badgeColor = f.severity === 'CRITICAL' || f.severity === 'HIGH' ? 'var(--red)' : 'var(--orange)';
+                if (f.scanner === 'semgrep') {
+                    div.innerHTML = `
+                        <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
+                            <span style="color:var(--purple); font-weight:bold;">[SEMGREP] ${f.rule}</span>
+                            <span style="color:${badgeColor}; font-weight:bold;">${f.severity}</span>
+                        </div>
+                        <div style="color:#ccc;">${f.message}</div>
+                        <div style="color:var(--dim); font-size:9px;">Файл: ${f.path}:${f.line}</div>
+                    `;
+                } else {
+                    div.innerHTML = `
+                        <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
+                            <span style="color:var(--blue); font-weight:bold;">[TRIVY] ${f.vulnId} (${f.pkg})</span>
+                            <span style="color:${badgeColor}; font-weight:bold;">${f.severity}</span>
+                        </div>
+                        <div style="color:#ccc;">${f.title}</div>
+                        <div style="color:var(--dim); font-size:9px;">Цель: ${f.target} | Исправлено в: ${f.fixedVersion || '—'}</div>
+                    `;
+                }
+                vulnsContainer.appendChild(div);
+            });
+        }
+    }
+};
+
+window.runTrivyScan = function(containerId) {
+    showToast('Trivy Scan', `Запуск сканирования контейнера ${containerId}...`, 'info');
+    fetch(`${serverBase}/api/scan/trivy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Auth-Token': token },
+        body: JSON.stringify({ target: containerId, scanType: 'image' })
+    })
+    .then(r => r.json())
+    .then(res => {
+        showToast('Trivy Complete', `Сканирование завершено. Найдено ${res.findings ? res.findings.length : 0} уязвимостей`, 'green');
+        if (window.loadApplicationsInfo) window.loadApplicationsInfo();
+    })
+    .catch(err => showToast('Ошибка сканирования', err.message, 'warn'));
+};
+
+window.runSemgrepScan = function(rootPath) {
+    showToast('Semgrep Scan', `Запуск SAST-сканирования директории ${rootPath}...`, 'info');
+    fetch(`${serverBase}/api/scan/semgrep`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Auth-Token': token },
+        body: JSON.stringify({ targetDir: rootPath })
+    })
+    .then(r => r.json())
+    .then(res => {
+        showToast('Semgrep Complete', `Сканирование завершено. Найдено ${res.findings ? res.findings.length : 0} замечаний`, 'green');
+        if (window.loadApplicationsInfo) window.loadApplicationsInfo();
+    })
+    .catch(err => showToast('Ошибка сканирования', err.message, 'warn'));
+};
+
+window.triggerScannerInstallation = function() {
+    showToast('Установка сканеров', 'Запуск установки Semgrep и Trivy на сервере...', 'info');
+    fetch(`${serverBase}/api/install-scanners`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Auth-Token': token }
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) showToast('Установка запущена', 'Установка выполняется в фоновом режиме', 'green');
+    })
+    .catch(err => showToast('Ошибка установки', err.message, 'warn'));
+};
+
+window.triggerServerAudit = function() {
+    showToast('Аудит безопасности', 'Запуск глубокого аудита системы (Semgrep & Trivy)...', 'info');
+    fetch(`${serverBase}/api/run-audit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Auth-Token': token }
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) showToast('Аудит запущен', 'Процесс глубокого сканирования запущен в фоне', 'green');
+    })
+    .catch(err => showToast('Ошибка запуска', err.message, 'warn'));
+};
 
