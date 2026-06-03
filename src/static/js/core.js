@@ -610,20 +610,36 @@ window.saveSoarSettingsUI = function() {
         aiTriggerOnCritical: aiCritical ? aiCritical.checked : false
     };
     
-    fetch(`${serverBase}/api/soar-settings`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Auth-Token': token },
-        body: JSON.stringify(settings)
-    })
-    .then(r => r.json())
-    .then(res => {
-        if (res.success) {
-            showToast('SOAR Settings', 'Правила автоматизации успешно сохранены на сервере', 'green');
-        }
-    })
-    .catch(err => {
-        showToast('Ошибка SOAR', 'Не удалось сохранить настройки SOAR: ' + err.message, 'warn');
-    });
+    if (window.electronAPI) {
+        window.electronAPI.sendApiRequest('/api/soar-settings', 'POST', settings)
+            .then(res => {
+                if (res && res.success) {
+                    showToast('SOAR Settings', 'Правила автоматизации успешно сохранены на сервере', 'green');
+                } else {
+                    showToast('Ошибка SOAR', (res && res.error) || 'Не удалось сохранить настройки SOAR', 'warn');
+                }
+            })
+            .catch(err => {
+                showToast('Ошибка SOAR', 'Не удалось сохранить настройки SOAR: ' + err.message, 'warn');
+            });
+    } else {
+        fetch(`${serverBase}/api/soar-settings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Auth-Token': token },
+            body: JSON.stringify(settings)
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                showToast('SOAR Settings', 'Правила автоматизации успешно сохранены на сервере', 'green');
+            } else {
+                showToast('Ошибка SOAR', res.error || 'Не удалось сохранить настройки', 'warn');
+            }
+        })
+        .catch(err => {
+            showToast('Ошибка SOAR', 'Не удалось сохранить настройки SOAR: ' + err.message, 'warn');
+        });
+    }
 };
 
 window.renderScanResultsInTerminal = function(r) {
