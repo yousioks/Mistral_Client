@@ -135,7 +135,8 @@ function updateIPDisplays() {
 // MESSAGE HANDLER
 // ══════════════════════════════════════════════════════════════════════════════
 function handleMessage(msg) {
-    switch(msg.event) {
+    try {
+        switch(msg.event) {
         case 'auth_success':
             setConnStatus('connected','Подключён');
             if(msg.data?.model){window.currentModel=msg.data.model;$('model-badge').textContent=window.currentModel;}
@@ -363,6 +364,10 @@ function handleMessage(msg) {
             $('btn-run-semgrep').disabled = false;
             $('btn-run-trivy').disabled = false;
             break;
+        }
+    } catch (err) {
+        console.error("Error in handleMessage:", err, msg);
+        showToast("Ошибка UI", "Сбой обработки события: " + err.message, "warn");
     }
 }
 
