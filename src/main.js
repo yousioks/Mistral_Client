@@ -164,11 +164,25 @@ function connectToServer(host, port, token) {
           if (msg.data) cache.logs.unshift(msg.data);
           trimCache();
           break;
-        case 'incident':
+         case 'incident':
           if (msg.data) {
              cache.incidents.unshift(msg.data);
               if ((msg.data.severity === 'CRITICAL' || msg.data.severity === 'HIGH') && Notification.isSupported()) {
-                 const attackerIp = msg.data.ip || 'Неизвестный IP';
+                 let attackerIp = msg.data.ip;
+                 if (!attackerIp && msg.data.details) {
+                     const det = msg.data.details;
+                     if (det.sourceIp) attackerIp = det.sourceIp;
+                     else if (det.ip) attackerIp = det.ip;
+                     else if (det.ddos && det.ddos.top_ips && Array.isArray(det.ddos.top_ips) && det.ddos.top_ips.length > 0) {
+                         attackerIp = det.ddos.top_ips[0].ip;
+                     }
+                 }
+                 if (!attackerIp) {
+                     const desc = msg.data.description || "";
+                     const ipMatch = desc.match(/\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/);
+                     if (ipMatch) attackerIp = ipMatch[0];
+                 }
+                 if (!attackerIp) attackerIp = 'Неизвестный IP';
                  const notification = new Notification({
                    title: `Угроза ${msg.data.severity}: ${msg.data.type}`,
                    body: `IP: ${attackerIp}\n${msg.data.description || 'Обнаружена новая атака'}`,
@@ -308,7 +322,13 @@ ipcMain.handle('send-api-request', async (event, path, method, body) => {
       },
       body: body ? JSON.stringify(body) : undefined
     });
-    return await res.json();
+    const contentType = res.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      return await res.json();
+    } else {
+      const text = await res.text();
+      return { error: `Server returned non-JSON response (${res.status}): ${text.substring(0, 100)}` };
+    }
   } catch (err) {
     return { error: err.message };
   }
