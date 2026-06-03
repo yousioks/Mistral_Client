@@ -96,7 +96,7 @@ function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1600, height: 900, minWidth: 1200, minHeight: 700,
     title: 'MISTRAL Defense Command Center',
-    icon: path.join(__dirname, 'static', 'icon.png'),
+    icon: path.join(__dirname, 'static', 'totem.ico'),
     backgroundColor: '#080808', show: false,
     webPreferences: {
       nodeIntegration: false,
@@ -171,7 +171,7 @@ function connectToServer(host, port, token) {
                 new Notification({
                   title: `Угроза ${msg.data.severity}: ${msg.data.type}`,
                   body: msg.data.description || 'Обнаружена новая атака',
-                  icon: path.join(__dirname, 'static', 'icon.png')
+                  icon: path.join(__dirname, 'static', 'totem.ico')
                 }).show();
              }
           }
@@ -313,7 +313,7 @@ ipcMain.on('send-ws-message', (event, msg) => {
 
 // --- App Lifecycle ---
 function createTray() {
-  tray = new Tray(path.join(__dirname, 'static', 'logo.ico')); // Needs a proper icon
+  tray = new Tray(path.join(__dirname, 'static', 'totem.ico')); // Needs a proper icon
   const contextMenu = Menu.buildFromTemplate([
     { label: 'Показать MISTRAL', click: () => { if(mainWindow) mainWindow.show(); } },
     { type: 'separator' },

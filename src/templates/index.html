@@ -69,6 +69,7 @@
             <div class="tab" data-tab="scanners" onclick="switchTab('scanners')">Security Scanners</div>
             <div class="tab" data-tab="mitre" onclick="switchTab('mitre')">MITRE ATT&CK Matrix</div>
             <div class="tab" data-tab="ai" onclick="switchTab('ai')">AI Analysis</div>
+            <div class="tab" data-tab="vulnerabilities" onclick="switchTab('vulnerabilities')">База уязвимостей</div>
             <div class="tab" data-tab="metrics" onclick="switchTab('metrics')">Metrics</div>
             <div class="tab" data-tab="users" onclick="switchTab('users')">Users & Settings</div>
         </div>
@@ -557,6 +558,13 @@
                     </div>
                 </details>
 
+                <details style="margin-bottom:12px; background:rgba(0,0,0,0.5); border:1px solid var(--border); border-radius:6px;" ontoggle="if(this.open) loadAiReportsList()">
+                    <summary style="padding:10px; cursor:pointer; font-size:11px; font-weight:700; color:var(--muted); outline:none; user-select:none">Архив отчётов ИИ-Агента (.md)</summary>
+                    <div style="padding:10px; border-top:1px solid var(--border); max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;" id="ai-reports-list-container">
+                        <div style="color:var(--dim); font-size:11px; padding:8px 0;">Загрузка отчетов...</div>
+                    </div>
+                </details>
+
                 <div class="field-group" style="margin-bottom:12px; margin-top:0">
                     <label style="font-size:10px; margin-bottom:4px; color:var(--muted); text-transform:uppercase; font-weight:700">Выбор инцидента для контекста ИИ</label>
                     <select id="ai-incident-select" onchange="selectIncidentForAI()" style="background:rgba(0,0,0,0.5); border:1px solid var(--border); color:#fff; padding:8px 10px; border-radius:6px; font-size:12px; width:100%; outline:none">
@@ -811,9 +819,104 @@
             </div>
             <div class="card"><div class="card-hdr"><div class="cd" style="background:var(--blue)"></div>Пользователи</div><div id="users-list" style="display:flex;flex-direction:column;gap:8px"></div></div>
         </div>
+
+        <!-- ═══ VULNERABILITIES DATABASE ═══ -->
+        <div class="panel" id="panel-vulnerabilities">
+            <div class="card" style="display:flex; flex-direction:column; height:100%; border:1px solid rgba(0, 255, 136, 0.2);">
+                <div class="card-hdr" style="margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <div class="cd" style="background:var(--green)"></div>
+                        <span>База Сигнатур & Уязвимостей MISTRAL</span>
+                    </div>
+                    <button class="btn-sm" onclick="showAddVulnerabilityModal()" style="border-color:var(--green); color:var(--green); background:rgba(0,255,136,0.05); font-family:'JetBrains Mono',monospace;">+ ДОБАВИТЬ СИГНАТУРУ</button>
+                </div>
+                
+                <div style="flex:1; overflow-y:auto; padding-right:4px;">
+                    <table class="full-tbl" style="width:100%;">
+                        <thead>
+                            <tr>
+                                <th style="width:15%">Имя/ID</th>
+                                <th style="width:10%">Важность</th>
+                                <th style="width:25%">Описание уязвимости</th>
+                                <th style="width:25%">Правила детекции (сигнатуры)</th>
+                                <th style="width:15%">Устранение</th>
+                                <th style="width:10%">Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="vulnerabilities-tbody">
+                            <tr><td colspan="6" class="empty-td">Загрузка базы уязвимостей...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Modal for Add/Edit Vulnerability -->
+            <div id="modal-vuln" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); display:flex; justify-content:center; align-items:center; z-index:99999; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);">
+                <div class="login-box" style="width:500px; padding:24px; border:1px solid rgba(255,255,255,0.08); background:rgba(10,14,25,0.95); box-shadow: 0 10px 40px rgba(0,0,0,0.8);">
+                    <div style="font-weight:900; font-size:14px; color:#fff; margin-bottom:18px; display:flex; justify-content:space-between; font-family:'JetBrains Mono',monospace;">
+                        <span id="modal-vuln-title">Добавить уязвимость</span>
+                        <span onclick="closeVulnerabilityModal()" style="cursor:pointer; color:var(--dim)">✕</span>
+                    </div>
+                    
+                    <div class="field-group">
+                        <label style="font-size:9px; color:var(--muted); text-transform:uppercase;">Идентификатор (ID, латиница, без пробелов)</label>
+                        <input id="vuln-id" type="text" placeholder="sql_injection" style="background:rgba(0,0,0,0.4); border:1px solid var(--border); color:#fff; padding:8px; border-radius:6px; font-family:'JetBrains Mono',monospace;">
+                    </div>
+                    
+                    <div class="field-group">
+                        <label style="font-size:9px; color:var(--muted); text-transform:uppercase;">Название уязвимости</label>
+                        <input id="vuln-name" type="text" placeholder="SQL Injection (SQLi)" style="background:rgba(0,0,0,0.4); border:1px solid var(--border); color:#fff; padding:8px; border-radius:6px;">
+                    </div>
+                    
+                    <div class="field-group">
+                        <label style="font-size:9px; color:var(--muted); text-transform:uppercase;">Уровень критичности</label>
+                        <select id="vuln-severity" style="background:rgba(0,0,0,0.5); border:1px solid var(--border); color:#fff; padding:8px; border-radius:6px; width:100%; outline:none; font-family:'JetBrains Mono',monospace;">
+                            <option value="LOW">LOW</option>
+                            <option value="MEDIUM">MEDIUM</option>
+                            <option value="HIGH">HIGH</option>
+                            <option value="CRITICAL">CRITICAL</option>
+                        </select>
+                    </div>
+
+                    <div class="field-group">
+                        <label style="font-size:9px; color:var(--muted); text-transform:uppercase;">Описание</label>
+                        <textarea id="vuln-description" style="width:100%; height:50px; background:rgba(0,0,0,0.5); border:1px solid var(--border); border-radius:6px; padding:8px; color:#fff; outline:none; resize:none; font-size:11px;" placeholder="Описание угрозы..."></textarea>
+                    </div>
+
+                    <div class="field-group">
+                        <label style="font-size:9px; color:var(--muted); text-transform:uppercase;">Правила детекции (сигнатуры для ИИ)</label>
+                        <textarea id="vuln-detection" style="width:100%; height:50px; background:rgba(0,0,0,0.5); border:1px solid var(--border); border-radius:6px; padding:8px; color:#fff; outline:none; resize:none; font-size:11px;" placeholder="На что смотреть ИИ..."></textarea>
+                    </div>
+
+                    <div class="field-group">
+                        <label style="font-size:9px; color:var(--muted); text-transform:uppercase;">Меры митигации / Команды</label>
+                        <textarea id="vuln-remediation" style="width:100%; height:50px; background:rgba(0,0,0,0.5); border:1px solid var(--border); border-radius:6px; padding:8px; color:#fff; outline:none; resize:none; font-size:11px;" placeholder="Что делать / Блокировка..."></textarea>
+                    </div>
+
+                    <div style="display:flex; gap:10px; margin-top:16px;">
+                        <button onclick="saveVulnerability()" style="flex:1; background:var(--green); color:#000; border:none; padding:10px; border-radius:6px; font-weight:700; cursor:pointer; font-family:'JetBrains Mono',monospace;">СОХРАНИТЬ</button>
+                        <button onclick="closeVulnerabilityModal()" style="background:transparent; border:1px solid var(--border); color:#fff; padding:10px 16px; border-radius:6px; cursor:pointer;">Отмена</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div> <!-- closes .content -->
 </div> <!-- closes #main-area -->
 </div> <!-- closes #app -->
+
+<!-- ═══ MD REPORT VIEWER MODAL ═══ -->
+<div id="modal-md-viewer" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); display:flex; justify-content:center; align-items:center; z-index:99999; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);">
+    <div class="login-box" style="width:750px; max-height:85%; display:flex; flex-direction:column; padding:24px; border:1px solid rgba(255,255,255,0.08); background:rgba(10,14,25,0.95); border-left:4px solid var(--green); box-shadow: 0 10px 40px rgba(0,0,0,0.8);">
+        <div style="font-weight:900; font-size:14px; color:#fff; margin-bottom:14px; display:flex; justify-content:space-between; flex:0; font-family:'JetBrains Mono',monospace;">
+            <span id="md-viewer-title">Отчет ИИ-Агента MISTRAL (.md)</span>
+            <span onclick="closeMdViewerModal()" style="cursor:pointer; color:var(--dim)">✕</span>
+        </div>
+        <div id="md-viewer-content" style="flex:1; overflow-y:auto; font-family:'JetBrains Mono', monospace; font-size:11px; line-height:1.6; color:#e2e8f0; background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:6px; padding:16px; white-space:pre-wrap; margin-bottom:14px;"></div>
+        <div style="text-align:right; flex:0;">
+            <button onclick="closeMdViewerModal()" style="background:var(--blue); color:#fff; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; font-weight:700; font-family:'JetBrains Mono',monospace;">ЗАКРЫТЬ</button>
+        </div>
+    </div>
+</div>
 
 <!-- ═══ INCIDENT DRAWER ═══ -->
 <div id="incident-drawer" class="drawer">

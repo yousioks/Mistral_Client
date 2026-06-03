@@ -341,6 +341,7 @@ function openIncidentDrawer(id) {
             ${geoHtml}
             ${ctxHtml}
             ${aiAuditHtml}
+            <div id="drawer-ai-report"></div>
             
             <div style="margin-top:auto; padding-top:16px; border-top:1px solid var(--border); display:flex; gap:10px;">
                 <button class="btn-ai" style="flex:1; padding:10px; text-align:center;" onclick="analyzeContext('${inc.id}'); closeIncidentDrawer();">AI ANALYZE</button>
@@ -356,6 +357,25 @@ function openIncidentDrawer(id) {
     `;
     
     $('incident-drawer').classList.add('open');
+
+    if (window.electronAPI) {
+        window.electronAPI.sendApiRequest('/api/ai-reports/' + id, 'GET')
+            .then(res => {
+                if (res && res.markdown) {
+                    const rdiv = $('drawer-ai-report');
+                    if (rdiv) {
+                        rdiv.innerHTML = `<div style="margin-top:16px; background:rgba(34,197,94,0.05); border:1px solid rgba(34,197,94,0.3); border-radius:8px; padding:16px;">
+                            <div style="font-size:11px; font-weight:900; color:var(--green); text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                                <span>AI AGENT PERSISTENT REPORT</span>
+                                <span style="background:var(--green); color:#000; padding:2px 6px; border-radius:4px; font-size:9px;">ARCHIVED</span>
+                            </div>
+                            <div style="font-size:11px; color:var(--muted); line-height:1.5; font-family:'JetBrains Mono', monospace;">${parseMarkdown(res.markdown)}</div>
+                        </div>`;
+                    }
+                }
+            })
+            .catch(err => console.log('AI report not found yet for this incident'));
+    }
 }
 
 function exportReport(id) {
@@ -805,7 +825,7 @@ function showToast(title, message, type='info') {
 // ══════════════════════════════════════════════════════════════════════════════
 // TABS
 // ══════════════════════════════════════════════════════════════════════════════
-const TAB_NAMES = ['dashboard','network','incidents','dangerous','logs','metrics','scanners','ai','users','map','mitre','server_info','apps'];
+const TAB_NAMES = ['dashboard','network','incidents','dangerous','logs','metrics','scanners','ai','users','map','mitre','server_info','apps','vulnerabilities'];
 function switchTab(name) {
     try {
         document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab===name));
@@ -815,6 +835,7 @@ function switchTab(name) {
         if(name==='users') loadUsers();
         if(name==='server_info') { if(window.loadServerInfo) window.loadServerInfo(); }
         if(name==='apps') { if(window.loadApplicationsInfo) window.loadApplicationsInfo(); }
+        if(name==='vulnerabilities') loadVulnerabilities();
         if(name==='network') {
             loadQuarantine();
             if(window.updateIPDisplays) window.updateIPDisplays();
@@ -1257,5 +1278,197 @@ window.triggerServerAudit = function() {
         if (res.success) showToast('Аудит запущен', 'Процесс глубокого сканирования запущен в фоне', 'green');
     })
     .catch(err => showToast('Ошибка запуска', err.message, 'warn'));
+};
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// VULNERABILITIES & SIGNATURES DATABASE
+// ══════════════════════════════════════════════════════════════════════════════
+window.loadVulnerabilities = function() {
+    const tbody = $('vulnerabilities-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-td">Загрузка базы уязвимостей...</td></tr>';
+    
+    if (window.electronAPI) {
+        window.electronAPI.sendApiRequest('/api/vulnerabilities', 'GET')
+            .then(vulns => {
+                tbody.innerHTML = '';
+                if (!vulns || vulns.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="empty-td">База уязвимостей пуста</td></tr>';
+                    return;
+                }
+                vulns.forEach(v => {
+                    const tr = document.createElement('tr');
+                    let sevClass = v.severity || 'MEDIUM';
+                    tr.innerHTML = `
+                        <td style="font-weight:700; color:#fff; font-family:'JetBrains Mono',monospace;">${esc(v.id)}<br><span style="font-size:11px; font-weight:normal; color:var(--muted);">${esc(v.name)}</span></td>
+                        <td><span class="inc-sev ${sevClass}">${sevClass}</span></td>
+                        <td style="font-size:11px; color:#ccc;">${esc(v.description || '—')}</td>
+                        <td style="font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--muted);">${esc(v.detection_rules || '—')}</td>
+                        <td style="font-size:11px; color:#ccc;">${esc(v.remediation || '—')}</td>
+                        <td>
+                            <div style="display:flex; gap:8px;">
+                                <button class="btn-sm" onclick="editVulnerability('${esc(v.id)}')" style="padding:4px 8px; font-size:9px;">EDIT</button>
+                                <button class="btn-sm btn-q" onclick="deleteVulnerability('${esc(v.id)}')" style="padding:4px 8px; font-size:9px;">DEL</button>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            })
+            .catch(err => {
+                tbody.innerHTML = `<tr><td colspan="6" class="empty-td" style="color:var(--red);">Ошибка загрузки: ${esc(err.message)}</td></tr>`;
+            });
+    }
+};
+
+window.showAddVulnerabilityModal = function() {
+    $('modal-vuln-title').textContent = 'Добавить уязвимость';
+    $('vuln-id').value = '';
+    $('vuln-id').disabled = false;
+    $('vuln-name').value = '';
+    $('vuln-severity').value = 'MEDIUM';
+    $('vuln-description').value = '';
+    $('vuln-detection').value = '';
+    $('vuln-remediation').value = '';
+    $('modal-vuln').classList.remove('hidden');
+};
+
+window.closeVulnerabilityModal = function() {
+    $('modal-vuln').classList.add('hidden');
+};
+
+window.saveVulnerability = function() {
+    const id = $('vuln-id').value.trim();
+    const name = $('vuln-name').value.trim();
+    const severity = $('vuln-severity').value;
+    const description = $('vuln-description').value.trim();
+    const detection_rules = $('vuln-detection').value.trim();
+    const remediation = $('vuln-remediation').value.trim();
+    
+    if (!id || !name) {
+        alert('Идентификатор и Название обязательны!');
+        return;
+    }
+    
+    const body = { id, name, severity, description, detection_rules, remediation };
+    if (window.electronAPI) {
+        window.electronAPI.sendApiRequest('/api/vulnerabilities', 'POST', body)
+            .then(res => {
+                if (res.success) {
+                    showToast('База уязвимостей', `Сигнатура ${name} сохранена`, 'green');
+                    closeVulnerabilityModal();
+                    loadVulnerabilities();
+                } else {
+                    alert('Ошибка при сохранении: ' + (res.error || 'неизвестно'));
+                }
+            })
+            .catch(err => alert('Ошибка сети: ' + err.message));
+    }
+};
+
+window.editVulnerability = function(id) {
+    if (window.electronAPI) {
+        window.electronAPI.sendApiRequest('/api/vulnerabilities', 'GET')
+            .then(vulns => {
+                const v = vulns.find(item => item.id === id);
+                if (v) {
+                    $('modal-vuln-title').textContent = 'Редактировать уязвимость';
+                    $('vuln-id').value = v.id;
+                    $('vuln-id').disabled = true;
+                    $('vuln-name').value = v.name || '';
+                    $('vuln-severity').value = v.severity || 'MEDIUM';
+                    $('vuln-description').value = v.description || '';
+                    $('vuln-detection').value = v.detection_rules || '';
+                    $('vuln-remediation').value = v.remediation || '';
+                    $('modal-vuln').classList.remove('hidden');
+                }
+            })
+            .catch(err => alert('Ошибка: ' + err.message));
+    }
+};
+
+window.deleteVulnerability = function(id) {
+    if (!confirm(`Вы действительно хотите удалить сигнатуру ${id}?`)) return;
+    if (window.electronAPI) {
+        window.electronAPI.sendApiRequest('/api/vulnerabilities/' + encodeURIComponent(id), 'DELETE')
+            .then(res => {
+                if (res.success) {
+                    showToast('База уязвимостей', `Сигнатура ${id} удалена`, 'warn');
+                    loadVulnerabilities();
+                } else {
+                    alert('Ошибка удаления: ' + (res.error || 'неизвестно'));
+                }
+            })
+            .catch(err => alert('Ошибка сети: ' + err.message));
+    }
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
+// AI REPORT ARCHIVE
+// ══════════════════════════════════════════════════════════════════════════════
+window.loadAiReportsList = function() {
+    const container = $('ai-reports-list-container');
+    if (!container) return;
+    container.innerHTML = '<div style="color:var(--dim); font-size:11px; padding:8px 0;">Загрузка отчетов...</div>';
+    
+    if (window.electronAPI) {
+        window.electronAPI.sendApiRequest('/api/ai-reports', 'GET')
+            .then(list => {
+                container.innerHTML = '';
+                if (!list || list.length === 0) {
+                    container.innerHTML = '<div style="color:var(--dim); font-size:11px; padding:8px 0;">Архив пуст</div>';
+                    return;
+                }
+                list.forEach(r => {
+                    const row = document.createElement('div');
+                    row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.02); border:1px solid var(--border); padding:8px 12px; border-radius:6px; font-size:11px;';
+                    
+                    const dateStr = new Date(r.createdAt).toLocaleString();
+                    const displayName = r.incidentId ? `Инцидент: ${r.incidentId.substring(0,8)}...` : `Задача: ${r.taskId.substring(0,8)}...`;
+                    
+                    row.innerHTML = `
+                        <div style="font-family:'JetBrains Mono',monospace;">
+                            <strong style="color:#fff; display:block;">${displayName}</strong>
+                            <span style="color:var(--dim); font-size:9px;">${dateStr} | ${(r.size/1024).toFixed(1)} KB</span>
+                        </div>
+                        <button class="btn-sm" onclick="viewMdReport('${esc(r.incidentId || r.taskId)}')" style="padding:4px 10px; font-size:9px; border-color:var(--cyan); color:var(--cyan); background:rgba(6,182,212,0.05);">ОТКРЫТЬ</button>
+                    `;
+                    container.appendChild(row);
+                });
+            })
+            .catch(err => {
+                container.innerHTML = `<div style="color:var(--red); font-size:11px; padding:8px 0;">Ошибка: ${esc(err.message)}</div>`;
+            });
+    }
+};
+
+window.viewMdReport = function(id) {
+    const viewer = $('modal-md-viewer');
+    const title = $('md-viewer-title');
+    const content = $('md-viewer-content');
+    if (!viewer || !content) return;
+    
+    content.innerHTML = 'Загрузка отчета...';
+    title.textContent = `Отчет ИИ-Агента MISTRAL [${id.substring(0, 8)}]`;
+    viewer.classList.remove('hidden');
+    
+    if (window.electronAPI) {
+        window.electronAPI.sendApiRequest('/api/ai-reports/' + id, 'GET')
+            .then(res => {
+                if (res && res.markdown) {
+                    content.innerHTML = parseMarkdown(res.markdown);
+                } else {
+                    content.innerHTML = 'Ошибка: отчёт пуст или не найден.';
+                }
+            })
+            .catch(err => {
+                content.innerHTML = 'Ошибка загрузки отчёта: ' + err.message;
+            });
+    }
+};
+
+window.closeMdViewerModal = function() {
+    $('modal-md-viewer').classList.add('hidden');
 };
 
