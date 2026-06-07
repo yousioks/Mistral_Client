@@ -169,7 +169,7 @@ function addLiveEntry(entry) {
     const level = getAutoLevel(entry);
     div.className = `log-entry log-row-${level}`;
     const t = (entry.timestamp||'').slice(11,19);
-    div.innerHTML = `<span class="log-time">${t}</span><span class="log-level ${level}">${level.toUpperCase()}</span><span class="log-msg">${esc(entry.message||'')}</span><span class="log-monitor">${esc(entry.type||'')}</span>`;
+    div.innerHTML = `<span class="log-time">${t}</span><span class="log-level ${level}">${level.toUpperCase()}</span><span class="log-msg">${window.formatLogMessageWithIpActions(entry.message)}</span><span class="log-monitor">${esc(entry.type||'')}</span>`;
     
     // Add to currentLogsData and re-filter
     if (entry.type === $('log-type').value || !$('log-type').value) {
@@ -614,10 +614,10 @@ function applyLogFilters() {
     const fragment = document.createDocumentFragment();
     displayLogs.forEach(entry => {
         const div = document.createElement('div'); 
-        div.className = 'log-entry';
-        const t = (entry.timestamp||'').slice(0,19).replace('T',' ');
         const level = getAutoLevel(entry);
-        div.innerHTML = `<span class="log-time">${t}</span><span class="log-level ${level}">${level.toUpperCase()}</span><span class="log-msg">${esc(entry.message||'')}</span>`;
+        div.className = `log-entry log-row-${level}`;
+        const t = (entry.timestamp||'').slice(0,19).replace('T',' ');
+        div.innerHTML = `<span class="log-time">${t}</span><span class="log-level ${level}">${level.toUpperCase()}</span><span class="log-msg">${window.formatLogMessageWithIpActions(entry.message)}</span>`;
         fragment.appendChild(div);
     });
     feed.appendChild(fragment);
@@ -662,7 +662,7 @@ function updateRlogCount(n) {
 function loadLogs() {
     const type = $('log-type').value;
     currentLogsData = [];
-    if(window.electronAPI) if (window.electronAPI) { window.electronAPI.sendWsMessage({event:'get_logs',data:{type,limit:500}}); }
+    if(window.electronAPI) { window.electronAPI.sendWsMessage({event:'get_logs',data:{type,limit:500}}); }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -717,7 +717,13 @@ function updateMetrics(data) {
                     const btnHtml = isBanned 
                         ? `<button class="btn-sm" style="background:rgba(16,185,129,0.12);color:var(--green);border:1px solid rgba(16,185,129,0.3)" onclick="unquarantineIp('${esc(s.ip)}')">РАЗБЛОКИРОВАТЬ</button>`
                         : `<button class="btn-sm btn-q" onclick="quarantineIp('${esc(s.ip)}','Blocked by Anti-DDoS')">ЗАБАНИТЬ IP</button>`;
-                    tr.innerHTML = `<td>DDoS Attacker</td><td><span class="ip-chip clickable" onclick="filterLogsByIp('${esc(s.ip)}')">${esc(s.ip||'?')}</span></td><td>${esc(s.count||0)}</td><td>${btnHtml}</td>`;
+                    const connsDetail = s.syn_recv !== undefined 
+                        ? `${esc(s.count || 0)} <span style="font-size:9px;color:var(--muted);">(SYN: ${s.syn_recv}, EST: ${s.estab})</span>` 
+                        : esc(s.count || 0);
+                    const portsDetail = s.ports && s.ports.length > 0 
+                        ? `<div style="font-size:9px;color:var(--muted);margin-top:2px;">Порты: ${esc(s.ports.join(', '))}</div>` 
+                        : '';
+                    tr.innerHTML = `<td>DDoS Attacker</td><td><span class="ip-chip clickable" onclick="filterLogsByIp('${esc(s.ip)}')">${esc(s.ip||'?')}</span>${portsDetail}</td><td>${connsDetail}</td><td>${btnHtml}</td>`;
                     tb.appendChild(tr);
                 });
             }
@@ -734,7 +740,13 @@ function updateMetrics(data) {
                     const btnHtml = isBanned 
                         ? `<button class="btn-sm" style="background:rgba(16,185,129,0.12);color:var(--green);border:1px solid rgba(16,185,129,0.3)" onclick="unquarantineIp('${esc(s.ip)}')">РАЗБЛОКИРОВАТЬ</button>`
                         : `<button class="btn-sm btn-q" onclick="quarantineIp('${esc(s.ip)}','Blocked by Anti-DDoS')">ЗАБАНИТЬ IP</button>`;
-                    tr.innerHTML = `<td>DDoS Attacker</td><td><span class="ip-chip clickable" onclick="filterLogsByIp('${esc(s.ip)}')">${esc(s.ip||'?')}</span></td><td>${esc(s.count||0)}</td><td>${btnHtml}</td>`;
+                    const connsDetail = s.syn_recv !== undefined 
+                        ? `${esc(s.count || 0)} <span style="font-size:9px;color:var(--muted);">(SYN: ${s.syn_recv}, EST: ${s.estab})</span>` 
+                        : esc(s.count || 0);
+                    const portsDetail = s.ports && s.ports.length > 0 
+                        ? `<div style="font-size:9px;color:var(--muted);margin-top:2px;">Порты: ${esc(s.ports.join(', '))}</div>` 
+                        : '';
+                    tr.innerHTML = `<td>DDoS Attacker</td><td><span class="ip-chip clickable" onclick="filterLogsByIp('${esc(s.ip)}')">${esc(s.ip||'?')}</span>${portsDetail}</td><td>${connsDetail}</td><td>${btnHtml}</td>`;
                     dashTb.appendChild(tr);
                 });
             }
@@ -856,30 +868,73 @@ function showAlert(data) {
         alertCooldowns.set(key, now);
     }
 
+    // Extract IP from incident for action buttons
+    let alertIp = data.ip || data.target || '';
+    if (!alertIp) {
+        const ipMatch = desc.match(/\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/);
+        if (ipMatch) alertIp = ipMatch[0];
+    }
+    if (!alertIp && data.details) {
+        alertIp = data.details.sourceIp || data.details.ip || '';
+    }
+
     const sev = (data.severity || data.type || 'ALERT').toUpperCase();
     
     if (sev === 'CRITICAL' || sev === 'HIGH') {
-        showToast(`CRITICAL: ${sev}`, data.description || data.type || 'Critical threat detected!', 'critical');
+        showToast(`CRITICAL: ${sev}`, data.description || data.type || 'Critical threat detected!', 'critical', alertIp);
     } else if (sev === 'MEDIUM' || sev === 'WARN') {
-        showToast(`WARNING: ${sev}`, data.description || data.type || 'Suspicious activity detected.', 'warn');
+        showToast(`WARNING: ${sev}`, data.description || data.type || 'Suspicious activity detected.', 'warn', alertIp);
     } else {
-        showToast('INFO', data.description || data.type || 'New event logged.', 'info');
+        showToast('INFO', data.description || data.type || 'New event logged.', 'info', alertIp);
     }
 }
 
-function showToast(title, message, type='info') {
+function showToast(title, message, type='info', ip='') {
     const container = $('toast-container');
     if (!container) return;
     const t = document.createElement('div');
     t.className = `toast t-${type}`;
     const time = new Date().toLocaleTimeString();
+    
+    // Determine lifetime: critical/warn alerts with IP get longer to allow interaction
+    const lifetime = (ip && (type === 'critical' || type === 'warn')) ? 12000 : 6000;
+    
+    // Build action buttons HTML if we have an IP
+    let actionsHtml = '';
+    if (ip && ip !== 'System' && ip !== 'Неизвестный IP') {
+        const safeIp = esc(ip);
+        const isBanned = window.quarantinedIps && window.quarantinedIps.some(q => q.ip === ip);
+        const banBtnHtml = isBanned
+            ? `<button class="toast-btn toast-btn-unban" onclick="unquarantineIp('${safeIp}'); this.closest('.toast').remove(); showToast('Разблокировано', 'IP ${safeIp} разблокирован', 'info');">✓ Разбан</button>`
+            : `<button class="toast-btn toast-btn-ban" onclick="quarantineIp('${safeIp}', 'Alert Quick Ban'); this.closest('.toast').remove(); showToast('Заблокировано', 'IP ${safeIp} заблокирован', 'warn');">🚫 Блок</button>`;
+        actionsHtml = `
+        <div class="toast-actions">
+            <span class="toast-ip" onclick="filterLogsByIp('${safeIp}'); this.closest('.toast').remove();" title="Перейти в логи по IP: ${safeIp}">📡 ${safeIp}</span>
+            <div style="display:flex;gap:5px;">
+                <button class="toast-btn toast-btn-logs" onclick="filterLogsByIp('${safeIp}'); this.closest('.toast').remove();">→ Логи</button>
+                ${banBtnHtml}
+            </div>
+        </div>`;
+    }
+    
     t.innerHTML = `
-        <div class="toast-hdr"><span>${esc(title)}</span> <span>${time}</span></div>
+        <div class="toast-hdr">
+            <span>${esc(title)}</span>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:10px;opacity:0.6;">${time}</span>
+                <span class="toast-close" onclick="this.closest('.toast').remove();" title="Закрыть">✕</span>
+            </div>
+        </div>
         <div class="toast-msg">${esc(message)}</div>
+        ${actionsHtml}
     `;
     container.appendChild(t);
-    // Remove after 5 seconds (animation takes 5s)
-    setTimeout(() => { if(t.parentNode===container) container.removeChild(t); }, 5000);
+    const timer = setTimeout(() => { if(t.parentNode===container) container.removeChild(t); }, lifetime);
+    // Stop auto-dismiss on hover so user can click buttons
+    t.addEventListener('mouseenter', () => clearTimeout(timer));
+    t.addEventListener('mouseleave', () => {
+        setTimeout(() => { if(t.parentNode===container) container.removeChild(t); }, 2500);
+    });
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1019,14 +1074,14 @@ function sendAITerminalInput(text) {
     content.innerHTML += `<br><br><span style="color:#fff">> OPERATOR: ${esc(text)}</span><br><span style="color:#0ff">> AWAITING NEURAL RESPONSE...</span><br>`;
     $('ai-term-input').value = '';
     
-    if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
+    if (window.electronAPI) {
+        window.electronAPI.sendWsMessage({
             event: 'ai_task',
             data: {
                 task: text,
-                model: currentModel
+                model: typeof window.currentModel !== 'undefined' ? window.currentModel : 'deepseek-v4-pro'
             }
-        }));
+        });
     }
 }
 
@@ -1706,5 +1761,35 @@ setInterval(() => {
         window.electronAPI.sendWsMessage({ event: 'get_incidents' });
     }
 }, 5000);
+
+// ── Defense Posture Panel Update ──────────────────────────────────────────────
+window.updateDefensePosture = function() {
+    const mitigated = allIncidents.filter(i => i.aiMitigated || i.status === 'resolved' || i.status === 'ai_mitigation').length;
+    const aiCountEl = $('ai-mitigated-count');
+    if (aiCountEl) aiCountEl.textContent = mitigated;
+
+    const lastAction = $('ai-last-action');
+    const defconEl = $('defcon-status');
+    
+    const critCount = allIncidents.filter(i => i.severity === 'CRITICAL' && i.status !== 'resolved').length;
+    const highCount = allIncidents.filter(i => i.severity === 'HIGH' && i.status !== 'resolved').length;
+    
+    if (defconEl) {
+        let defcon = 5, color = 'var(--green)';
+        if (critCount >= 5) { defcon = 1; color = 'var(--red)'; }
+        else if (critCount >= 3) { defcon = 2; color = 'var(--red)'; }
+        else if (critCount >= 1) { defcon = 3; color = 'var(--orange)'; }
+        else if (highCount >= 3) { defcon = 4; color = 'var(--orange)'; }
+        defconEl.textContent = `DEFCON ${defcon}`;
+        defconEl.style.color = color;
+    }
+    
+    const lastMitigated = allIncidents.find(i => i.aiMitigated);
+    if (lastAction && lastMitigated) {
+        lastAction.textContent = `[${lastMitigated.severity}] ${lastMitigated.type} — ${lastMitigated.ip || 'System'}`;
+    } else if (lastAction) {
+        lastAction.textContent = 'No active threats mitigated yet.';
+    }
+};
 
 

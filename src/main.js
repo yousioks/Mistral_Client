@@ -17,6 +17,7 @@ import('electron-store').then((module) => {
 let mainWindow;
 let splashWindow;
 let tray = null;
+let isAppQuitting = false; // prevents notifications during shutdown
 
 // --- Data Dir & Logging ---
 const appDataDir = process.env.APPDATA
@@ -167,7 +168,7 @@ function connectToServer(host, port, token) {
          case 'incident':
           if (msg.data) {
              cache.incidents.unshift(msg.data);
-              if ((msg.data.severity === 'CRITICAL' || msg.data.severity === 'HIGH') && Notification.isSupported()) {
+             if ((msg.data.severity === 'CRITICAL' || msg.data.severity === 'HIGH') && Notification.isSupported() && !isAppQuitting) {
                  let attackerIp = msg.data.ip;
                  if (!attackerIp && msg.data.details) {
                      const det = msg.data.details;
@@ -362,6 +363,20 @@ app.whenReady().then(() => {
   });
 });
 
+app.on('before-quit', () => {
+  isAppQuitting = true;
+  // Gracefully close WebSocket so no more messages arrive
+  if (wsClient) {
+    try { wsClient.terminate(); } catch(_) {}
+    wsClient = null;
+  }
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+});
+
 app.on('window-all-closed', () => {
+  isAppQuitting = true;
   if (process.platform !== 'darwin') app.quit();
 });

@@ -12,6 +12,35 @@ let cyberMap = null;
 let miniGlobe = null;
 const $ = id => document.getElementById(id);
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function formatLogMessageWithIpActions(message) {
+    let msgHtml = esc(message || '');
+    const ipMatch = (message || '').match(/\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/);
+    let actionsHtml = '';
+    if (ipMatch) {
+        const ip = ipMatch[0];
+        const safeIp = esc(ip);
+        
+        let serverHost = '';
+        if (serverBase) {
+            try { serverHost = new URL(serverBase).hostname; } catch(e) { serverHost = serverBase; }
+        }
+        const isSafe = ip === '127.0.0.1' || ip === 'localhost' || ip === '::1' || ip === '::ffff:127.0.0.1' || ip === serverHost || ip === window.clientIp;
+        
+        msgHtml = msgHtml.replace(ip, `<span class="ip-chip clickable" onclick="filterLogsByIp('${safeIp}')" title="Фильтровать логи по IP: ${safeIp}">${safeIp}</span>`);
+        
+        if (!isSafe) {
+            const isBanned = window.quarantinedIps && window.quarantinedIps.some(q => q.ip === ip);
+            const btnClass = isBanned ? 'btn-unq' : 'btn-q';
+            const btnText = isBanned ? 'РАЗБЛОКИРОВАТЬ' : 'ЗАБЛОКИРОВАТЬ';
+            const btnFunc = isBanned ? `unquarantineIp('${safeIp}')` : `quarantineIp('${safeIp}', 'Log Quick Ban')`;
+            
+            actionsHtml = `<button class="btn-sm ${btnClass}" style="margin-left: 10px; padding: 2px 6px; font-size: 9px; vertical-align: middle; line-height: 1;" onclick="${btnFunc}; setTimeout(loadLogs, 300);">${btnText}</button>`;
+        }
+    }
+    return msgHtml + actionsHtml;
+}
+window.formatLogMessageWithIpActions = formatLogMessageWithIpActions;
  
 // ══════════════════════════════════════════════════════════════════════════════
 // WEBSOCKET
@@ -176,7 +205,7 @@ function handleMessage(msg) {
                     const level = getAutoLevel(log);
                     div.className = `log-entry log-row-${level}`;
                     const t = (log.timestamp||'').slice(11,19);
-                    div.innerHTML = `<span class="log-time">${t}</span><span class="log-level ${level}">${level.toUpperCase()}</span><span class="log-msg">${esc(log.message||'')}</span><span class="log-monitor">${esc(log.type||'')}</span>`;
+                    div.innerHTML = `<span class="log-time">${t}</span><span class="log-level ${level}">${level.toUpperCase()}</span><span class="log-msg">${formatLogMessageWithIpActions(log.message)}</span><span class="log-monitor">${esc(log.type||'')}</span>`;
                     rFeed.appendChild(div);
                 });
                 rFeed.scrollTop = rFeed.scrollHeight;
@@ -189,11 +218,8 @@ function handleMessage(msg) {
                 allIncidents.unshift(msg.data);
                 if(allIncidents.length>500) allIncidents.pop();
                 
-                // Update DOM if lists exist
-                const listContainer = $('incidents-list');
-                const dangerousContainer = $('dangerous-list');
-                
-                if (listContainer) addIncidentCard(msg.data, true, listContainer);
+                // Prepend to incidents table
+                addIncidentRow(msg.data, true, $('incidents-tbody'));
                 
                 addRadarBlip(msg.data);
                 updateKillChain(msg.data);
@@ -254,7 +280,12 @@ function handleMessage(msg) {
                 window.loadApplicationsInfo();
             }
             break;
-        case 'quarantine_updated': renderQuarantine(msg.data||[]); break;
+        case 'quarantine_updated': 
+            renderQuarantine(msg.data||[]); 
+            if (document.getElementById('panel-logs') && document.getElementById('panel-logs').classList.contains('active')) {
+                if (window.applyLogFilters) window.applyLogFilters();
+            }
+            break;
         case 'soar_settings_updated':
             if (msg.data) {
                 window.soarSettings = msg.data;
@@ -377,7 +408,7 @@ function handleMessage(msg) {
 // SECURITY SCANNERS
 // ══════════════════════════════════════════════════════════════════════════════
 function runSecurityScan(type) {
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
+    if (lastConnState !== 'connected' || !window.electronAPI) {
         $('scan-output').textContent = '❌ Нет соединения с сервером';
         return;
     }
@@ -397,13 +428,13 @@ function runSecurityScan(type) {
     $('btn-run-trivy').disabled = true;
     $('scan-output').textContent = `Запуск сканирования ${type.toUpperCase()} на цели: ${target}...\nПожалуйста, подождите, это может занять некоторое время...`;
     
-    ws.send(JSON.stringify({
+    window.electronAPI.sendWsMessage({
         event: 'run_scan',
         data: {
             scanType: type,
             target: target
         }
-    }));
+    });
 }
 function triggerSilentAIResponse(incident) {
     if (lastConnState !== 'connected' || !window.electronAPI) return;

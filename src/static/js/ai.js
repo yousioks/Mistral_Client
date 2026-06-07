@@ -90,8 +90,13 @@ function executeAIScript(base64code) {
         .catch(err => { bubble.innerHTML = '<strong>Ошибка:</strong><br>'+err.message; });
 }
 window.sendAITask = function(taskText = null) {
-    if (typeof ws === 'undefined' || !ws || ws.readyState !== WebSocket.OPEN) {
+    // In Electron renderer, ws is managed by main process — check lastConnState instead
+    if (typeof lastConnState === 'undefined' || lastConnState !== 'connected') {
         showToast('ИИ-Агент', 'Нет соединения с сервером. Подключитесь перед отправкой.', 'warn');
+        return;
+    }
+    if (!window.electronAPI) {
+        showToast('ИИ-Агент', 'Electron API недоступен.', 'warn');
         return;
     }
 
@@ -126,16 +131,14 @@ window.sendAITask = function(taskText = null) {
         }
     }, 30000);
     
-    if (window.electronAPI) {
-        window.electronAPI.sendWsMessage({
-            event:'ai_task', 
-            data: {
-                task: task, 
-                history: chatHistory, 
-                model: (typeof window.currentModel !== 'undefined' && window.currentModel) ? window.currentModel : 'deepseek-v4-pro'
-            }
-        });
-    }
+    window.electronAPI.sendWsMessage({
+        event:'ai_task', 
+        data: {
+            task: task, 
+            history: chatHistory, 
+            model: (typeof window.currentModel !== 'undefined' && window.currentModel) ? window.currentModel : 'deepseek-v4-pro'
+        }
+    });
 };
 window.askAI = function(promptText) { switchTab('ai'); window.sendAITask(promptText); };
 function generateDailyBriefing() {
