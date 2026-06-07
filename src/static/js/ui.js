@@ -1155,6 +1155,14 @@ window.toggleAudioAlertsSetting = function(checked) {
     showToast('Настройки звука', checked ? 'Звуковые оповещения включены' : 'Звуковые оповещения отключены', 'info');
 };
 
+window.toggleOSNotificationsSetting = function(checked) {
+    localStorage.setItem('os_notifications_enabled', checked ? 'true' : 'false');
+    if (window.electronAPI && window.electronAPI.setNotificationsEnabled) {
+        window.electronAPI.setNotificationsEnabled(checked);
+    }
+    showToast('Настройки уведомлений', checked ? 'Системные уведомления включены' : 'Системные уведомления отключены', 'info');
+};
+
 window.toggleGlowEffectsSetting = function(checked) {
     localStorage.setItem('glow_effects_enabled', checked ? 'true' : 'false');
     document.body.classList.toggle('glow-active', checked);

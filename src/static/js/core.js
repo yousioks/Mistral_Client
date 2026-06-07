@@ -77,6 +77,19 @@ if (window.electronAPI) {
             window.filterLogsByIp(ip);
         }
     });
+    window.electronAPI.onNotificationClickIncident((incidentId) => {
+        switchTab('incidents');
+        if (window.openIncidentDrawer) {
+            window.openIncidentDrawer(incidentId);
+        }
+        const select = $('ai-incident-select');
+        if (select) {
+            select.value = incidentId;
+            if (typeof selectIncidentForAI === 'function') {
+                selectIncidentForAI();
+            }
+        }
+    });
 }
 
 // ── Connection diagnostics popup ──────────────────────────────────────────────
@@ -523,6 +536,15 @@ window.addEventListener('DOMContentLoaded', () => {
     const uiAudioCheckbox = $('ui-audio-alerts');
     if (uiAudioCheckbox) {
         uiAudioCheckbox.checked = !isMuted;
+    }
+    
+    const osNotificationsEnabled = localStorage.getItem('os_notifications_enabled') !== 'false';
+    const uiOSNotificationsCheckbox = $('ui-os-notifications');
+    if (uiOSNotificationsCheckbox) {
+        uiOSNotificationsCheckbox.checked = osNotificationsEnabled;
+    }
+    if (window.electronAPI && window.electronAPI.setNotificationsEnabled) {
+        window.electronAPI.setNotificationsEnabled(osNotificationsEnabled);
     }
     
     const glowEnabled = localStorage.getItem('glow_effects_enabled') === 'true';

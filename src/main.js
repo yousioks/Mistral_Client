@@ -4,10 +4,11 @@ const fs = require('fs');
 const WebSocket = require('ws');
 const winston = require('winston');
 const DailyRotateFile = require('winston-daily-rotate-file');
-let store;
+let notificationsEnabled = true;
 import('electron-store').then((module) => {
   const Store = module.default;
   store = new Store();
+  notificationsEnabled = store.get('notificationsEnabled', true);
 }).catch(err => console.error("Failed to load electron-store", err));
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -168,7 +169,7 @@ function connectToServer(host, port, token) {
          case 'incident':
           if (msg.data) {
              cache.incidents.unshift(msg.data);
-             if ((msg.data.severity === 'CRITICAL' || msg.data.severity === 'HIGH') && Notification.isSupported() && !isAppQuitting) {
+             if ((msg.data.severity === 'CRITICAL' || msg.data.severity === 'HIGH') && Notification.isSupported() && !isAppQuitting && notificationsEnabled) {
                  let attackerIp = msg.data.ip;
                  if (!attackerIp && msg.data.details) {
                      const det = msg.data.details;
@@ -194,6 +195,7 @@ function connectToServer(host, port, token) {
                          if (mainWindow.isMinimized()) mainWindow.restore();
                          mainWindow.focus();
                          mainWindow.webContents.send('notification-click-ip', attackerIp);
+                         mainWindow.webContents.send('notification-click-incident', msg.data.id);
                      }
                  });
                  notification.show();
@@ -255,6 +257,18 @@ setInterval(() => {
 
 // --- IPC Handlers ---
 ipcMain.handle('get-app-version', () => app.getVersion());
+
+ipcMain.handle('set-notifications-enabled', (event, enabled) => {
+  notificationsEnabled = !!enabled;
+  if (store) {
+    store.set('notificationsEnabled', notificationsEnabled);
+  }
+  return true;
+});
+
+ipcMain.handle('get-notifications-enabled', () => {
+  return notificationsEnabled;
+});
 
 ipcMain.handle('connect-server', async (event, { host, port, username, password }) => {
   try {

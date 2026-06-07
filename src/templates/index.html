@@ -837,6 +837,13 @@
                             </div>
                         </label>
                         <label style="display:flex; align-items:center; gap:10px; cursor:pointer; color:#fff; font-size:12px; background:rgba(255,255,255,0.03); padding:10px; border-radius:6px; border:1px solid var(--border);">
+                            <input type="checkbox" id="ui-os-notifications" style="width:16px; height:16px; accent-color:var(--cyan);" onchange="toggleOSNotificationsSetting(this.checked)">
+                            <div>
+                                <strong style="display:block; color:var(--cyan);">Системные (OS) уведомления</strong>
+                                <span style="font-size:10px; color:var(--muted);">Отображать всплывающие уведомления в операционной системе при критических и важных атаках.</span>
+                            </div>
+                        </label>
+                        <label style="display:flex; align-items:center; gap:10px; cursor:pointer; color:#fff; font-size:12px; background:rgba(255,255,255,0.03); padding:10px; border-radius:6px; border:1px solid var(--border);">
                             <input type="checkbox" id="ui-glow-effects" style="width:16px; height:16px; accent-color:var(--cyan);" onchange="toggleGlowEffectsSetting(this.checked)">
                             <div>
                                 <strong style="display:block; color:var(--cyan);">Футуристический неоновый глоу-эффект</strong>

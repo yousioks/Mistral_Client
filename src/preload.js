@@ -21,4 +21,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onConnStatus: (callback) => ipcRenderer.on('conn-status', (_event, state, label) => callback(state, label)),
   onInitialCache: (callback) => ipcRenderer.on('initial-cache', (_event, cache) => callback(cache)),
   onNotificationClickIp: (callback) => ipcRenderer.on('notification-click-ip', (_event, ip) => callback(ip)),
+  
+  // Notification Toggle
+  setNotificationsEnabled: (enabled) => ipcRenderer.invoke('set-notifications-enabled', enabled),
+  getNotificationsEnabled: () => ipcRenderer.invoke('get-notifications-enabled'),
+  onNotificationClickIncident: (callback) => ipcRenderer.on('notification-click-incident', (_event, incidentId) => callback(incidentId)),
 });
