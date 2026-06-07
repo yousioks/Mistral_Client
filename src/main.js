@@ -265,6 +265,11 @@ ipcMain.handle('connect-server', async (event, { host, port, username, password 
       body: JSON.stringify({ username, password }),
       signal: AbortSignal.timeout(5000)
     });
+    const contentType = res.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await res.text();
+      return { success: false, error: `Сервер вернул некорректный формат ответа (HTTP ${res.status}): ${text.substring(0, 100)}` };
+    }
     const data = await res.json();
     if (data.success) {
       store.set('serverConfig', { host, port }); // Store config
@@ -276,7 +281,22 @@ ipcMain.handle('connect-server', async (event, { host, port, username, password 
     }
     return { success: false, error: data.error || 'Login failed' };
   } catch (err) {
-    return { success: false, error: err.message };
+    let errorMsg = err.message;
+    if (err.name === 'AbortError' || err.name === 'TimeoutError') {
+      errorMsg = 'Превышено время ожидания ответа от сервера (5 сек)';
+    } else if (err.cause) {
+      const cause = err.cause;
+      if (cause.code === 'ECONNREFUSED') {
+        errorMsg = `Соединение отклонено сервером (ECONNREFUSED). Проверьте, запущен ли сервер на порту ${port}`;
+      } else if (cause.code === 'ENOTFOUND') {
+        errorMsg = `Адрес сервера не найден (ENOTFOUND). Проверьте правильность ввода хоста "${host}"`;
+      } else if (cause.code === 'ETIMEDOUT') {
+        errorMsg = 'Таймаут сетевого соединения (ETIMEDOUT)';
+      } else {
+        errorMsg += ` (${cause.message || cause.code || String(cause)})`;
+      }
+    }
+    return { success: false, error: errorMsg };
   }
 });
 
@@ -331,7 +351,11 @@ ipcMain.handle('send-api-request', async (event, path, method, body) => {
       return { error: `Server returned non-JSON response (${res.status}): ${text.substring(0, 100)}` };
     }
   } catch (err) {
-    return { error: err.message };
+    let errorMsg = err.message;
+    if (err.cause) {
+      errorMsg += ` (${err.cause.message || err.cause.code || String(err.cause)})`;
+    }
+    return { error: errorMsg };
   }
 });
 
