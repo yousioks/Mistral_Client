@@ -120,7 +120,7 @@ window.sendAITask = function(taskText = null) {
     const bubble = appendChatMsg('bot', 'Анализ...'); 
     if(bubble) bubble.id = 'ai-typing-bubble';
     
-    // Safety timeout: automatically re-enable button after 30 seconds if server doesn't respond
+    // Safety timeout: automatically re-enable button after 120 seconds if server doesn't respond
     if (window.aiSendTimeout) clearTimeout(window.aiSendTimeout);
     window.aiSendTimeout = setTimeout(() => {
         if ($('btn-ai-send')) $('btn-ai-send').disabled = false;
@@ -129,7 +129,7 @@ window.sendAITask = function(taskText = null) {
             tbubble.removeAttribute('id');
             tbubble.innerHTML = '⚠️ Превышено время ожидания ответа от сервера.';
         }
-    }, 30000);
+    }, 120000);
     
     window.electronAPI.sendWsMessage({
         event:'ai_task', 
