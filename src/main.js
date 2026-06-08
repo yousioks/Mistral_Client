@@ -109,7 +109,7 @@ function createMainWindow() {
   });
 
   // Защита от захвата экрана и скриншотов (для Enterprise)
-  mainWindow.setContentProtection(true);
+  mainWindow.setContentProtection(false);
 
   mainWindow.loadFile(path.join(__dirname, 'templates', 'index.html'));
 

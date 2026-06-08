@@ -288,6 +288,7 @@ function handleMessage(msg) {
             updateMetrics(msg.data);
             if (typeof window.loadServerInfo === 'function' && document.getElementById('panel-server_info') && document.getElementById('panel-server_info').classList.contains('active')) {
                 window.loadServerInfo();
+                if (typeof window.updateSecurityStatus === 'function') window.updateSecurityStatus();
             }
             if (typeof window.loadApplicationsInfo === 'function' && document.getElementById('panel-apps') && document.getElementById('panel-apps').classList.contains('active')) {
                 window.loadApplicationsInfo();

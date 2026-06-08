@@ -288,14 +288,30 @@
                     </div>
                 </div>
 
-                <!-- Control Audit -->
-                <div class="card" style="display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; border:1px solid rgba(220, 38, 38, 0.2);">
+                <!-- Security Hardening & Activator -->
+                <div class="card" style="display:flex; flex-direction:column; border:1px solid rgba(220, 38, 38, 0.2);">
                     <div class="card-hdr" style="margin-bottom:8px;">
-                        <div class="cd" style="background:var(--red)"></div>Безопасность системы
+                        <div class="cd" style="background:var(--red)"></div>Безопасность & Защита
                     </div>
-                    <p style="font-size:10px; color:var(--muted); margin-bottom:12px;">Управляйте утилитами аудита и запускайте проверку целостности.</p>
-                    <button class="btn-sm" onclick="triggerScannerInstallation()" style="width:100%; margin-bottom:8px; border-color:var(--cyan); color:var(--cyan); background:rgba(6,182,212,0.05);">Установка Trivy & Semgrep</button>
-                    <button class="btn-login" onclick="triggerServerAudit()" style="width:100%; padding:10px; font-size:10px; letter-spacing:1px; background:linear-gradient(135deg, var(--red), #7f1d1d); border:none; border-radius:6px; color:#fff; font-weight:800; cursor:pointer;">Запуск Аудита</button>
+                    <div style="display:flex; flex-direction:column; gap:8px; width:100%; font-size:11px; margin-bottom:12px; font-family:'JetBrains Mono', monospace;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.2); padding:6px 10px; border-radius:4px; border:1px solid var(--border);">
+                            <span>Брандмауэр UFW:</span>
+                            <span id="status-ufw" style="font-weight:bold; color:var(--muted);">Checking...</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.2); padding:6px 10px; border-radius:4px; border:1px solid var(--border);">
+                            <span>Fail2ban:</span>
+                            <span id="status-fail2ban" style="font-weight:bold; color:var(--muted);">Checking...</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.2); padding:6px 10px; border-radius:4px; border:1px solid var(--border);">
+                            <span>Lua Чеккер:</span>
+                            <span id="status-lua" style="font-weight:bold; color:var(--muted);">Checking...</span>
+                        </div>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:6px; width:100%;">
+                        <button class="btn-sm" id="btn-activate-security" onclick="triggerSecurityHardening()" style="width:100%; border-color:var(--green); color:var(--green); background:rgba(34,197,94,0.05); text-transform:uppercase;">Активировать UFW & Fail2ban</button>
+                        <button class="btn-sm" onclick="triggerScannerInstallation()" style="width:100%; border-color:var(--cyan); color:var(--cyan); background:rgba(6,182,212,0.05); text-transform:uppercase;">Установка Trivy & Semgrep</button>
+                        <button class="btn-login" onclick="triggerServerAudit()" style="width:100%; padding:8px; font-size:10px; letter-spacing:1px; background:linear-gradient(135deg, var(--red), #7f1d1d); border:none; border-radius:6px; color:#fff; font-weight:800; cursor:pointer; text-transform:uppercase;">Запуск Аудита</button>
+                    </div>
                 </div>
             </div>
 
@@ -547,23 +563,48 @@
         </div>
 
         <!-- ═══ AI ═══ -->
-        
-        <!-- ═══ AI ═══ -->
         <div class="panel" id="panel-ai">
-            <div class="ai-wrap" style="display:flex; flex-direction:column; height:100%;">
-                <div class="card" style="flex:0; display:flex; gap:16px; align-items:center; flex-wrap:wrap; margin-bottom:8px">
-                    <div class="ai-models" style="margin-right:auto" id="ai-models-container">
-                        <button class="model-btn active" onclick="selectModel('deepseek-v4-pro',this)">DeepSeek V4 Pro</button>
-                        <button class="model-btn" onclick="selectModel('kimi-k2.6',this)">Kimi K2.6</button>
-                        <button class="model-btn" onclick="selectModel('claude-sonnet-4.6',this)">Claude Sonnet 4.6</button>
-                        <button class="model-btn" onclick="promptCustomModel()" style="border: 1px dashed var(--border); background: rgba(255,255,255,0.05); color: var(--cyan);">+ Add Custom</button>
+            <div class="ai-container">
+                <!-- Left: Widescreen Main Chat Area -->
+                <div class="ai-chat-main">
+                    <div class="ai-chat-history" id="ai-chat-history">
+                        <div class="ai-msg bot">
+                            <div class="msg-avatar">AI</div>
+                            <div class="msg-bubble">
+                                Система ИИ-анализа MISTRAL инициализирована.<br>Я готов помочь с анализом инцидентов, поиском угроз и написанием защитных скриптов.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="ai-input-row">
+                        <textarea id="ai-task" placeholder="Опишите задачу или задайте вопрос ИИ..." onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendAITask()}"></textarea>
+                        <button class="ai-send" id="btn-ai-send" onclick="sendAITask()">ОТПРАВИТЬ</button>
                     </div>
                 </div>
-                
-                <details style="margin-bottom:12px; background:rgba(0,0,0,0.5); border:1px solid var(--border); border-radius:6px;">
-                    <summary style="padding:10px; cursor:pointer; font-size:11px; font-weight:700; color:var(--muted); outline:none; user-select:none">Настройки системного промпта ИИ</summary>
-                    <div style="padding:10px; border-top:1px solid var(--border);">
-                        <textarea id="ai-system-prompt" style="width:100%; height:160px; background:rgba(0,0,0,0.3); border:1px solid var(--glass-border); border-radius:4px; padding:8px; color:var(--muted); font-family:'JetBrains Mono',monospace; font-size:11px; resize:none; outline:none">ПРОТОКОЛ АВТОЗАЩИТЫ MISTRAL.
+
+                <!-- Right: Settings & Reports Sidebar -->
+                <div class="ai-chat-sidebar">
+                    <div style="display:flex; flex-direction:column; gap:6px;">
+                        <label style="font-size:10px; color:var(--muted); text-transform:uppercase; font-weight:700;">ИИ Модель</label>
+                        <div class="ai-models" id="ai-models-container">
+                            <button class="model-btn active" onclick="selectModel('deepseek-v4-pro',this)">DeepSeek V4 Pro</button>
+                            <button class="model-btn" onclick="selectModel('kimi-k2.6',this)">Kimi K2.6</button>
+                            <button class="model-btn" onclick="selectModel('claude-sonnet-4.6',this)">Claude Sonnet 4.6</button>
+                            <button class="model-btn" onclick="promptCustomModel()" style="border: 1px dashed var(--border); background: rgba(255,255,255,0.05); color: var(--cyan);">+ Add Custom</button>
+                        </div>
+                    </div>
+
+                    <div class="field-group" style="margin-top:8px; margin-bottom:0;">
+                        <label style="font-size:10px; color:var(--muted); text-transform:uppercase; font-weight:700">Контекст инцидента</label>
+                        <select id="ai-incident-select" onchange="selectIncidentForAI()" style="background:rgba(0,0,0,0.5); border:1px solid var(--border); color:#fff; padding:8px 10px; border-radius:6px; font-size:12px; width:100%; outline:none">
+                            <option value="">-- Выберите инцидент --</option>
+                        </select>
+                    </div>
+
+                    <details style="background:rgba(0,0,0,0.5); border:1px solid var(--border); border-radius:6px; margin-top:8px;">
+                        <summary style="padding:10px; cursor:pointer; font-size:11px; font-weight:700; color:var(--muted); outline:none; user-select:none">Настройки промпта</summary>
+                        <div style="padding:10px; border-top:1px solid var(--border);">
+                            <textarea id="ai-system-prompt" style="width:100%; height:160px; background:rgba(0,0,0,0.3); border:1px solid var(--glass-border); border-radius:4px; padding:8px; color:var(--muted); font-family:'JetBrains Mono',monospace; font-size:11px; resize:none; outline:none">ПРОТОКОЛ АВТОЗАЩИТЫ MISTRAL.
 Проанализируй инцидент и предоставь подробный отчет строго в следующем формате:
 
 1. ПРИЧИНА АКТИВИЗАЦИИ АГЕНТА:
@@ -572,7 +613,7 @@
 2. ПРЕДШЕСТВУЮЩЕЕ СОБЫТИЕ (ТРИГГЕР):
    [Детальный разбор события, которое вызвало алерт: тип инцидента, источник атаки, время, логи и контекст]
 
-3. ПРЕДПРИНЯТЫЕ ДЕЙСТВИЯ И МИТИГАЦИЯ:
+3. ПРЕДПРЕДПРИНЯТЫЕ ДЕЙСТВИЯ И МИТИГАЦИЯ:
    [Какие меры были предприняты или рекомендуются. Если требуется блокировка, укажи [AUTOBAN: {{ip}}] и [INCIDENT_ID: {{incident_id}}]]
 
 4. РЕКОМЕНДАЦИИ ДЛЯ АДМИНИСТРАТОРА:
@@ -583,36 +624,16 @@
 Описание: {{description}}
 Контекст логов:
 {{context}}</textarea>
-                        <div style="font-size:9px; color:var(--dim); margin-top:4px;">Доступные переменные: {{type}}, {{description}}, {{context}}, {{ip}}, {{incident_id}}</div>
-                    </div>
-                </details>
-
-                <details style="margin-bottom:12px; background:rgba(0,0,0,0.5); border:1px solid var(--border); border-radius:6px;" ontoggle="if(this.open) loadAiReportsList()">
-                    <summary style="padding:10px; cursor:pointer; font-size:11px; font-weight:700; color:var(--muted); outline:none; user-select:none">Архив отчётов ИИ-Агента (.md)</summary>
-                    <div style="padding:10px; border-top:1px solid var(--border); max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;" id="ai-reports-list-container">
-                        <div style="color:var(--dim); font-size:11px; padding:8px 0;">Загрузка отчетов...</div>
-                    </div>
-                </details>
-
-                <div class="field-group" style="margin-bottom:12px; margin-top:0">
-                    <label style="font-size:10px; margin-bottom:4px; color:var(--muted); text-transform:uppercase; font-weight:700">Выбор инцидента для контекста ИИ</label>
-                    <select id="ai-incident-select" onchange="selectIncidentForAI()" style="background:rgba(0,0,0,0.5); border:1px solid var(--border); color:#fff; padding:8px 10px; border-radius:6px; font-size:12px; width:100%; outline:none">
-                        <option value="">-- Выберите инцидент для глубокого анализа --</option>
-                    </select>
-                </div>
-                
-                <div class="ai-chat-history" id="ai-chat-history" style="flex:1; overflow-y:auto; background:rgba(0,0,0,0.4); border:1px solid var(--border); border-radius:8px; padding:16px; display:flex; flex-direction:column; gap:12px; margin-bottom:12px; font-size:13px; scroll-behavior:smooth;">
-                    <div class="ai-msg bot">
-                        <div class="msg-avatar">AI</div>
-                        <div class="msg-bubble">
-                            Система ИИ-анализа MISTRAL инициализирована.<br>Я готов помочь с анализом инцидентов, поиском угроз и написанием защитных скриптов.
+                            <div style="font-size:9px; color:var(--dim); margin-top:4px;">Переменные: {{type}}, {{description}}, {{context}}, {{ip}}, {{incident_id}}</div>
                         </div>
-                    </div>
-                </div>
+                    </details>
 
-                <div class="ai-input-row" style="flex:0; display:flex; gap:8px;">
-                    <textarea id="ai-task" placeholder="Опишите задачу или задайте вопрос ИИ..." style="flex:1; height:60px; background:rgba(0,0,0,0.5); border:1px solid var(--border); border-radius:8px; padding:12px; color:#fff; font-family:inherit; resize:none; outline:none;" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendAITask()}"></textarea>
-                    <button class="ai-send" id="btn-ai-send" onclick="sendAITask()" style="height:60px; padding:0 24px; background:var(--blue); border:none; border-radius:8px; color:#fff; font-weight:700; cursor:pointer;">ОТПРАВИТЬ</button>
+                    <details style="background:rgba(0,0,0,0.5); border:1px solid var(--border); border-radius:6px; margin-top:8px;" ontoggle="if(this.open) loadAiReportsList()">
+                        <summary style="padding:10px; cursor:pointer; font-size:11px; font-weight:700; color:var(--muted); outline:none; user-select:none">Архив отчётов (.md)</summary>
+                        <div style="padding:10px; border-top:1px solid var(--border); max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;" id="ai-reports-list-container">
+                            <div style="color:var(--dim); font-size:11px; padding:8px 0;">Загрузка отчетов...</div>
+                        </div>
+                    </details>
                 </div>
             </div>
         </div>
@@ -959,7 +980,8 @@
             <span onclick="closeMdViewerModal()" style="cursor:pointer; color:var(--dim)">✕</span>
         </div>
         <div id="md-viewer-content" style="flex:1; overflow-y:auto; font-family:'JetBrains Mono', monospace; font-size:11px; line-height:1.6; color:#e2e8f0; background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:6px; padding:16px; white-space:pre-wrap; margin-bottom:14px;"></div>
-        <div style="text-align:right; flex:0;">
+        <div style="display:flex; justify-content:space-between; flex:0; align-items:center;">
+            <button onclick="window.exportCurrentReportToDocx()" style="background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.4); color:var(--green); padding:8px 16px; border-radius:6px; cursor:pointer; font-weight:700; font-family:'JetBrains Mono',monospace;">📄 ЭКСПОРТ В DOCX</button>
             <button onclick="closeMdViewerModal()" style="background:var(--blue); color:#fff; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; font-weight:700; font-family:'JetBrains Mono',monospace;">ЗАКРЫТЬ</button>
         </div>
     </div>

@@ -413,6 +413,7 @@ function openIncidentDrawer(id) {
                         : `<button class="btn-q" style="flex:1; padding:10px; border-radius:6px; cursor:pointer;" onclick="quarantineIp('${esc(inc.ip)}', 'Drawer Block'); closeIncidentDrawer();">BAN IP</button>`;
                 })() : ''}
                 <button class="btn-sm" style="padding:10px;" onclick="exportReport('${inc.id}')" title="Export Incident Report (IRR)">EXPORT</button>
+                <button class="btn-sm" style="padding:10px; border-color:var(--green); color:var(--green); background:rgba(34,197,94,0.05);" onclick="exportReportDocx('${inc.id}')" title="Export Incident Report (IRR) as DOCX">DOCX</button>
             </div>
         </div>
     `;
@@ -451,6 +452,135 @@ function exportReport(id) {
     a.click();
     URL.revokeObjectURL(url);
     showToast('Export', 'Incident Response Report downloaded.', 'info');
+}
+
+function exportReportDocx(id) {
+    const inc = allIncidents.find(i => i.id === id);
+    if(!inc) return;
+    
+    const title = `Incident Response Report - ${inc.type}`;
+    const dateStr = inc.timestamp || new Date().toISOString();
+    
+    let docHtml = `
+        <h2>INCIDENT RESPONSE REPORT (IRR)</h2>
+        <hr/>
+        <table border="1" cellspacing="0" cellpadding="6" style="border-collapse: collapse; width: 100%;">
+            <tr style="background-color: #f2f2f2;">
+                <th align="left">Свойство</th>
+                <th align="left">Значение</th>
+            </tr>
+            <tr><td><b>ID инцидента</b></td><td>${inc.id}</td></tr>
+            <tr><td><b>Тип угрозы</b></td><td>${inc.type}</td></tr>
+            <tr><td><b>Критичность</b></td><td>${inc.severity}</td></tr>
+            <tr><td><b>Источник / IP</b></td><td>${inc.ip || inc.target || 'System'}</td></tr>
+            <tr><td><b>Статус</b></td><td>${inc.status || 'New'}</td></tr>
+            <tr><td><b>Время детекции</b></td><td>${dateStr}</td></tr>
+        </table>
+        
+        <h3>Описание инцидента:</h3>
+        <p>${esc(inc.description || '').replace(/\n/g, '<br>')}</p>
+        
+        <h3>Контекст события / Системные логи:</h3>
+        <pre style="background-color: #f8f9fa; padding: 10px; border: 1px solid #ddd; font-family: 'Courier New', Courier, monospace;">${esc(inc.contextBlock || 'N/A')}</pre>
+        
+        <h3>Журнал ИИ-Агента (Меры митигации):</h3>
+        <div>${inc.aiAudit ? parseMarkdown(inc.aiAudit) : 'Автономные меры реагирования не запускались.'}</div>
+    `;
+    
+    exportReportToDocx(`IRR-${inc.id.split('-')[0]}`, title, docHtml);
+}
+
+window.exportCurrentReportToDocx = function() {
+    const titleText = $('md-viewer-title')?.textContent || 'AI Analysis Report';
+    const contentHtml = $('md-viewer-content')?.innerHTML || '';
+    const cleanId = titleText.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30);
+    exportReportToDocx(cleanId, titleText, contentHtml);
+};
+
+function exportReportToDocx(filename, title, contentHtml) {
+    // Generate valid Word HTML document with namespaces
+    const header = `<html xmlns:o='urn:schemas-microsoft-com:office:office' 
+          xmlns:w='urn:schemas-microsoft-com:office:word' 
+          xmlns='http://www.w3.org/TR/REC-html40'>
+          <head>
+            <title>${title}</title>
+            <!--[if gte mso 9]>
+            <xml>
+              <w:WordDocument>
+                <w:View>Print</w:View>
+                <w:Zoom>100</w:Zoom>
+                <w:DoNotOptimizeForBrowser/>
+              </w:WordDocument>
+            </xml>
+            <![endif]-->
+            <style>
+              body {
+                font-family: 'Segoe UI', Arial, sans-serif;
+                font-size: 11pt;
+                line-height: 1.5;
+                color: #333333;
+                margin: 1in;
+              }
+              h1, h2, h3 {
+                color: #990000;
+                font-family: 'Segoe UI Semibold', Arial, sans-serif;
+              }
+              h2 {
+                border-bottom: 2px solid #990000;
+                padding-bottom: 5px;
+                font-size: 18pt;
+              }
+              h3 {
+                font-size: 14pt;
+                margin-top: 20px;
+                border-bottom: 1px solid #dddddd;
+                padding-bottom: 3px;
+              }
+              table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 15px;
+                margin-bottom: 15px;
+              }
+              th, td {
+                border: 1px solid #cccccc;
+                padding: 8px;
+                text-align: left;
+                font-size: 10pt;
+              }
+              th {
+                background-color: #f5f5f5;
+                font-weight: bold;
+              }
+              pre {
+                background-color: #f8f9fa;
+                border: 1px solid #e9ecef;
+                padding: 10px;
+                font-family: Consolas, 'Courier New', monospace;
+                font-size: 9.5pt;
+                white-space: pre-wrap;
+              }
+              code {
+                font-family: Consolas, 'Courier New', monospace;
+                background-color: #f1f3f5;
+                padding: 2px 4px;
+                font-size: 9.5pt;
+              }
+            </style>
+          </head>
+          <body>
+            ${contentHtml}
+          </body>
+          </html>`;
+          
+    const blob = new Blob(['\ufeff' + header], { type: 'application/msword' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${filename}.doc`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('DOCX Export', 'Отчет успешно экспортирован в формат Word', 'green');
 }
 
 window.generateGlobalSOCReport = function() {
@@ -948,7 +1078,10 @@ function switchTab(name) {
         $('panel-'+name).classList.add('active');
         if(name==='logs') loadLogs();
         if(name==='users') loadUsers();
-        if(name==='server_info') { if(window.loadServerInfo) window.loadServerInfo(); }
+        if(name==='server_info') { 
+            if(window.loadServerInfo) window.loadServerInfo(); 
+            if(window.updateSecurityStatus) window.updateSecurityStatus(); 
+        }
         if(name==='apps') { if(window.loadApplicationsInfo) window.loadApplicationsInfo(); }
         if(name==='vulnerabilities') loadVulnerabilities();
         if(name==='network') {
@@ -1433,6 +1566,103 @@ window.triggerServerAudit = function() {
     .catch(err => showToast('Ошибка запуска', err.message, 'warn'));
 };
 
+
+window.triggerSecurityHardening = function() {
+    const btn = $('btn-activate-security');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Активация...';
+    }
+    showToast('Безопасность', 'Запущен процесс активации UFW, Fail2ban и Lua чекеров...', 'info');
+    fetch(`${serverBase}/api/activate-security`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Auth-Token': token }
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) {
+            showToast('Безопасность', 'Активация запущена в фоновом режиме.', 'green');
+            // Poll security status every 2 seconds for a total of 10 seconds
+            let attempts = 0;
+            const pollInterval = setInterval(() => {
+                window.updateSecurityStatus();
+                attempts++;
+                if (attempts >= 5) {
+                    clearInterval(pollInterval);
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.textContent = 'Активировать UFW & Fail2ban';
+                    }
+                }
+            }, 2000);
+        } else {
+            showToast('Безопасность', 'Ошибка активации: ' + (res.error || 'unknown'), 'warn');
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Активировать UFW & Fail2ban';
+            }
+        }
+    })
+    .catch(err => {
+        showToast('Безопасность', 'Ошибка запуска: ' + err.message, 'warn');
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Активировать UFW & Fail2ban';
+        }
+    });
+};
+
+window.updateSecurityStatus = function() {
+    fetch(`${serverBase}/api/security-status`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json', 'X-Auth-Token': token }
+    })
+    .then(r => r.json())
+    .then(res => {
+        const ufwEl = $('status-ufw');
+        if (ufwEl) {
+            if (res.ufw === 'active') {
+                ufwEl.textContent = 'АКТИВЕН';
+                ufwEl.style.color = 'var(--green)';
+            } else if (res.ufw === 'inactive') {
+                ufwEl.textContent = 'НЕАКТИВЕН';
+                ufwEl.style.color = 'var(--orange)';
+            } else {
+                ufwEl.textContent = 'НЕ УСТАНОВЛЕН';
+                ufwEl.style.color = 'var(--red)';
+            }
+        }
+        
+        const f2bEl = $('status-fail2ban');
+        if (f2bEl) {
+            if (res.fail2ban === 'active') {
+                f2bEl.textContent = 'АКТИВЕН';
+                f2bEl.style.color = 'var(--green)';
+            } else if (res.fail2ban === 'inactive') {
+                f2bEl.textContent = 'НЕАКТИВЕН';
+                f2bEl.style.color = 'var(--orange)';
+            } else {
+                f2bEl.textContent = 'НЕ УСТАНОВЛЕН';
+                f2bEl.style.color = 'var(--red)';
+            }
+        }
+        
+        const luaEl = $('status-lua');
+        if (luaEl) {
+            if (res.lua === 'active') {
+                luaEl.textContent = 'АКТИВЕН';
+                luaEl.style.color = 'var(--green)';
+            } else if (res.lua === 'inactive') {
+                luaEl.textContent = 'НЕАКТИВЕН';
+                luaEl.style.color = 'var(--orange)';
+            } else {
+                luaEl.textContent = 'НЕ УСТАНОВЛЕН';
+                luaEl.style.color = 'var(--red)';
+            }
+        }
+    })
+    .catch(err => console.log('Failed to fetch security status:', err.message));
+};
 
 // ══════════════════════════════════════════════════════════════════════════════
 // VULNERABILITIES & SIGNATURES DATABASE
