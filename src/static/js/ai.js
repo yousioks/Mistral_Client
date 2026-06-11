@@ -49,8 +49,8 @@ window.analyzeContext = function(id) {
 // AI
 // ══════════════════════════════════════════════════════════════════════════════
 
-let chatHistory = [];
-function appendChatMsg(role, text, isHtml = false) {
+let chatHistory = window.chatHistory = [];
+window.appendChatMsg = function(role, text, isHtml = false) {
     const historyEl = $('ai-chat-history');
     if(!historyEl) return null;
     const div = document.createElement('div');
@@ -64,7 +64,7 @@ function appendChatMsg(role, text, isHtml = false) {
     div.appendChild(avatar); div.appendChild(bubble);
     historyEl.appendChild(div); historyEl.scrollTop = historyEl.scrollHeight;
     return bubble;
-}
+};
 function parseMarkdown(md) {
     let html = md.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
     html = html.replace(/\[ \] (.*?)(<br>|\n|$)/g, '<label style="display:flex;align-items:center;gap:6px;margin:4px 0;"><input type="checkbox"> $1</label>$2');
@@ -229,3 +229,51 @@ function selectIncidentForAI() {
         
     $("ai-task").value = prompt;
 }
+
+window.updateAIProgressUI = function(data) {
+    // 1. Update the typing bubble if it exists in chat
+    const bubble = $('ai-typing-bubble');
+    if (bubble) {
+        let pct = Math.round((data.step / data.total) * 100);
+        let progressHtml = `
+            <div class="ai-progress-widget" style="font-family:'JetBrains Mono', monospace; font-size:11px; color:#fff; display:flex; flex-direction:column; gap:8px; width:100%; min-width:260px;">
+                <div style="display:flex; justify-content:space-between; font-weight:700; color:var(--cyan); font-size:10px;">
+                    <span>🤖 ИИ-АГЕНТ MISTRAL</span>
+                    <span>${pct}%</span>
+                </div>
+                <div style="height:5px; background:rgba(255,255,255,0.06); border-radius:3px; overflow:hidden; border:1px solid rgba(255,255,255,0.02);">
+                    <div style="height:100%; width:${pct}%; background:linear-gradient(90deg, var(--blue), var(--cyan)); box-shadow:0 0 8px var(--cyan); transition:width 0.3s ease;"></div>
+                </div>
+                <div style="color:#e2e8f0; font-size:10px; display:flex; align-items:center; gap:6px;">
+                    <span style="color:var(--orange); font-size:8px; animation: pulse 1s infinite;">●</span>
+                    <span>${esc(data.message)}</span>
+                </div>
+            </div>
+        `;
+        bubble.innerHTML = progressHtml;
+    }
+    
+    // 2. Update the sidebar UI blocks
+    const shieldAi = $('shield-ai');
+    if (shieldAi) {
+        if (data.done) {
+            shieldAi.style.color = 'var(--green)';
+            shieldAi.innerHTML = `<div style="width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 5px var(--green)"></div>ARMED`;
+        } else {
+            let pct = Math.round((data.step / data.total) * 100);
+            shieldAi.style.color = 'var(--orange)';
+            shieldAi.innerHTML = `<div style="width:6px;height:6px;border-radius:50%;background:var(--orange);box-shadow:0 0 5px var(--orange);animation:pulse 1s infinite"></div>ACTIVE (${pct}%)`;
+        }
+    }
+    
+    const lastAction = $('ai-last-action');
+    if (lastAction && data.message) {
+        lastAction.textContent = data.message;
+        lastAction.style.color = 'var(--orange)';
+        if (data.done) {
+            setTimeout(() => {
+                lastAction.style.color = 'var(--cyan)';
+            }, 3000);
+        }
+    }
+};

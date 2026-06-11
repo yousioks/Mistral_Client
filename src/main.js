@@ -169,7 +169,10 @@ function connectToServer(host, port, token) {
          case 'incident':
           if (msg.data) {
              cache.incidents.unshift(msg.data);
-             if ((msg.data.severity === 'CRITICAL' || msg.data.severity === 'HIGH') && Notification.isSupported() && !isAppQuitting && notificationsEnabled) {
+             const typeLower = (msg.data.type || "").toLowerCase();
+             const descLower = (msg.data.description || "").toLowerCase();
+             const isDdos = typeLower.includes("ddos") || typeLower.includes("flood") || descLower.includes("ddos") || descLower.includes("flood");
+             if ((msg.data.severity === 'CRITICAL' || msg.data.severity === 'HIGH') && !isDdos && Notification.isSupported() && !isAppQuitting && notificationsEnabled) {
                  let attackerIp = msg.data.ip;
                  if (!attackerIp && msg.data.details) {
                      const det = msg.data.details;
@@ -184,7 +187,7 @@ function connectToServer(host, port, token) {
                      const ipMatch = desc.match(/\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/);
                      if (ipMatch) attackerIp = ipMatch[0];
                  }
-                 if (!attackerIp) attackerIp = 'Неизвестный IP';
+                 if (!attackerIp) attackerIp = 'Локальная система';
                  const notification = new Notification({
                    title: `Угроза ${msg.data.severity}: ${msg.data.type}`,
                    body: `IP: ${attackerIp}\n${msg.data.description || 'Обнаружена новая атака'}`,

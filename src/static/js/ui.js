@@ -11,7 +11,7 @@ function initCharts() {
     });
     chartNet = new Chart($('chart-network').getContext('2d'), {
         type: 'line',
-        data: { labels: Array(30).fill(''), datasets: [{ data: Array(30).fill(0), borderColor:'#FFFFFF', backgroundColor:'rgba(255,255,255,0.05)', borderWidth:1.5, tension:0.4, fill:true, pointRadius:0 }] },
+        data: { labels: Array(30).fill(''), datasets: [{ data: Array(30).fill(0), borderColor:'#06B6D4', backgroundColor:'rgba(6, 182, 212, 0.08)', borderWidth:2, tension:0.4, fill:true, pointRadius:0 }] },
         options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{display:false},x:{display:false}} }
     });
     if ($('chart-type')) {
@@ -157,7 +157,9 @@ function processRLogBuffer() {
         rFeed.removeChild(rFeed.firstChild);
     }
     
-    rFeed.scrollTop = rFeed.scrollHeight;
+    if ($('log-autoscroll')?.checked !== false) {
+        rFeed.scrollTop = rFeed.scrollHeight;
+    }
     updateRlogCount(rFeed.children.length);
     rLogFrame = null;
 }
@@ -302,7 +304,13 @@ function addIncidentRow(inc, prepend, container) {
         
     tr.innerHTML = `
         <td>${sevBadge}</td>
-        <td style="font-weight:700; color:#fff;">${esc(inc.type||'Unknown')}</td>
+        <td style="font-weight:700; color:#fff;">
+            ${esc(inc.type||'Unknown')}
+            <div style="font-size:10px; color:var(--muted); font-weight:normal; margin-top:2px; max-width:250px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                ${esc(inc.description||'—')}
+            </div>
+        </td>
+        <td><span style="font-family:'JetBrains Mono', monospace; font-size:10px; color:var(--cyan); border:1px solid rgba(6,182,212,0.2); background:rgba(6,182,212,0.05); padding:2px 6px; border-radius:4px;">${esc(inc.monitor || 'System')}</span></td>
         <td><span class="ip-chip clickable" onclick="filterLogsByIp('${esc(inc.ip || inc.target || inc.monitor || '')}')">${esc(inc.ip || inc.target || inc.monitor || 'System')}</span></td>
         <td><select class="inc-sel" onchange="patchIncident('${inc.id}',{status:this.value})">${sOpts}</select></td>
         <td style="color:var(--dim); font-family:'JetBrains Mono',monospace; font-size:10px;">${(inc.timestamp||'').slice(0,19).replace('T',' ')}</td>
@@ -699,9 +707,50 @@ function ctxAction(action) {
 // LOGS — with filters
 // ══════════════════════════════════════════════════════════════════════════════
 let currentLogsData = [];
+let lastUniqueSourcesStr = "";
+
+function updateSourceDropdown(logs) {
+    const dropdown = $('log-source-filter');
+    if (!dropdown) return;
+    const currentVal = dropdown.value || 'all';
+    
+    // Find all unique sources from bracket prefixes
+    const sources = new Set();
+    logs.forEach(entry => {
+        const msg = entry.message || '';
+        const match = msg.match(/^\[([^\]]+)\]/);
+        if (match) {
+            sources.add(match[1]);
+        }
+    });
+    
+    const sortedSources = Array.from(sources).sort();
+    const sortedSourcesStr = sortedSources.join('|');
+    
+    // Only rebuild dropdown DOM if unique sources changed
+    if (sortedSourcesStr === lastUniqueSourcesStr) {
+        return;
+    }
+    lastUniqueSourcesStr = sortedSourcesStr;
+    
+    dropdown.innerHTML = '<option value="all">Все источники</option>';
+    sortedSources.forEach(src => {
+        const opt = document.createElement('option');
+        opt.value = src;
+        opt.textContent = src;
+        dropdown.appendChild(opt);
+    });
+    
+    if (sources.has(currentVal)) {
+        dropdown.value = currentVal;
+    } else {
+        dropdown.value = 'all';
+    }
+}
 
 function renderLogs(list) {
     currentLogsData = list || [];
+    updateSourceDropdown(currentLogsData);
     applyLogFilters();
 }
 
@@ -709,6 +758,7 @@ function applyLogFilters() {
     const feed = $('logs-feed'); 
     if (!feed) return;
     const levelFilter = $('log-level-filter')?.value || 'all';
+    const sourceFilter = $('log-source-filter')?.value || 'all';
     const dateFrom = $('log-date-from')?.value || '';
     const dateTo = $('log-date-to')?.value || '';
     const searchText = ($('log-search')?.value || '').toLowerCase();
@@ -717,6 +767,12 @@ function applyLogFilters() {
         if (levelFilter !== 'all') {
             const lv = getAutoLevel(entry);
             if (lv !== levelFilter) return false;
+        }
+        if (sourceFilter !== 'all') {
+            const msg = entry.message || '';
+            const match = msg.match(/^\[([^\]]+)\]/);
+            const entrySrc = match ? match[1] : 'Система';
+            if (entrySrc !== sourceFilter) return false;
         }
         if (dateFrom) {
             const entryDate = (entry.timestamp||'').slice(0,10);
@@ -732,6 +788,8 @@ function applyLogFilters() {
         }
         return true;
     });
+    
+    window.currentFilteredLogs = filtered;
     
     const badge = $('logs-count-badge');
     if (badge) badge.textContent = `${filtered.length} / ${currentLogsData.length}`;
@@ -755,10 +813,40 @@ function applyLogFilters() {
 
 function clearLogFilters() {
     const lf = $('log-level-filter'); if (lf) lf.value = 'all';
+    const sf = $('log-source-filter'); if (sf) sf.value = 'all';
     const df = $('log-date-from'); if (df) df.value = '';
     const dt = $('log-date-to'); if (dt) dt.value = '';
     const ls = $('log-search'); if (ls) ls.value = '';
     applyLogFilters();
+}
+
+function exportLogsToFile() {
+    const logsToExport = window.currentFilteredLogs || [];
+    if (!logsToExport.length) {
+        showToast('Экспорт невозможен', 'Нет логов для экспорта по текущим фильтрам', 'warn');
+        return;
+    }
+    
+    const textLines = logsToExport.map(entry => {
+        const t = (entry.timestamp||'').slice(0,19).replace('T',' ');
+        const lv = getAutoLevel(entry).toUpperCase();
+        return `[${t}] [${lv}] ${entry.message}`;
+    });
+    
+    const blob = new Blob([textLines.join('\r\n')], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    const type = $('log-type')?.value || 'server';
+    const dateStr = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = `mistral_logs_${type}_${dateStr}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    showToast('Экспорт выполнен', `Экспортировано записей: ${textLines.length}`, 'info');
 }
 
 function sendLogsToAI() {
@@ -813,6 +901,20 @@ function updateMetrics(data) {
         $('top-process-info').textContent = `${tp.name} [PID: ${tp.pid}] — CPU: ${tp.cpu}% / RAM: ${tp.mem}%`;
         // Если поле пустое, можно автозаполнить для удобства, но лучше не надо, чтобы случайно не кликнули
     }
+    
+    // WAF Status sync display update
+    if (data.waf) {
+        const wafShield = $('shield-waf');
+        if (wafShield) {
+            if (data.waf.online) {
+                wafShield.style.color = 'var(--green)';
+                wafShield.innerHTML = `<div style="width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 5px var(--green)"></div>ACTIVE (SYNCED)`;
+            } else {
+                wafShield.style.color = 'var(--red)';
+                wafShield.innerHTML = `<div style="width:6px;height:6px;border-radius:50%;background:var(--red);box-shadow:0 0 5px var(--red)"></div>OFFLINE`;
+            }
+        }
+    }
     // Network chart
     if(data.connections!=null && chartNet) { const ds=chartNet.data.datasets[0].data; ds.shift(); ds.push(data.connections); chartNet.update(); }
     // Metrics feed
@@ -839,7 +941,10 @@ function updateMetrics(data) {
         if (tb) {
             tb.innerHTML = '';
             if(!data.ddos.top_ips.length) {
-                tb.innerHTML='<tr><td colspan="4" class="empty-td">Ожидание данных от DDoS-анализатора (Lua)...</td></tr>';
+                const msg = data.monitor === 'local-host-monitor' 
+                    ? 'Система в безопасности (активный мониторинг хоста)' 
+                    : 'Ожидание данных от DDoS-анализатора (Lua)...';
+                tb.innerHTML=`<tr><td colspan="4" class="empty-td" style="color:var(--green); font-weight:600;">✓ ${msg}</td></tr>`;
             } else {
                 data.ddos.top_ips.forEach(s => {
                     const tr = document.createElement('tr');
@@ -862,7 +967,10 @@ function updateMetrics(data) {
         if (dashTb) {
             dashTb.innerHTML = '';
             if(!data.ddos.top_ips.length) {
-                dashTb.innerHTML='<tr><td colspan="4" class="empty-td">Ожидание данных от DDoS-анализатора (Lua)...</td></tr>';
+                const msg = data.monitor === 'local-host-monitor' 
+                    ? 'Система в безопасности (активный мониторинг хоста)' 
+                    : 'Ожидание данных от DDoS-анализатора (Lua)...';
+                dashTb.innerHTML=`<tr><td colspan="4" class="empty-td" style="color:var(--green); font-weight:600;">✓ ${msg}</td></tr>`;
             } else {
                 data.ddos.top_ips.forEach(s => {
                     const tr = document.createElement('tr');
@@ -974,6 +1082,7 @@ function showAlert(data) {
     const type = data.type || '';
     const desc = data.description || '';
     const isDdos = type.includes('DDOS') || type.includes('DDoS') || desc.includes('DDoS') || desc.includes('SYN-RECV') || desc.includes('ESTABLISHED');
+    if (isDdos) return; // Suppress all DDoS notifications/toasts
     
     const suppressCheckbox = $('chk-suppress-ddos');
     const shouldSuppress = suppressCheckbox ? suppressCheckbox.checked : true;

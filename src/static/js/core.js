@@ -38,6 +38,29 @@ function formatLogMessageWithIpActions(message) {
             actionsHtml = `<button class="btn-sm ${btnClass}" style="margin-left: 10px; padding: 2px 6px; font-size: 9px; vertical-align: middle; line-height: 1;" onclick="${btnFunc}; setTimeout(loadLogs, 300);">${btnText}</button>`;
         }
     }
+
+    // 1. Highlight bracketed source tag at the start of the message (e.g., [Docker] or [ИИ-Агент])
+    msgHtml = msgHtml.replace(/^\[([^\]]+)\]/, (match, p1) => {
+        const classFriendly = p1.toLowerCase().replace(/[^a-zа-я0-9]/g, '-');
+        return `<span class="log-badge-source src-${classFriendly}">[${p1}]</span>`;
+    });
+
+    // 2. Highlight key action/status verbs (Cyrillic-boundary safe regexes using lookbehinds/lookaheads)
+    const verbHighlights = [
+        { pattern: 'запущен[а-я]*|запуск|подключен[а-я]*|started|connected', cls: 'log-verb-success' },
+        { pattern: 'остановлен[а-я]*|отключен[а-я]*|stopped|disconnected', cls: 'log-verb-warn' },
+        { pattern: 'удален[а-я]*|удаление|killed|removed', cls: 'log-verb-danger' },
+        { pattern: 'блокировк[а-я]*|заблокирован[а-я]*|заблокировать|blocked|banned', cls: 'log-verb-danger' },
+        { pattern: 'карантин[а-я]*|quarantine', cls: 'log-verb-accent' },
+        { pattern: 'атак[а-я]*|угроз[а-я]*|attack|threat', cls: 'log-verb-danger-glow' },
+        { pattern: 'успешно|успешн[а-я]*|success', cls: 'log-verb-success' },
+        { pattern: 'ошибк[а-я]*|провал[а-я]*|fail|опасность|error|failure', cls: 'log-verb-error' }
+    ];
+    verbHighlights.forEach(({ pattern, cls }) => {
+        const rx = new RegExp(`(?<![а-яА-ЯёЁa-zA-Z0-9])(${pattern})(?![а-яА-ЯёЁa-zA-Z0-9])`, 'gi');
+        msgHtml = msgHtml.replace(rx, `<span class="${cls}">$1</span>`);
+    });
+
     return msgHtml + actionsHtml;
 }
 window.formatLogMessageWithIpActions = formatLogMessageWithIpActions;
@@ -320,6 +343,11 @@ function handleMessage(msg) {
                 });
             }
             break;
+        case 'ai_progress':
+            if (msg.data && typeof window.updateAIProgressUI === 'function') {
+                window.updateAIProgressUI(msg.data);
+            }
+            break;
         case 'ai_result':
             const ans = msg.data?.result || '(нет ответа)';
             
@@ -460,6 +488,13 @@ function triggerSilentAIResponse(incident) {
         showToast('AI AGENT', 'AUTONOMOUS MITIGATION STARTED (AUTOPILOT)', 'critical');
     } else {
         showToast('AI AGENT', 'ADVISORY MITIGATION TRIGGERED (READ-ONLY)', 'info');
+    }
+    
+    // Append to AI chat history so it shows progress visually in the tab
+    if (typeof window.appendChatMsg === 'function') {
+        window.appendChatMsg('user', `[Система] Запущен ИИ-анализ инцидента: [${incident.severity}] ${incident.type} (IP: ${incident.ip || '—'})`);
+        const bubble = window.appendChatMsg('bot', 'Инициализация анализа...');
+        if (bubble) bubble.id = 'ai-typing-bubble';
     }
     
     // Change incident status in local state

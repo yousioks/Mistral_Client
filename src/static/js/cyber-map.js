@@ -72,8 +72,10 @@ class CyberMap {
         this.dots = [];
         this.attacks = [];
         this.explosions = [];
+        this.shieldFlashes = [];
         this.filterType = 'ALL';
-        this.targetNode = { country: "Россия", code: "RU", lat: 55.75, lon: 37.61 }; // Moscow
+        this.mistralNode = { name: "MISTRAL CENTER", country: "Россия", code: "RU", lat: 55.75, lon: 37.61 }; // Moscow
+        this.remonNode = { name: "REMON WEBSITE", host: "raemon.ru", lat: 59.93, lon: 30.36 }; // St. Petersburg
         
         this.resize();
         window.addEventListener('resize', () => this.resize());
@@ -121,7 +123,12 @@ class CyberMap {
         }
         
         const src = latLonToCanvasXY(geoPayload.lat, geoPayload.lon, this.width, this.height);
-        const dest = latLonToCanvasXY(this.targetNode.lat, this.targetNode.lon, this.width, this.height);
+        
+        // Target remonNode for web attacks, mistralNode for others
+        const tLower = (type || '').toLowerCase();
+        const isWeb = tLower.includes('sql') || tLower.includes('xss') || tLower.includes('web') || tLower.includes('injection') || tLower.includes('honeypot') || tLower.includes('path') || tLower.includes('traverse') || tLower.includes('leak') || tLower.includes('block');
+        const target = isWeb ? this.remonNode : this.mistralNode;
+        const dest = latLonToCanvasXY(target.lat, target.lon, this.width, this.height);
         
         // Random control point offset for bezier arc height
         const dx = dest.x - src.x;
@@ -218,6 +225,17 @@ class CyberMap {
         });
     }
     
+    createShieldFlash(x, y, color, ip) {
+        this.shieldFlashes.push({
+            x, y,
+            radius: 8,
+            maxRadius: 28,
+            alpha: 1.0,
+            color: '#06B6D4',
+            ip
+        });
+    }
+    
     animate() {
         if (!this.canvas) return;
         this.ctx.clearRect(0, 0, this.width, this.height);
@@ -231,37 +249,81 @@ class CyberMap {
             this.ctx.fillRect(dot.x, dot.y, 2, 2);
         }
         
-        // 2. Draw destination hub (Moscow)
-        const dest = latLonToCanvasXY(this.targetNode.lat, this.targetNode.lon, this.width, this.height);
+        // 2. Draw destination hubs
+        const destM = latLonToCanvasXY(this.mistralNode.lat, this.mistralNode.lon, this.width, this.height);
+        const destR = latLonToCanvasXY(this.remonNode.lat, this.remonNode.lon, this.width, this.height);
         
-        // Target pulse rings
-        const ringRadius = (now * 0.02) % 40;
-        this.ctx.strokeStyle = `rgba(34, 197, 94, ${1 - ringRadius / 40})`;
-        this.ctx.lineWidth = 1;
+        // Draw Sync Link
+        this.ctx.save();
         this.ctx.beginPath();
-        this.ctx.arc(dest.x, dest.y, ringRadius, 0, Math.PI * 2);
+        this.ctx.setLineDash([4, 4]);
+        this.ctx.moveTo(destM.x, destM.y);
+        this.ctx.lineTo(destR.x, destR.y);
+        this.ctx.strokeStyle = 'rgba(6, 182, 212, 0.4)';
+        this.ctx.lineWidth = 1.2;
         this.ctx.stroke();
-        
-        // Target core dot
-        this.ctx.fillStyle = '#22C55E'; // green
-        this.ctx.beginPath();
-        this.ctx.arc(dest.x, dest.y, 4, 0, Math.PI * 2);
-        this.ctx.fill();
-        
-        // Label
-        this.ctx.fillStyle = '#22C55E';
+        this.ctx.restore();
+
+        // Draw Sync Link Label
+        this.ctx.save();
+        this.ctx.fillStyle = 'rgba(6, 182, 212, 0.7)';
+        this.ctx.font = "italic 7px 'JetBrains Mono', monospace";
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText("SYNC LINK (ACTIVE)", (destM.x + destR.x) / 2, (destM.y + destR.y) / 2 - 4);
+        this.ctx.restore();
+
+        this.ctx.save();
         this.ctx.font = "bold 9px 'JetBrains Mono', monospace";
         this.ctx.textAlign = 'center';
-        this.ctx.fillText("MISTRAL SERVER (RU)", dest.x, dest.y - 12);
+
+        // Target pulse rings (Mistral Server)
+        const ringRadiusM = (now * 0.02) % 30;
+        this.ctx.strokeStyle = `rgba(34, 197, 94, ${1 - ringRadiusM / 30})`;
+        this.ctx.lineWidth = 1;
+        this.ctx.beginPath();
+        this.ctx.arc(destM.x, destM.y, ringRadiusM, 0, Math.PI * 2);
+        this.ctx.stroke();
+        
+        // Target core dot (Mistral Server)
+        this.ctx.fillStyle = '#22C55E';
+        this.ctx.beginPath();
+        this.ctx.arc(destM.x, destM.y, 4, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.fillText("MISTRAL SERVER", destM.x, destM.y - 12);
+
+        // Target pulse rings (Remon Website)
+        const ringRadiusR = (now * 0.02 + 15) % 30;
+        this.ctx.strokeStyle = `rgba(6, 182, 212, ${1 - ringRadiusR / 30})`;
+        this.ctx.lineWidth = 1;
+        this.ctx.beginPath();
+        this.ctx.arc(destR.x, destR.y, ringRadiusR, 0, Math.PI * 2);
+        this.ctx.stroke();
+        
+        // Target core dot (Remon Website)
+        this.ctx.fillStyle = '#06B6D4';
+        this.ctx.beginPath();
+        this.ctx.arc(destR.x, destR.y, 4, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.fillStyle = '#06B6D4';
+        this.ctx.fillText("raemon.ru WAF", destR.x, destR.y - 12);
+        this.ctx.restore();
         
         // 3. Update & Draw Attack Beziers
         for (let i = this.attacks.length - 1; i >= 0; i--) {
             const a = this.attacks[i];
             a.progress += a.speed;
             
+            // Check if IP is in quarantine in real time
+            const isQuarantined = window.quarantinedIps && window.quarantinedIps.some(q => q.ip === a.ip);
+            
             if (a.progress >= 1) {
-                // Trigger destination explosion
-                this.createExplosion(a.x2, a.y2, a.color);
+                if (isQuarantined) {
+                    // Shield impact!
+                    this.createShieldFlash(a.x2, a.y2, a.color, a.ip);
+                } else {
+                    // Regular explosion
+                    this.createExplosion(a.x2, a.y2, a.color);
+                }
                 this.attacks.splice(i, 1);
                 continue;
             }
@@ -288,7 +350,13 @@ class CyberMap {
             this.ctx.beginPath();
             this.ctx.arc(a.x1, a.y1, 2, 0, Math.PI * 2);
             this.ctx.fill();
+            
+            this.ctx.save();
+            this.ctx.fillStyle = a.color;
+            this.ctx.font = "bold 8px 'JetBrains Mono', monospace";
+            this.ctx.textAlign = 'center';
             this.ctx.fillText(`${a.code} [${a.ip}]`, a.x1, a.y1 - 6);
+            this.ctx.restore();
         }
         
         // 4. Update & Draw Explosions
@@ -322,6 +390,41 @@ class CyberMap {
                 }
             }
             this.ctx.globalAlpha = 1.0; // reset
+        }
+        
+        // 5. Update & Draw Shield Flashes
+        for (let i = this.shieldFlashes.length - 1; i >= 0; i--) {
+            const sf = this.shieldFlashes[i];
+            sf.radius += (sf.maxRadius - sf.radius) * 0.15;
+            sf.alpha -= 0.04;
+            
+            if (sf.alpha <= 0) {
+                this.shieldFlashes.splice(i, 1);
+                continue;
+            }
+            
+            this.ctx.save();
+            this.ctx.globalAlpha = sf.alpha;
+            // Draw a protective circle arc representing shield grid flaring
+            this.ctx.strokeStyle = sf.color;
+            this.ctx.lineWidth = 1.5;
+            this.ctx.beginPath();
+            this.ctx.arc(sf.x, sf.y, sf.radius, 0, Math.PI * 2);
+            this.ctx.stroke();
+            
+            // Outer glow ring
+            this.ctx.strokeStyle = 'rgba(6, 182, 212, 0.15)';
+            this.ctx.lineWidth = 5;
+            this.ctx.beginPath();
+            this.ctx.arc(sf.x, sf.y, sf.radius + 2, 0, Math.PI * 2);
+            this.ctx.stroke();
+            
+            // Text indicator
+            this.ctx.fillStyle = '#EF4444'; // red blocked text
+            this.ctx.font = "bold 8px 'JetBrains Mono', monospace";
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText(`WAF BLOCKED: ${sf.ip}`, sf.x, sf.y + sf.radius + 10);
+            this.ctx.restore();
         }
         
         requestAnimationFrame(this.animate);
