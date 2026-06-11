@@ -6,6 +6,7 @@ import urllib.request
 import urllib.error
 
 BASE_URL = ""
+WEBSITE_URL = ""
 ATTACKER_IP = "103.45.2.19"
 HONEYPOT_IP = "185.122.90.11"
 
@@ -54,6 +55,29 @@ def api_request(path, data=None, method='POST'):
         return response.read().decode('utf-8')
     except urllib.error.URLError:
         return None
+
+def website_request(path, method='GET', data=None):
+    url = WEBSITE_URL + path
+    req = urllib.request.Request(url, method=method)
+    
+    jsondata = None
+    if data is not None:
+        req.add_header('Content-Type', 'application/json')
+        jsondata = json.dumps(data).encode('utf-8')
+        
+    try:
+        if jsondata is not None:
+            response = urllib.request.urlopen(req, data=jsondata, timeout=5)
+        else:
+            response = urllib.request.urlopen(req, timeout=5)
+        return response.read().decode('utf-8'), response.status
+    except urllib.error.HTTPError as e:
+        try:
+            return e.read().decode('utf-8'), e.code
+        except:
+            return None, e.code
+    except Exception as e:
+        return None, 500
 
 def simulate_progress(task_name, duration_sec):
     print(f" [*] {task_name} ", end='', flush=True)
@@ -561,6 +585,68 @@ def run_interactive_sandbox():
             print_color(f"\n [✓] Ваш IP {attacker_ip} успешно разблокирован на сервере!", "green")
             time.sleep(1.5)
 
+def run_complex_attack():
+    print_header()
+    print_color(" ⚡️ [ КОМПЛЕКСНАЯ СИМУЛЯЦИЯ АТАКИ НА RAEMON.RU ] ⚡️", "red")
+    print(f" Mistral Server: {BASE_URL}")
+    print(f" Target Website: {WEBSITE_URL}")
+    print(" Описание: Имитирует одновременную многовекторную атаку непосредственно на")
+    print(" защищаемый веб-ресурс и платежный ханипот. Проверяет блокировку на сайте.")
+    print()
+    
+    input(" Нажмите ENTER, чтобы запустить комплексную атаку...")
+
+    # Phase 1: Scan / Path Traversal
+    print_color("\n [*] Шаг 1: Сканирование сайта и попытки Path Traversal...", "yellow")
+    website_request("/api/static/../../etc/passwd")
+    time.sleep(0.5)
+
+    # Phase 2: SQL Injection & Command Injection on Website
+    print_color(" [*] Шаг 2: Эксплуатация SQLi и Command Injection на веб-сервере...", "yellow")
+    website_request("/api/auth/login?username=admin%27%20OR%201=1--")
+    website_request("/api/admin/debug?cmd=whoami")
+    time.sleep(0.5)
+
+    # Phase 3: Honeypot Trigger
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(BASE_URL)
+        server_host = parsed.hostname or "localhost"
+    except:
+        server_host = "localhost"
+        
+    print_color(f" [*] Шаг 3: Обращение к платежному ханипоту на {server_host}:8081...", "yellow")
+    try:
+        urllib.request.urlopen(f"http://{server_host}:8081/remon_payment_gateway/exploit", timeout=3)
+    except:
+        pass
+    time.sleep(1)
+
+    # Phase 4: DDoS Burst to Website
+    print_color(" [*] Шаг 4: Сетевой флуд (DDoS) запросов для перегрузки WAF...", "yellow")
+    for i in range(15):
+        website_request(f"/?noise={i}")
+    time.sleep(1)
+
+    print_color("\n [!] Атака завершена. Проверяем реакцию MISTRAL...", "yellow")
+    print(" Ожидание синхронизации списков блокировки (4 сек)...")
+    time.sleep(4.5)
+
+    print_color("\n [*] Отправка проверочного запроса на сайт...", "cyan")
+    res_text, status_code = website_request("/api/apartments")
+    
+    if status_code == 403:
+        print_color("\n [🛡️] УСПЕШНО: WAF-агент заблокировал наш запрос на сайт!", "green")
+        print_color(f"  -> Ответ сайта: {status_code} Forbidden", "green")
+        if res_text:
+            print_color(f"  -> Тело ответа WAF: {res_text}", "cyan")
+        print_color("  -> Агент пресек атаку на сайт, трафик злоумышленника полностью заблокирован!", "green")
+    else:
+        print_color(f"\n [⚠️] Проверочный запрос прошел со статусом {status_code}.", "yellow")
+        print_color("  -> Проверьте, включена ли опция автозащиты ИИ и авто-бан в настройках SOAR.", "yellow")
+        
+    input("\n Нажмите ENTER для возврата в меню...")
+
 # ── RESET QUARANTINE FUNCTION ───────────────────────────────────────────
 def clear_all_quarantine():
     print_color("\n [*] Запрос списка заблокированных IP...", "yellow")
@@ -589,7 +675,7 @@ def clear_all_quarantine():
 
 # ── MAIN MENU ────────────────────────────────────────────────────────────
 def main():
-    global BASE_URL
+    global BASE_URL, WEBSITE_URL
     print_header()
     
     target = input(" Введите адрес Mistral Server (например, http://localhost:8080 или нажмите ENTER):\n > ").strip()
@@ -598,40 +684,51 @@ def main():
     if not target.startswith("http"):
         target = "http://" + target
     BASE_URL = target.rstrip('/')
+    
+    web_target = input(" Введите адрес защищаемого сайта Remon (например, https://raemon.ru или нажмите ENTER):\n > ").strip()
+    if not web_target:
+        web_target = "https://raemon.ru"
+    if not web_target.startswith("http"):
+        web_target = "http://" + web_target
+    WEBSITE_URL = web_target.rstrip('/')
  
     while True:
         print_header()
         print(f" Подключено к серверу: {BASE_URL}")
+        print(f" Защищаемый веб-сайт:  {WEBSITE_URL}")
         print(" Выберите демонстрационный сценарий:")
         print()
-        print_color("  [1] Экспресс-презентация (Быстрый прогон APT-атаки)", "green")
-        print_color("  [2] Пошаговая APT-атака (по фазам с паузами)", "yellow")
-        print_color("  [3] Срабатывание Ханипота (Атака на приманку шлюза платежей)", "cyan")
-        print_color("  [4] DDoS-нагрузка (Лавина сетевых логов и скачок графиков)", "purple")
-        print_color("  [5] Интерактивная песочница хакера (Ручное управление атакой)", "blue")
-        print_color("  [6] Сбросить карантин (Разблокировать все IP-адреса)", "red")
+        print_color("  [1] Комплексная атака на raemon.ru (Все фазы одновременно)", "red")
+        print_color("  [2] Экспресс-презентация (Быстрый прогон APT-атаки)", "green")
+        print_color("  [3] Пошаговая APT-атака (по фазам с паузами)", "yellow")
+        print_color("  [4] Срабатывание Ханипота (Атака на приманку шлюза платежей)", "cyan")
+        print_color("  [5] DDoS-нагрузка (Лавина сетевых логов и скачок графиков)", "purple")
+        print_color("  [6] Интерактивная песочница хакера (Ручное управление атакой)", "blue")
+        print_color("  [7] Сбросить карантин (Разблокировать все IP-адреса)", "red")
         print("  [0] Выход")
         print()
         
         choice = input(" Введите номер сценария > ").strip()
         
         if choice == '1':
-            run_apt_attack(step_by_step=False)
+            run_complex_attack()
         elif choice == '2':
-            run_apt_attack(step_by_step=True)
+            run_apt_attack(step_by_step=False)
         elif choice == '3':
-            run_honeypot_demo()
+            run_apt_attack(step_by_step=True)
         elif choice == '4':
-            run_ddos_flood()
+            run_honeypot_demo()
         elif choice == '5':
-            run_interactive_sandbox()
+            run_ddos_flood()
         elif choice == '6':
+            run_interactive_sandbox()
+        elif choice == '7':
             clear_all_quarantine()
         elif choice == '0':
             print("\n Выход из симулятора.")
             break
         else:
-            print_color(" Неверный выбор. Пожалуйста, введите 0-6.", "red")
+            print_color(" Неверный выбор. Пожалуйста, введите 0-7.", "red")
             time.sleep(1.5)
 
 if __name__ == '__main__':

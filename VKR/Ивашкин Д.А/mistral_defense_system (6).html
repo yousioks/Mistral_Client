@@ -1,0 +1,773 @@
+<!doctype html>
+<html lang="ru">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>MISTRAL Defense System</title>
+
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap"
+			rel="stylesheet"
+		/>
+		<link
+			rel="stylesheet"
+			href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+		/>
+
+		<script src="https://cdn.tailwindcss.com"></script>
+		<script>
+			tailwind.config = {
+				theme: {
+					extend: {
+						colors: {
+							// Убрана инверсия цветов! Теперь белый - это белый, черный - это черный.
+							pro: {
+								dark: '#f8fafc',
+								gray: '#f1f5f9',
+								border: '#cbd5e1', 
+								text: '#0f172a', // Основной темный читаемый текст (для заголовков и карточек)
+								muted: '#475569', // Читаемый серый для подзаголовков
+								blue: '#0ea5e9', // Яркий синий 
+								red: '#ef4444', // Яркий красный
+								green: '#10b981', // Яркий зеленый
+							},
+						},
+						fontFamily: {
+							sans: ['"Inter"', 'sans-serif'],
+							mono: ['"JetBrains Mono"', 'monospace'],
+						},
+					},
+				},
+			}
+		</script>
+		<style>
+			:root {
+				--slide-w: 1600px;
+				--slide-h: 900px;
+			}
+
+			body, html {
+				margin: 0; padding: 0; width: 100%; height: 100%;
+				background-color: #ffffff; color: #0f172a;
+				overflow: hidden; font-family: 'Inter', sans-serif;
+			}
+
+			#app-container {
+				width: 100vw; height: 100vh; display: flex; flex-direction: column; position: relative;
+				background: linear-gradient(-45deg, #ffffff, #f0f4ff, #fdf4ff, #fff0f5, #f0fdfa, #ffffff);
+				background-size: 400% 400%; animation: gradientBG 20s ease infinite;
+			}
+
+			@keyframes gradientBG {
+				0% { background-position: 0% 50%; }
+				50% { background-position: 100% 50%; }
+				100% { background-position: 0% 50%; }
+			}
+
+			#presentation-stage {
+				flex-grow: 1; display: flex; justify-content: center; align-items: center;
+				position: relative; overflow: hidden;
+			}
+
+			#scale-wrapper {
+				width: var(--slide-w); height: var(--slide-h); position: relative;
+				transform-origin: center center; background: transparent; overflow: hidden;
+			}
+
+			.slide {
+				width: var(--slide-w); height: var(--slide-h); background-color: transparent;
+				position: absolute; top: 0; left: 0; box-sizing: border-box; overflow: hidden;
+				padding: 80px 120px; display: flex; flex-direction: column;
+				opacity: 0; visibility: hidden; pointer-events: none; transform: scale(0.95);
+				transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.8s;
+				z-index: 10;
+			}
+
+			.slide.active { opacity: 1; visibility: visible; pointer-events: auto; transform: scale(1); z-index: 20; }
+
+			.reveal { opacity: 0; transform: translateY(40px); transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
+			.slide.active .reveal { opacity: 1; transform: translateY(0); }
+
+			.delay-1 { transition-delay: 0.1s; } .delay-2 { transition-delay: 0.2s; }
+			.delay-3 { transition-delay: 0.3s; } .delay-4 { transition-delay: 0.4s; }
+			.delay-5 { transition-delay: 0.5s; } .delay-6 { transition-delay: 0.6s; }
+			.delay-7 { transition-delay: 0.7s; } .delay-8 { transition-delay: 0.8s; }
+
+			.content-layer { position: relative; z-index: 10; height: 100%; display: flex; flex-direction: column; width: 100%; }
+
+			.strict-card {
+				background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+				border: 1px solid rgba(0, 0, 0, 0.05); box-shadow: 0 15px 35px rgba(0, 0, 0, 0.04); border-radius: 24px;
+			}
+
+			.portal-mask {
+				position: relative; display: flex; justify-content: center; align-items: center;
+				mask-image: radial-gradient(circle at center, black 40%, transparent 70%);
+				-webkit-mask-image: radial-gradient(circle at center, black 40%, transparent 70%);
+				height: 100%; width: 100%; cursor: pointer;
+			}
+
+			.character-idle {
+				max-height: 520px; width: auto; animation: float-idle 6s ease-in-out infinite alternate;
+				transform-origin: center center; transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), filter 0.5s ease;
+				filter: drop-shadow(0 0 0 transparent); position: relative; z-index: 5;
+			}
+
+			.portal-mask:hover .character-idle { transform: scale(1.08) translateY(-15px); filter: drop-shadow(0 20px 40px rgba(14, 165, 233, 0.3)); animation-play-state: paused; }
+			.portal-mask:active .character-idle { transform: scale(0.98) translateY(5px); transition: transform 0.1s; }
+
+			@keyframes float-idle { 0% { transform: translateY(15px) scale(0.98); } 100% { transform: translateY(-15px) scale(1.02); } }
+
+			.pulse-ring {
+				position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.5);
+				width: 400px; height: 400px; border-radius: 50%; border: 4px solid rgba(14, 165, 233, 0.6);
+				opacity: 0; pointer-events: none; z-index: 1;
+			}
+
+			@keyframes click-pulse { 0% { transform: translate(-50%, -50%) scale(0.5); opacity: 1; border-width: 15px; } 100% { transform: translate(-50%, -50%) scale(1.8); opacity: 0; border-width: 1px; } }
+			.pulse-anim { animation: click-pulse 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+			.ai-tooltip {
+				position: absolute; bottom: 10%; background: rgba(255, 255, 255, 0.95); border: 2px solid rgba(14, 165, 233, 0.5);
+				color: #0f172a; padding: 10px 24px; border-radius: 100px; font-size: 14px; font-weight: bold;
+				letter-spacing: 0.15em; text-transform: uppercase; opacity: 0; transform: translateY(20px);
+				transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+				pointer-events: none; z-index: 10; box-shadow: 0 10px 25px rgba(14, 165, 233, 0.2);
+			}
+
+			.ai-tooltip.show { opacity: 1; transform: translateY(0); }
+
+			.macos-term {
+				background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(20px); border: 1px solid rgba(0, 0, 0, 0.08);
+				border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+			}
+			.macos-header { background: rgba(241, 245, 249, 0.9); padding: 12px 20px; display: flex; gap: 8px; align-items: center; border-bottom: 1px solid rgba(0, 0, 0, 0.05); }
+			.macos-dot { width: 12px; height: 12px; border-radius: 50%; }
+			.macos-dot.r { background: #ef4444; } .macos-dot.y { background: #f59e0b; } .macos-dot.g { background: #10b981; }
+			
+			.macos-body { padding: 24px; font-family: 'JetBrains Mono', monospace; font-size: 14px; color: #1e293b; line-height: 1.7; overflow-y: auto; flex-grow: 1; }
+
+			#nav-left, #nav-right { position: absolute; top: 0; bottom: 0; width: 15%; z-index: 100; cursor: pointer; }
+			#nav-left { left: 0; } #nav-right { right: 0; }
+		</style>
+	</head>
+	<body>
+		<div id="app-container">
+			<div id="nav-left" onclick="prevSlide()" title="Назад"></div>
+			<div id="nav-right" onclick="nextSlide()" title="Вперед"></div>
+
+			<!-- СЦЕНА ПРЕЗЕНТАЦИИ -->
+			<main id="presentation-stage">
+				<div id="scale-wrapper">
+					
+					<!-- СЛАЙД 1: Титульный -->
+					<div class="slide active">
+						<div class="absolute -top-[500px] -right-[200px] w-[1000px] h-[1000px] rounded-full bg-pro-blue/10 blur-[120px] pointer-events-none"></div>
+						<div class="content-layer justify-between flex flex-col h-full">
+							
+							<!-- Шапка по центру -->
+							<div class="flex flex-col items-center text-center w-full shrink-0 reveal delay-1 mb-4">
+								<p class="text-[11px] font-bold uppercase tracking-[0.2em] text-pro-muted mb-1">Министерство образования Омской области</p>
+								<p class="text-[11px] font-bold uppercase tracking-[0.15em] text-pro-muted mb-3">Бюджетное профессиональное образовательное учреждение Омской области</p>
+								<h3 class="text-[15px] font-bold uppercase tracking-[0.1em] text-pro-text">«Омский авиационный колледж имени Н.Е. Жуковского»</h3>
+								<div class="h-px w-32 bg-pro-blue my-4 opacity-50"></div>
+								<p class="text-[12px] uppercase tracking-widest text-pro-blue font-bold">Выпускная квалификационная работа</p>
+							</div>
+
+							<div class="flex-grow flex items-center justify-between w-full mt-2 min-h-0">
+								<div class="w-[55%] pr-10">
+									<h2 class="text-2xl text-pro-blue mb-6 font-medium tracking-wider reveal delay-2">Дипломный проект</h2>
+									<h1 class="text-6xl leading-[1.1] font-extrabold mb-8 tracking-tight text-pro-text reveal delay-3">Обеспечение информационной безопасности ООО «Ремон Девелопер»</h1>
+									<p class="text-xl text-pro-text font-medium border-l-4 border-pro-blue pl-6 py-2 reveal delay-4">Разработка программного комплекса активной ИБ-аналитики на базе генеративного ИИ.</p>
+								</div>
+								<!-- ИНТЕРАКТИВНЫЙ ПЕРСОНАЖ (ТОТЕМ) -->
+								<div class="w-[45%] flex justify-center items-center relative h-full reveal delay-5">
+									<div class="portal-mask" onclick="triggerCharacterInteraction()">
+										<div id="char-pulse" class="pulse-ring"></div>
+										<img src="Gemini_Generated_Image_gc3xa8gc3xa8gc3x.png" alt="Mistral Totem" class="character-idle drop-shadow-2xl" />
+										<div id="ai-tooltip" class="ai-tooltip"><i class="fas fa-robot mr-2"></i> ИИ-Агент Активен</div>
+									</div>
+								</div>
+							</div>
+
+							<!-- Подвал: Фамилии и Год -->
+							<div class="w-full flex justify-between items-end border-t border-pro-border pt-6 mt-auto shrink-0 reveal delay-6">
+								<div class="grid grid-cols-2 gap-10 max-w-4xl">
+									<div>
+										<p class="text-[12px] font-bold uppercase tracking-widest text-pro-muted mb-2">Выполнил студент</p>
+										<p class="font-bold text-2xl tracking-tight mb-1 text-pro-text">Ивашкин Д.А.</p>
+										<p class="text-[12px] text-pro-blue font-bold tracking-wider uppercase">Группа БП412</p>
+									</div>
+									<div>
+										<p class="text-[12px] font-bold uppercase tracking-widest text-pro-muted mb-2">Руководитель проекта</p>
+										<p class="font-bold text-2xl tracking-tight text-pro-text">Ярмухамедов А.Р.</p>
+									</div>
+								</div>
+								
+								<div class="px-6 py-3 border border-pro-border rounded-full bg-white backdrop-blur shrink-0 shadow-sm mb-2">
+									<span class="text-[13px] font-bold text-pro-muted uppercase tracking-[0.1em]">Омск – 2026</span>
+								</div>
+							</div>
+
+						</div>
+					</div>
+
+					<!-- СЛАЙД 2: Цель и задачи -->
+					<div class="slide">
+						<div class="content-layer">
+							<div class="flex justify-between items-end mb-16 border-b border-pro-border pb-6 reveal delay-1">
+								<h2 class="text-5xl font-extrabold tracking-tight text-pro-text">Цель и задачи исследования</h2>
+							</div>
+
+							<div class="flex gap-16 flex-grow items-center h-full pb-8">
+								<div class="w-[45%] h-full flex flex-col justify-center reveal delay-2">
+									<div class="strict-card p-12 border-l-4 border-pro-blue">
+										<h3 class="text-[13px] font-bold uppercase tracking-widest text-pro-blue mb-6">Главная цель</h3>
+										<p class="text-3xl leading-relaxed font-semibold text-pro-text">Разработка программного комплекса для централизованного сбора телеметрии и автоматизированного реагирования на угрозы.</p>
+									</div>
+								</div>
+
+								<div class="w-[55%] reveal delay-3">
+									<h3 class="text-[13px] font-bold uppercase tracking-widest text-pro-muted mb-8">Технические задачи проекта:</h3>
+									<div class="space-y-8">
+										<div class="flex items-center gap-6 reveal delay-4">
+											<div class="text-pro-blue font-mono font-bold text-xl">01</div>
+											<p class="text-2xl text-pro-text font-medium">Анализ предметной области и текущих механизмов защиты.</p>
+										</div>
+										<div class="flex items-center gap-6 reveal delay-5">
+											<div class="text-pro-blue font-mono font-bold text-xl">02</div>
+											<p class="text-2xl text-pro-text font-medium">Настройка защиты уровня доступа и распределения (WSS).</p>
+										</div>
+										<div class="flex items-center gap-6 reveal delay-6">
+											<div class="text-pro-blue font-mono font-bold text-xl">03</div>
+											<p class="text-2xl text-pro-text font-medium">Реализация ядра с динамической блокировкой IP (SOAR).</p>
+										</div>
+										<div class="flex items-center gap-6 reveal delay-7">
+											<div class="text-pro-blue font-mono font-bold text-xl">04</div>
+											<p class="text-2xl text-pro-text font-medium">Настройка сервера Ubuntu 24 с Semgrep и Trivy.</p>
+										</div>
+										<div class="flex items-center gap-6 reveal delay-8">
+											<div class="text-white font-mono font-bold text-xl bg-pro-blue w-8 h-8 flex items-center justify-center rounded shadow-sm">05</div>
+											<p class="text-2xl text-pro-text font-bold">Интеграция ИИ-агента для расследования инцидентов.</p>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- СЛАЙД 3: Защищаемый объект и активы -->
+					<div class="slide">
+						<div class="content-layer">
+							<div class="flex justify-between items-end mb-16 border-b border-pro-border pb-6 reveal delay-1">
+								<h2 class="text-5xl font-extrabold tracking-tight text-pro-text">Защищаемый объект и активы</h2>
+							</div>
+							
+							<div class="flex gap-10 flex-grow pb-8 items-stretch h-full">
+								<!-- Левая часть: Портал и Требования -->
+								<div class="w-1/2 flex flex-col gap-8 reveal delay-2">
+									<div class="strict-card p-10 flex-grow border-l-4 border-pro-blue flex flex-col justify-center bg-white">
+										<h3 class="mb-4"><span class="font-bold text-2xl text-pro-text bg-pro-blue/10 px-4 py-2 rounded-xl inline-block border border-pro-blue/20"><i class="fas fa-building text-pro-blue mr-3"></i>Корпоративный веб-портал</span></h3>
+										<p class="text-xl font-medium text-pro-text leading-relaxed">
+											Сайт ООО «Ремон Девелопер» — критическая бизнес-единица компании. Установлен на выделенном сервере под управлением ОС 
+											<b class="text-pro-blue bg-pro-blue/10 px-3 py-1 rounded-lg shadow-sm border border-pro-blue/30 inline-block mt-1">Ubuntu 24</b>.
+										</p>
+									</div>
+									<div class="strict-card p-10 flex-grow border-l-4 border-pro-green flex flex-col justify-center bg-white">
+										<h3 class="mb-4"><span class="font-bold text-2xl text-pro-text bg-pro-green/10 px-4 py-2 rounded-xl inline-block border border-pro-green/20"><i class="fas fa-server text-pro-green mr-3"></i>Критические требования</span></h3>
+										<p class="text-xl font-medium text-pro-text leading-relaxed">
+											Обеспечение <b class="text-pro-text">непрерывной доступности сайта</b> для внешних пользователей. Простой портала ведет к прямым финансовым потерям.
+										</p>
+									</div>
+								</div>
+								
+								<!-- Правая часть: Грифы секретности (БЕЛОСНЕЖНЫЙ ФОН) -->
+								<div class="w-1/2 flex flex-col reveal delay-3">
+									<div class="strict-card p-10 h-full flex flex-col justify-center border-t-4 border-pro-red bg-white">
+										<div class="text-center mb-10">
+											<i class="fas fa-user-secret text-6xl text-pro-red mb-4 drop-shadow-md"></i>
+											<h3 class="font-bold text-3xl text-pro-text">Грифы секретности</h3>
+											<p class="text-pro-red mt-2 uppercase tracking-widest text-sm font-bold">Строго конфиденциальные данные</p>
+										</div>
+
+										<!-- КАРТОЧКИ НА БЕЛОМ ФОНЕ С ТЕМНЫМ ТЕКСТОМ -->
+										<div class="space-y-6 flex-grow flex flex-col justify-center px-4">
+											<div class="flex items-center gap-6 p-5 rounded-2xl bg-white shadow-[0_5px_20px_rgba(239,68,68,0.1)] border border-pro-red/15 transition-transform hover:-translate-y-1">
+												<div class="w-14 h-14 rounded-full bg-pro-red flex items-center justify-center shrink-0 shadow-lg shadow-pro-red/30"><i class="fas fa-id-card text-white text-2xl"></i></div>
+												<p class="text-xl font-bold text-pro-text">Данные владельцев квартир</p>
+											</div>
+											<div class="flex items-center gap-6 p-5 rounded-2xl bg-white shadow-[0_5px_20px_rgba(239,68,68,0.1)] border border-pro-red/15 transition-transform hover:-translate-y-1">
+												<div class="w-14 h-14 rounded-full bg-pro-red flex items-center justify-center shrink-0 shadow-lg shadow-pro-red/30"><i class="fas fa-file-contract text-white text-2xl"></i></div>
+												<p class="text-xl font-bold text-pro-text">Проектно-финансовая документация</p>
+											</div>
+											<div class="flex items-center gap-6 p-5 rounded-2xl bg-white shadow-[0_5px_20px_rgba(239,68,68,0.1)] border border-pro-red/15 transition-transform hover:-translate-y-1">
+												<div class="w-14 h-14 rounded-full bg-pro-red flex items-center justify-center shrink-0 shadow-lg shadow-pro-red/30"><i class="fas fa-lock text-white text-2xl"></i></div>
+												<p class="text-xl font-bold text-pro-text">Коммерческая тайна девелопера</p>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- СЛАЙД 4: Проблематика инфраструктуры -->
+					<div class="slide">
+						<div class="content-layer">
+							<div class="flex justify-between items-end mb-16 border-b border-pro-border pb-6 reveal delay-1">
+								<h2 class="text-5xl font-extrabold tracking-tight text-pro-text">Проблематика инфраструктуры</h2>
+							</div>
+
+							<div class="grid grid-cols-2 gap-10 flex-grow pb-8">
+								<div class="strict-card p-10 flex flex-col gap-6 reveal delay-2 bg-white">
+									<div class="text-3xl text-white bg-pro-blue shadow-lg w-16 h-16 flex items-center justify-center rounded-2xl"><i class="fas fa-server"></i></div>
+									<h3 class="font-bold text-2xl text-pro-text">Фрагментация логов</h3>
+									<p class="text-lg text-pro-text font-medium leading-relaxed">Системные журналы веб-сервера Ubuntu 24, БД и ОС собираются разрозненно. Единая точка сбора телеметрии отсутствует.</p>
+								</div>
+								<div class="strict-card p-10 flex flex-col gap-6 reveal delay-3 bg-white">
+									<div class="text-3xl text-white bg-pro-blue shadow-lg w-16 h-16 flex items-center justify-center rounded-2xl"><i class="fas fa-clock"></i></div>
+									<h3 class="font-bold text-2xl text-pro-text">Реактивный подход</h3>
+									<p class="text-lg text-pro-text font-medium leading-relaxed">Критически долгое время реакции. При Brute-Force или SQLi специалист вынужден вручную сопоставлять данные для блокировки.</p>
+								</div>
+								<div class="strict-card p-10 flex flex-col gap-6 reveal delay-4 bg-white">
+									<div class="text-3xl text-white bg-pro-blue shadow-lg w-16 h-16 flex items-center justify-center rounded-2xl"><i class="fas fa-bug"></i></div>
+									<h3 class="font-bold text-2xl text-pro-text">Уязвимости в коде</h3>
+									<p class="text-lg text-pro-text font-medium leading-relaxed">Внедрение новых функций на портал происходит без автоматизированных систем контроля SAST/SCA.</p>
+								</div>
+								<div class="strict-card p-10 flex flex-col gap-6 border-l-4 border-pro-red bg-white reveal delay-5 shadow-[0_10px_40px_rgba(239,68,68,0.08)]">
+									<div class="text-3xl text-white bg-pro-red shadow-lg shadow-pro-red/40 w-16 h-16 flex items-center justify-center rounded-2xl"><i class="fas fa-user-shield"></i></div>
+									<h3 class="font-bold text-2xl text-pro-text">Дефицит кадров</h3>
+									<p class="text-lg text-pro-text font-medium leading-relaxed">В штате распределенной компании всего <span class="text-pro-red font-bold">1 специалист</span>. Ручной мониторинг физически невозможен.</p>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- СЛАЙД 5: Архитектура комплекса MISTRAL -->
+					<div class="slide">
+						<div class="content-layer">
+							<div class="flex justify-between items-end mb-10 border-b border-pro-border pb-6 reveal delay-1">
+								<h2 class="text-5xl font-extrabold tracking-tight text-pro-text">Архитектура комплекса MISTRAL</h2>
+							</div>
+
+							<div class="flex gap-8 flex-grow pb-4 items-stretch h-full mt-4">
+								
+								<!-- Левая колонка: Устройства заказчика (СВЕТЛЫЙ ФОН) -->
+								<div class="w-[42%] flex flex-col relative reveal delay-2">
+									<h3 class="text-lg font-bold text-white bg-pro-red px-6 py-2 rounded-t-2xl inline-block w-max uppercase tracking-widest shadow-md">Устройства заказчика</h3>
+									
+									<div class="strict-card p-10 rounded-tl-none flex-grow flex flex-col justify-center border-l-4 border-pro-red bg-white">
+										<div class="text-center mb-8 relative">
+											<i class="fas fa-globe text-7xl text-pro-red mb-2 drop-shadow-md"></i>
+											<div class="absolute -bottom-2 right-1/4 bg-white text-pro-red text-[11px] font-bold px-3 py-1 rounded-full shadow-md border border-pro-red/20 uppercase tracking-widest"><i class="fas fa-unlock-alt mr-1"></i>Без защиты</div>
+										</div>
+										<h3 class="text-3xl font-bold text-pro-text text-center mb-4">Web-стенд (Remon)</h3>
+										<p class="text-lg text-pro-text font-medium leading-relaxed text-center mb-8 px-4">Корпоративный сайт девелоперской компании, установленный на сервере.</p>
+										
+										<div class="mt-auto text-center border-t border-pro-border pt-6">
+											<p class="text-xs font-bold text-pro-red mb-3 uppercase tracking-widest">Стек технологий:</p>
+											<div class="font-mono text-lg font-bold text-pro-red bg-pro-red/10 px-5 py-2.5 rounded-xl inline-block border border-pro-red/20">Nginx + модули фильтрации</div>
+										</div>
+									</div>
+								</div>
+
+								<!-- Разделяющая стрелка -->
+								<div class="w-[8%] flex items-center justify-center reveal delay-3">
+									<i class="fas fa-arrow-right text-6xl text-pro-blue/30"></i>
+								</div>
+
+								<!-- Правая колонка: Разрабатываемые решения (СВЕТЛЫЙ ФОН) -->
+								<div class="w-[50%] flex flex-col relative reveal delay-4">
+									<h3 class="text-lg font-bold text-white bg-pro-blue px-6 py-2 rounded-t-2xl inline-block w-max uppercase tracking-widest shadow-md">Разрабатываемые решения</h3>
+									
+									<div class="strict-card p-10 rounded-tl-none flex-grow flex flex-col justify-center border-l-4 border-pro-blue bg-white gap-8 shadow-[0_15px_40px_rgba(14,165,233,0.1)]">
+										
+										<div class="flex items-start gap-6">
+											<div class="w-20 h-20 rounded-2xl bg-pro-blue flex items-center justify-center shrink-0 shadow-lg shadow-pro-blue/40 text-white">
+												<i class="fas fa-microchip text-4xl"></i>
+											</div>
+											<div class="flex-grow pt-1">
+												<h3 class="text-2xl font-bold text-pro-text mb-2">1. Mistral Server (Ядро)</h3>
+												<p class="text-lg text-pro-text font-medium leading-relaxed mb-4">Координирующий бэкенд (Lua-скрипты). Хранит логи в SQLite, применяет SOAR и API LLM.</p>
+												<div class="font-mono text-sm font-bold text-pro-blue bg-pro-blue/10 px-4 py-2 rounded-lg inline-block border border-pro-blue/20">Node.js / Express / SQLite</div>
+											</div>
+										</div>
+										
+										<div class="w-full h-px bg-gradient-to-r from-transparent via-pro-blue/20 to-transparent my-2"></div>
+
+										<div class="flex items-start gap-6">
+											<div class="w-20 h-20 rounded-2xl bg-pro-blue flex items-center justify-center shrink-0 shadow-lg shadow-pro-blue/40 text-white">
+												<i class="fas fa-desktop text-4xl"></i>
+											</div>
+											<div class="flex-grow pt-1">
+												<h3 class="text-2xl font-bold text-pro-text mb-2">2. Mistral Client</h3>
+												<p class="text-lg text-pro-text font-medium leading-relaxed mb-4">Десктопное приложение. Отображает инциденты, строит карту угроз и позволяет управлять блокировками.</p>
+												<div class="font-mono text-sm font-bold text-pro-blue bg-pro-blue/10 px-4 py-2 rounded-lg inline-block border border-pro-blue/20">Electron.js / HTML5 Canvas</div>
+											</div>
+										</div>
+
+									</div>
+								</div>
+
+							</div>
+						</div>
+					</div>
+
+					<!-- СЛАЙД 6: Защита доступа и WSS -->
+					<div class="slide">
+						<div class="content-layer">
+							<div class="flex justify-between items-end mb-16 border-b border-pro-border pb-6 reveal delay-1">
+								<h2 class="text-5xl font-extrabold tracking-tight text-pro-text">Защита доступа и WSS</h2>
+							</div>
+
+							<div class="flex h-full pb-6 gap-16 items-center">
+								<div class="w-1/2 flex flex-col gap-8 reveal delay-2">
+									<p class="text-xl text-pro-text font-medium leading-relaxed mb-6">
+										Взаимодействие между сервером и <b>Mistral Client</b> осуществляется
+										по полнодуплексному протоколу
+										<b>WebSocket Secure (WSS)</b> поверх TLS, что исключает
+										избыточный HTTP-Polling.
+									</p>
+									<ul class="space-y-8">
+										<li class="flex items-start gap-6 reveal delay-3">
+											<div class="mt-1 text-pro-blue text-2xl"><i class="fas fa-check-circle"></i></div>
+											<div>
+												<p class="text-xl font-bold text-pro-text">Аутентификация API</p>
+												<p class="text-base text-pro-muted mt-2 font-medium">Генерация сессионного токена при входе.</p>
+											</div>
+										</li>
+										<li class="flex items-start gap-6 reveal delay-4">
+											<div class="mt-1 text-pro-blue text-2xl"><i class="fas fa-shield-alt"></i></div>
+											<div>
+												<p class="text-xl font-bold text-pro-text">Защита от Replay Attack</p>
+												<p class="text-base text-pro-muted mt-2 font-medium">Проверка одноразового nonce-идентификатора.</p>
+											</div>
+										</li>
+										<li class="flex items-start gap-6 reveal delay-5">
+											<div class="mt-1 text-pro-blue text-2xl"><i class="fas fa-lock"></i></div>
+											<div>
+												<p class="text-xl font-bold text-pro-text">Изоляция Electron</p>
+												<p class="text-base text-pro-muted mt-2 font-medium">Внедрение <code>contextIsolation</code> и безопасного IPC-моста.</p>
+											</div>
+										</li>
+									</ul>
+								</div>
+
+								<div class="w-1/2 flex flex-col reveal delay-6">
+									<p class="text-xs font-bold text-pro-muted uppercase tracking-widest mb-4 pl-4">server_auth.log</p>
+									<div class="macos-term h-[400px]">
+										<div class="macos-header">
+											<div class="macos-dot r"></div><div class="macos-dot y"></div><div class="macos-dot g"></div>
+										</div>
+										<div class="macos-body text-[15px]">
+											<span class="text-pro-muted">[18:58:30]</span> <span class="text-pro-blue font-bold">INFO</span> HTTP POST /api/auth received<br>
+											<span class="text-pro-muted">[18:58:31]</span> <span class="text-[#f59e0b] font-bold">DEBUG</span> Token generated for user 'admin'<br>
+											<span class="text-pro-muted">[18:58:32]</span> <span class="text-pro-blue font-bold">INFO</span> WS Upgrade Request... <br>
+											<span class="text-pro-muted">[18:58:33]</span> <span class="text-pro-blue font-bold">INFO</span> WS client connected (awaiting auth)<br>
+											<span class="text-pro-muted">[18:58:33]</span> <span class="text-pro-green font-bold">DEBUG</span> Nonce validation: SUCCESS<br>
+											<span class="text-pro-muted">[18:58:33]</span> <span class="text-slate-900 font-bold">INFO WS client authenticated. Stream active.</span><br /><br>
+											<span class="text-pro-muted">[18:59:01]</span> <span class="text-pro-muted">WAIT</span> Receiving telemetry data...
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- СЛАЙД 7: Уровень ядра: Автоматизация (SOAR) -->
+					<div class="slide">
+						<div class="content-layer">
+							<div class="flex justify-between items-end mb-16 border-b border-pro-border pb-6 reveal delay-1">
+								<h2 class="text-5xl font-extrabold tracking-tight text-pro-text">Уровень ядра: Автоматизация (SOAR)</h2>
+							</div>
+
+							<div class="flex gap-16 flex-grow pb-8 items-center">
+								<div class="w-1/2 flex flex-col gap-8 reveal delay-2">
+									<h3 class="text-3xl font-bold text-pro-text mb-2">Динамическое экранирование</h3>
+									<p class="text-xl text-pro-text font-medium leading-relaxed">
+										Система анализирует логи. При фиксации перебора SSH или сетевого флуда, ядро SOAR формирует правило <code>ufw deny</code>, изолируя IP-адрес без участия оператора.
+									</p>
+									<div class="strict-card p-8 mt-6 border-l-4 border-pro-red reveal delay-3 bg-white">
+										<p class="text-[13px] font-bold uppercase tracking-widest text-pro-red mb-3">Режим DEFCON 1</p>
+										<p class="text-lg text-pro-text font-medium">При обнаружении критической серии атак система автоматически передает контекст инцидента ИИ-агенту.</p>
+									</div>
+								</div>
+
+								<div class="w-1/2 flex flex-col reveal delay-4">
+									<p class="text-xs font-bold text-pro-muted uppercase tracking-widest mb-4 pl-4">soar_core.log</p>
+									<div class="macos-term h-[400px]">
+										<div class="macos-header">
+											<div class="macos-dot r"></div><div class="macos-dot y"></div><div class="macos-dot g"></div>
+										</div>
+										<div class="macos-body text-[12px] leading-relaxed">
+											<div class="mb-3"><span class="text-[#f59e0b] font-bold">WARN</span> <span class="text-pro-muted font-medium">SOAR Auto-Ban Neutralized Threat: [ (SOAR: Auto-Ban DDoS Attempt)</span></div>
+											<div class="mb-3"><span class="text-[#f59e0b] font-bold">WARN</span> <span class="text-pro-muted font-medium">Инцидент [DDOS_IP]: DDoS: IP [ имеет 340 соединений [Регион: Германия (DE) | ISP: Hetzner Online GmbH | Угроза: 15%]</span></div>
+											<div class="mb-3"><span class="text-[#f59e0b] font-bold">WARN</span> <span class="text-pro-muted font-medium">SOAR Auto-Ban Neutralized Threat: [ (SOAR: Auto-Ban DDoS Attempt)</span></div>
+											<div class="mb-3"><span class="text-[#f59e0b] font-bold">WARN</span> <span class="text-pro-muted font-medium">Инцидент [DDOS_IP]: DDoS: IP [ имеет 340 соединений [Регион: Германия (DE) | ISP: Hetzner Online GmbH | Угроза: 15%]</span></div>
+											<div class="mb-3"><span class="text-[#f59e0b] font-bold">WARN</span> <span class="text-pro-muted font-medium">SOAR Auto-Ban Neutralized Threat: [ (SOAR: Auto-Ban DDoS Attempt)</span></div>
+											<div class="mb-3"><span class="text-[#f59e0b] font-bold">WARN</span> <span class="text-pro-muted font-medium">Инцидент [DDOS_IP]: DDoS: IP [ имеет 310 соединений [Регион: Германия (DE) | ISP: Hetzner Online GmbH | Угроза: 15%]</span></div>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- СЛАЙД 8: Режим активного мониторинга -->
+					<div class="slide">
+						<div class="content-layer">
+							<div class="flex justify-between items-end mb-12 border-b border-pro-border pb-6 reveal delay-1">
+								<h2 class="text-5xl font-extrabold tracking-tight text-pro-text">Режим активного мониторинга</h2>
+							</div>
+
+							<div class="flex-grow flex flex-col gap-8 w-full h-full pb-8">
+								<p class="text-xl text-pro-text font-medium leading-relaxed reveal delay-2">
+									Система непрерывно собирает телеметрию. Встроенные системные логи, метрики контейнеров и предупреждения об угрозах (DDoS, аномальные процессы) консолидируются в едином рабочем пространстве <b>Mistral Client</b>.
+								</p>
+								<div class="flex-grow w-full rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.08)] border border-pro-border reveal delay-3 bg-white flex items-center justify-center p-1">
+									<img src="image_a3e62f.png" alt="Интерфейс логов системы" class="w-full h-full object-contain rounded-xl" onerror="this.src='image_a3e62f.jpg'" />
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- СЛАЙД 9: DevSecOps (Аудит кода) -->
+					<div class="slide">
+						<div class="content-layer">
+							<div class="flex justify-between items-end mb-16 border-b border-pro-border pb-6 reveal delay-1">
+								<h2 class="text-5xl font-extrabold tracking-tight text-pro-text">DevSecOps (Аудит кода)</h2>
+							</div>
+
+							<div class="flex gap-16 items-center flex-grow pb-8">
+								<div class="w-1/2 flex flex-col gap-8">
+									<div class="strict-card p-10 flex flex-col reveal delay-2 border-l-4 border-pro-blue bg-white">
+										<div class="flex items-center gap-4 mb-4">
+											<div class="text-white bg-pro-blue w-12 h-12 rounded-xl flex items-center justify-center text-2xl shadow-md"><i class="fas fa-code"></i></div>
+											<h3 class="font-bold text-2xl text-pro-text">Semgrep (SAST)</h3>
+										</div>
+										<p class="text-lg text-pro-text font-medium leading-relaxed">Инструмент статического анализа кода портала. Выявляет уязвимости (SQL-инъекции, хардкод паролей) до вывода в продакшен.</p>
+									</div>
+									<div class="strict-card p-10 flex flex-col reveal delay-3 border-l-4 border-pro-green bg-white">
+										<div class="flex items-center gap-4 mb-4">
+											<div class="text-white bg-pro-green w-12 h-12 rounded-xl flex items-center justify-center text-2xl shadow-md"><i class="fas fa-box-open"></i></div>
+											<h3 class="font-bold text-2xl text-pro-text">Trivy (SCA)</h3>
+										</div>
+										<p class="text-lg text-pro-text font-medium leading-relaxed">Сканер зависимостей. Сопоставляет версии библиотек npm и пакетов ОС Ubuntu с международными базами уязвимостей CVE.</p>
+									</div>
+								</div>
+
+								<div class="w-1/2 flex flex-col reveal delay-4">
+									<p class="text-xs font-bold text-pro-muted uppercase tracking-widest mb-4 pl-4">scanner_output.log</p>
+									<div class="macos-term h-[400px]">
+										<div class="macos-header">
+											<div class="macos-dot r"></div><div class="macos-dot y"></div><div class="macos-dot g"></div>
+										</div>
+										<div class="macos-body text-[14px]">
+											<span class="text-pro-blue font-bold">INFO</span> Running Semgrep SAST scan on /var/www/remon...<br>
+											<span class="text-pro-muted font-medium">Scanning 142 files with 84 rules...</span><br>
+											<span class="text-pro-red font-bold">High: sql-injection-detected</span><br>
+											<span class="text-pro-muted font-medium">File: src/controllers/auth.js:42</span><br>
+											<span class="text-[#f59e0b] font-medium">Code: db.query(`SELECT * FROM users WHERE name='${req.body.name}'`);</span><br><br>
+											<span class="text-pro-blue font-bold">INFO</span> Running Trivy Vulnerability Scanner...<br>
+											<span class="text-[#f59e0b] font-bold">WARN</span> express@4.17.1 -> CVE-2022-24999<br>
+											<span class="text-pro-green font-bold">DONE</span> Audit complete. Reports saved to DB.
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- СЛАЙД 10: Интеллектуальный ИИ-Агент -->
+					<div class="slide">
+						<div class="content-layer">
+							<div class="flex justify-between items-end mb-16 border-b border-pro-border pb-6 reveal delay-1">
+								<h2 class="text-5xl font-extrabold tracking-tight text-pro-text">Интеллектуальный ИИ-Агент</h2>
+							</div>
+
+							<div class="flex gap-16 flex-grow pb-8 items-center">
+								<div class="w-1/2 flex flex-col justify-center reveal delay-2">
+									<h3 class="text-3xl font-bold text-pro-text mb-6">Авторасследование инцидентов</h3>
+									<p class="text-xl text-pro-text font-medium leading-relaxed mb-8">Сервер интегрирован с языковыми моделями через защищенный API-шлюз. Агент получает на вход сырые логи уязвимостей, семантически разбирает их и генерирует <b class="text-pro-blue bg-pro-blue/10 px-2 rounded">готовые патчи (bash-скрипты)</b>.</p>
+									<p class="text-xl text-pro-text font-medium leading-relaxed">Это позволяет оператору в один клик ликвидировать сложные угрозы, заменяя часы ручного разбора кода и конфигураций.</p>
+								</div>
+
+								<div class="w-1/2 flex flex-col h-full justify-center reveal delay-3">
+									<p class="text-xs font-bold text-pro-muted uppercase tracking-widest mb-4 pl-4">Скриншот: AI Report (Анализ и патчи)</p>
+									<div class="flex-grow w-full max-h-[500px] min-h-[400px] rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.08)] border border-pro-border bg-white flex items-center justify-center p-2 relative">
+										<img src="ai_report.png" alt="Скриншот AI Report" class="w-full h-full object-contain rounded-xl z-10 relative" />
+										<div class="absolute inset-0 flex flex-col items-center justify-center z-0 opacity-40">
+											<i class="fas fa-robot text-5xl text-pro-blue mb-4"></i>
+											<p class="text-pro-text font-bold font-mono text-sm">Место для скриншота</p>
+											<p class="text-pro-muted font-medium text-xs mt-2">AI Report / Генерация патча</p>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- СЛАЙД 11: Оценка эффективности -->
+					<div class="slide">
+						<div class="content-layer">
+							<div class="flex justify-between items-end mb-16 border-b border-pro-border pb-6 reveal delay-1">
+								<h2 class="text-5xl font-extrabold tracking-tight text-pro-text">Оценка эффективности (Симуляция)</h2>
+							</div>
+
+							<div class="flex gap-16 flex-grow pb-8 items-center">
+								<div class="w-1/2 strict-card p-12 h-full flex flex-col justify-center border-t-4 border-pro-blue bg-white reveal delay-2">
+									<h4 class="font-bold text-pro-text text-2xl border-b border-pro-border pb-4 mb-8">Сценарии атак (Mistral Demo):</h4>
+									<div class="space-y-8">
+										<div class="flex items-center gap-6"><div class="text-white bg-pro-blue font-bold w-10 h-10 flex items-center justify-center rounded-lg shadow-md font-mono">01</div><p class="text-xl font-bold text-pro-text">Сканирование портов (Nmap)</p></div>
+										<div class="flex items-center gap-6"><div class="text-white bg-pro-blue font-bold w-10 h-10 flex items-center justify-center rounded-lg shadow-md font-mono">02</div><p class="text-xl font-bold text-pro-text">Перебор SSH (Hydra Brute-force)</p></div>
+										<div class="flex items-center gap-6"><div class="text-white bg-pro-red font-bold w-10 h-10 flex items-center justify-center rounded-lg shadow-md shadow-pro-red/40 font-mono">03</div><p class="text-xl font-bold text-pro-text">Сетевой флуд (DDoS)</p></div>
+										<div class="flex items-center gap-6"><div class="text-white bg-pro-red font-bold w-10 h-10 flex items-center justify-center rounded-lg shadow-md shadow-pro-red/40 font-mono">04</div><p class="text-xl font-bold text-pro-text">Внедрение кода (SQLi)</p></div>
+									</div>
+								</div>
+
+								<div class="w-1/2 flex flex-col h-full justify-center reveal delay-3">
+									<p class="text-xs font-bold text-pro-muted uppercase tracking-widest text-right mb-4 pr-4">Скриншот: Перехват в Mistral Client</p>
+									<div class="flex-grow w-full max-h-[500px] min-h-[400px] rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.08)] border border-pro-border bg-white flex items-center justify-center p-2 relative">
+										<img src="scan.png" alt="Скриншот Перехват в Mistral Client" class="w-full h-full object-contain rounded-xl z-10 relative" />
+										<div class="absolute inset-0 flex flex-col items-center justify-center z-0 opacity-40">
+											<i class="fas fa-shield-alt text-5xl text-pro-blue mb-4"></i>
+											<p class="text-pro-text font-bold font-mono text-sm">Место для скриншота</p>
+											<p class="text-pro-muted font-medium text-xs mt-2">Карточки инцидентов в Mistral Client</p>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- СЛАЙД 12: Экономика -->
+					<div class="slide">
+						<div class="content-layer">
+							<div class="flex justify-between items-end mb-16 border-b border-pro-border pb-6 reveal delay-1">
+								<h2 class="text-5xl font-extrabold tracking-tight text-pro-text">Экономическая часть проекта</h2>
+							</div>
+
+							<div class="flex gap-16 flex-grow pb-8">
+								<div class="w-[60%] flex flex-col justify-center reveal delay-2">
+									<table class="w-full text-left text-lg text-pro-text font-medium bg-white rounded-2xl overflow-hidden shadow-sm border border-pro-border">
+										<thead class="text-sm text-pro-muted bg-slate-50 font-bold uppercase border-b-2 border-pro-border">
+											<tr>
+												<th class="px-6 py-6 tracking-widest">Статья затрат</th>
+												<th class="px-6 py-6 tracking-widest text-right">Сумма, руб.</th>
+											</tr>
+										</thead>
+										<tbody class="divide-y divide-pro-border border-b-2 border-pro-border">
+											<tr class="reveal delay-3 hover:bg-slate-50 transition-colors"><td class="px-6 py-6">Проектирование и документация</td><td class="px-6 py-6 text-right font-mono text-pro-blue font-bold">66 146,85</td></tr>
+											<tr class="reveal delay-4 hover:bg-slate-50 transition-colors"><td class="px-6 py-6">Разработка приложения</td><td class="px-6 py-6 text-right font-mono text-pro-blue font-bold">20 249,03</td></tr>
+											<tr class="reveal delay-5 hover:bg-slate-50 transition-colors"><td class="px-6 py-6">Тестирование безопасности</td><td class="px-6 py-6 text-right font-mono text-pro-blue font-bold">22 048,95</td></tr>
+											<tr class="reveal delay-6 hover:bg-slate-50 transition-colors"><td class="px-6 py-6">Материальные затраты (ПО/VPS)</td><td class="px-6 py-6 text-right font-mono text-pro-blue font-bold">3 541,12</td></tr>
+											<tr class="reveal delay-7 hover:bg-slate-50 transition-colors"><td class="px-6 py-6">Страховые взносы</td><td class="px-6 py-6 text-right font-mono text-pro-blue font-bold">32 533,45</td></tr>
+										</tbody>
+										<tfoot class="bg-slate-50">
+											<tr class="reveal delay-8">
+												<td class="px-6 py-8 font-bold uppercase tracking-widest text-pro-text text-sm">Общие затраты</td>
+												<td class="px-6 py-8 font-black text-right text-pro-red text-3xl font-mono">144 519,40</td>
+											</tr>
+										</tfoot>
+									</table>
+								</div>
+
+								<div class="w-[40%] flex flex-col justify-center items-center reveal delay-4">
+									<div class="strict-card p-12 text-center w-full relative border-t-4 border-pro-green bg-white">
+										<p class="text-xs font-bold text-pro-green uppercase tracking-widest mb-6">Бюджет соблюден</p>
+										<div class="w-24 h-24 rounded-full bg-pro-green text-white flex items-center justify-center text-4xl mx-auto mb-8 shadow-lg shadow-pro-green/40"><i class="fas fa-check"></i></div>
+										<p class="text-lg text-pro-text font-medium leading-relaxed">Разработка комплекса признана экономически целесообразной. Бюджет уложился в 144,5 тыс. руб. Применение Open-Source решений избавило от лицензий на коммерческие SIEM-системы.</p>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- СЛАЙД 13: Заключение -->
+					<div class="slide">
+						<div class="content-layer justify-center items-center">
+							<h2 class="text-7xl font-extrabold mb-10 tracking-tight text-center text-pro-text reveal delay-1">MISTRAL готов.</h2>
+							<div class="max-w-4xl text-center mb-20 reveal delay-2">
+								<p class="text-2xl text-pro-text font-medium leading-relaxed">Разработан программный комплекс оборонного класса, решивший проблему ручного мониторинга в условиях дефицита кадров.</p>
+							</div>
+
+							<div class="grid grid-cols-4 gap-8 w-full max-w-6xl mb-20">
+								<div class="strict-card p-8 text-center border-t-4 border-pro-blue reveal delay-3 bg-white hover:-translate-y-2 transition-transform shadow-lg">
+									<div class="text-pro-blue text-4xl mb-4"><i class="fas fa-shield-alt"></i></div>
+									<p class="text-xl font-bold text-pro-text mb-2">Защита</p>
+									<p class="text-sm text-pro-text font-medium">Надежный WSS канал.</p>
+								</div>
+								<div class="strict-card p-8 text-center border-t-4 border-pro-blue reveal delay-4 bg-white hover:-translate-y-2 transition-transform shadow-lg">
+									<div class="text-pro-blue text-4xl mb-4"><i class="fas fa-bolt"></i></div>
+									<p class="text-xl font-bold text-pro-text mb-2">SOAR</p>
+									<p class="text-sm text-pro-text font-medium">Авто-блокировка в UFW.</p>
+								</div>
+								<div class="strict-card p-8 text-center border-t-4 border-pro-blue reveal delay-5 bg-white hover:-translate-y-2 transition-transform shadow-lg">
+									<div class="text-pro-blue text-4xl mb-4"><i class="fas fa-search"></i></div>
+									<p class="text-xl font-bold text-pro-text mb-2">DevSecOps</p>
+									<p class="text-sm text-pro-text font-medium">Аудит Semgrep и Trivy.</p>
+								</div>
+								<div class="strict-card p-8 text-center border-t-4 border-pro-blue reveal delay-6 bg-white hover:-translate-y-2 transition-transform shadow-lg">
+									<div class="text-pro-blue text-4xl mb-4"><i class="fas fa-robot"></i></div>
+									<p class="text-xl font-bold text-pro-text mb-2">ИИ-Агент</p>
+									<p class="text-sm text-pro-text font-medium">Генерация патчей.</p>
+								</div>
+							</div>
+							<div class="text-center reveal delay-7">
+								<p class="text-[13px] text-pro-blue font-bold uppercase tracking-[0.3em]">Цели и задачи дипломного проекта выполнены</p>
+							</div>
+						</div>
+					</div>
+				</div>
+			</main>
+		</div>
+
+		<script>
+			let currentIndex = 0
+			const slides = document.querySelectorAll('.slide')
+
+			function updateSlides() {
+				slides.forEach((slide, index) => {
+					if (index === currentIndex) { slide.classList.add('active') } 
+					else { slide.classList.remove('active') }
+				})
+			}
+
+			function nextSlide() { if (currentIndex < slides.length - 1) { currentIndex++; updateSlides() } }
+			function prevSlide() { if (currentIndex > 0) { currentIndex--; updateSlides() } }
+
+			window.addEventListener('keydown', e => {
+				if (e.key === 'ArrowRight' || e.key === ' ') { nextSlide() } 
+				else if (e.key === 'ArrowLeft') { prevSlide() }
+			})
+
+			function scalePresentation() {
+				const stage = document.getElementById('presentation-stage')
+				const wrapper = document.getElementById('scale-wrapper')
+				const availW = stage.clientWidth
+				const availH = stage.clientHeight
+				const origW = 1600
+				const origH = 900
+				const scale = Math.min(availW / origW, availH / origH)
+				wrapper.style.transform = `scale(${scale})`
+			}
+
+			window.addEventListener('resize', scalePresentation)
+
+			function triggerCharacterInteraction() {
+				const ring = document.getElementById('char-pulse')
+				const tooltip = document.getElementById('ai-tooltip')
+				ring.classList.remove('pulse-anim')
+				void ring.offsetWidth 
+				ring.classList.add('pulse-anim')
+				tooltip.classList.add('show')
+				setTimeout(() => { tooltip.classList.remove('show') }, 2500)
+			}
+
+			updateSlides()
+			setTimeout(scalePresentation, 50)
+		</script>
+	</body>
+</html>
