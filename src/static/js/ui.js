@@ -592,37 +592,128 @@ function exportReportToDocx(filename, title, contentHtml) {
 }
 
 window.generateGlobalSOCReport = function() {
-    let reportText = `MISTRAL DEFENSE - GLOBAL SOC REPORT\n====================================\n`;
-    reportText += `Generated at: ${new Date().toLocaleString()}\n`;
-    reportText += `Total Threats Detected: ${threatCount || allIncidents.length}\n`;
-    reportText += `System Status: ${lastConnState === 'connected' ? 'ONLINE' : 'OFFLINE'}\n\n`;
+    const totalThreats = allIncidents.length;
+    const crit = allIncidents.filter(i => i.severity === 'CRITICAL').length;
+    const high = allIncidents.filter(i => i.severity === 'HIGH').length;
+    const med = allIncidents.filter(i => i.severity === 'MEDIUM').length;
+    const low = allIncidents.filter(i => i.severity === 'LOW').length;
     
-    reportText += `RECENT CRITICAL & HIGH INCIDENTS\n------------------------------------\n`;
-    const threats = allIncidents.filter(i => i.severity === 'CRITICAL' || i.severity === 'HIGH').slice(0, 20);
+    const ufwStatus = $('status-ufw')?.textContent || 'OFFLINE';
+    const f2bStatus = $('status-fail2ban')?.textContent || 'OFFLINE';
+    const luaStatus = $('status-lua')?.textContent || 'OFFLINE';
+    const activeModel = window.currentModel || 'deepseek-v4-pro';
     
-    if (threats.length === 0) {
-        reportText += `No critical or high incidents detected.\n`;
+    let docHtml = `
+        <div style="text-align: center; margin-bottom: 25px;">
+            <h1 style="color: #990000; font-size: 22pt; margin-bottom: 5px; font-family: 'Segoe UI Semibold', sans-serif;">MISTRAL DEFENSE SYSTEM</h1>
+            <h3 style="color: #555555; font-size: 14pt; margin-top: 0; border: none; padding-bottom: 10px; border-bottom: 2px solid #990000;">СВОДНЫЙ ОТЧЕТ ЦЕНТРА УПРАВЛЕНИЯ БЕЗОПАСНОСТЬЮ (SOC REPORT)</h3>
+            <p style="font-size: 9.5pt; color: #777777;">Сгенерировано автоматически: ${new Date().toLocaleString()}</p>
+        </div>
+        
+        <h2>1. СТАТУС СИСТЕМЫ И ПАРАМЕТРЫ ЗАЩИТЫ</h2>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 20px;">
+            <tr style="background-color: #f9f9f9;">
+                <td style="width: 40%; font-weight: bold; border: 1px solid #ddd; padding: 8px;">Активность UFW Брандмауэра</td>
+                <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold;">${ufwStatus}</td>
+            </tr>
+            <tr>
+                <td style="font-weight: bold; border: 1px solid #ddd; padding: 8px;">Интеграция защиты Fail2ban</td>
+                <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold;">${f2bStatus}</td>
+            </tr>
+            <tr style="background-color: #f9f9f9;">
+                <td style="font-weight: bold; border: 1px solid #ddd; padding: 8px;">Аналитические Lua Чеккеры</td>
+                <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold;">${luaStatus}</td>
+            </tr>
+            <tr>
+                <td style="font-weight: bold; border: 1px solid #ddd; padding: 8px;">Активная модель ИИ-Агента</td>
+                <td style="border: 1px solid #ddd; padding: 8px; font-family: Consolas, monospace;">${activeModel}</td>
+            </tr>
+        </table>
+        
+        <h2>2. РАСПРЕДЕЛЕНИЕ ИНЦИДЕНТОВ ПО КРИТИЧНОСТИ</h2>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 25px; text-align: center;">
+            <thead>
+                <tr style="background-color: #f2f2f2; font-weight: bold;">
+                    <th style="border: 1px solid #ddd; padding: 10px; color: #990000; width: 20%;">CRITICAL</th>
+                    <th style="border: 1px solid #ddd; padding: 10px; color: #e65c00; width: 20%;">HIGH</th>
+                    <th style="border: 1px solid #ddd; padding: 10px; color: #0066cc; width: 20%;">MEDIUM</th>
+                    <th style="border: 1px solid #ddd; padding: 10px; color: #555555; width: 20%;">LOW</th>
+                    <th style="border: 1px solid #ddd; padding: 10px; background-color: #e5e7eb; width: 20%;">ВСЕГО</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="border: 1px solid #ddd; padding: 12px; font-size: 14pt; font-weight: bold; color: #990000;">${crit}</td>
+                    <td style="border: 1px solid #ddd; padding: 12px; font-size: 14pt; font-weight: bold; color: #e65c00;">${high}</td>
+                    <td style="border: 1px solid #ddd; padding: 12px; font-size: 14pt; font-weight: bold; color: #0066cc;">${med}</td>
+                    <td style="border: 1px solid #ddd; padding: 12px; font-size: 14pt; font-weight: bold; color: #555555;">${low}</td>
+                    <td style="border: 1px solid #ddd; padding: 12px; font-size: 16pt; font-weight: bold; background-color: #f3f4f6;">${totalThreats}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>3. ЖУРНАЛ АКТИВНЫХ УГРОЗ БЕЗОПАСНОСТИ</h2>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 25px; font-size: 9.5pt;">
+            <thead>
+                <tr style="background-color: #f2f2f2; font-weight: bold;">
+                    <th style="border: 1px solid #ddd; padding: 8px; width: 18%;">Время</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; width: 15%;">Уровень</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; width: 32%;">Тип угрозы</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; width: 15%;">Детектор</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; width: 20%;">IP-Адрес</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    const threatsList = allIncidents.slice(0, 30);
+    if (threatsList.length === 0) {
+        docHtml += `<tr><td colspan="5" style="border: 1px solid #ddd; padding: 10px; text-align: center; font-style: italic; color: #777;">Активные инциденты отсутствуют.</td></tr>`;
     } else {
-        threats.forEach(inc => {
-            reportText += `[${inc.timestamp}] [${inc.severity}] ${inc.type}\n`;
-            reportText += `    Target/IP: ${inc.ip || inc.target || 'System'}\n`;
-            reportText += `    Status: ${inc.status || 'New'}\n`;
-            if (inc.aiAudit) reportText += `    AI Action: ${inc.aiAudit.substring(0, 100).replace(/\n/g, ' ')}...\n`;
-            reportText += `\n`;
+        threatsList.forEach(inc => {
+            let color = '#555555';
+            if (inc.severity === 'CRITICAL') color = '#990000';
+            else if (inc.severity === 'HIGH') color = '#e65c00';
+            else if (inc.severity === 'MEDIUM') color = '#0066cc';
+            
+            const time = (inc.timestamp || '').slice(0, 19).replace('T', ' ');
+            docHtml += `
+                <tr>
+                    <td style="border: 1px solid #ddd; padding: 8px; font-family: Consolas, monospace;">${time}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold; color: ${color};">${inc.severity}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;"><b>${inc.type}</b><br><span style="color: #666666; font-size: 8pt;">${inc.description || ''}</span></td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${inc.monitor || 'Sensor'}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px; font-family: Consolas, monospace;">${inc.ip || inc.target || 'System'}</td>
+                </tr>
+            `;
         });
     }
     
-    reportText += `\nSECURITY SCANNERS SUMMARY\n------------------------------------\n`;
-    reportText += $('scan-output') ? $('scan-output').textContent : 'No recent scans.';
+    docHtml += `
+            </tbody>
+        </table>
+        
+        <h2>4. РЕЗУЛЬТАТЫ СКАНИРОВАНИЯ СИСТЕМНОГО ОКРУЖЕНИЯ</h2>
+        <div style="background-color: #f8f9fa; border: 1px solid #e9ecef; padding: 12px; font-family: Consolas, 'Courier New', monospace; font-size: 9pt; white-space: pre-wrap; margin-bottom: 25px;">
+    `;
     
-    const blob = new Blob([reportText], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `GLOBAL-SOC-REPORT.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast('Export', 'Global SOC Report downloaded.', 'info');
+    const scanOut = $('scan-output') ? $('scan-output').textContent : 'Результаты сканирования уязвимостей отсутствуют.';
+    docHtml += esc(scanOut);
+    
+    docHtml += `
+        </div>
+        
+        <h2>5. РЕКОМЕНДАЦИИ И МЕРЫ РЕАГИРОВАНИЯ</h2>
+        <p style="margin-bottom: 8px;">Служба информационной безопасности ИИ-Агента MISTRAL рекомендует принять следующие превентивные меры:</p>
+        <ol style="line-height: 1.5; margin-left: 20px;">
+            <li>Регулярно обновлять базу данных сигнатур и правил WAF в отношении SQL-инъекций и XSS.</li>
+            <li>Активировать автоматический карантин IP-адресов в модуле SOAR при фиксации критических SSH и DDoS инцидентов.</li>
+            <li>Обеспечить изоляцию скомпрометированных Docker-контейнеров на основе отчетов Trivy-сканера.</li>
+        </ol>
+    `;
+    
+    const dateStr = new Date().toISOString().slice(0, 10);
+    exportReportToDocx(`GLOBAL-SOC-REPORT-${dateStr}`, 'MISTRAL GLOBAL SOC REPORT', docHtml);
 };
 
 function closeIncidentDrawer() {
@@ -763,6 +854,36 @@ function applyLogFilters() {
     const dateTo = $('log-date-to')?.value || '';
     const searchText = ($('log-search')?.value || '').toLowerCase();
     
+    // Calculate telemetry stats dynamically on the full loaded list
+    let errorsCount = 0;
+    let warnsCount = 0;
+    const sourcesSet = new Set();
+    const oneMinAgo = new Date(Date.now() - 60000);
+    let recentCount = 0;
+    
+    currentLogsData.forEach(entry => {
+        const lv = getAutoLevel(entry);
+        if (lv === 'error') errorsCount++;
+        else if (lv === 'warn') warnsCount++;
+        
+        const msg = entry.message || '';
+        const match = msg.match(/^\[([^\]]+)\]/);
+        const src = match ? match[1] : 'Система';
+        sourcesSet.add(src);
+        
+        try {
+            if (entry.timestamp) {
+                const et = new Date(entry.timestamp);
+                if (et >= oneMinAgo) recentCount++;
+            }
+        } catch(e) {}
+    });
+    
+    if ($('log-stat-errors')) $('log-stat-errors').textContent = errorsCount;
+    if ($('log-stat-warns')) $('log-stat-warns').textContent = warnsCount;
+    if ($('log-stat-sources')) $('log-stat-sources').textContent = sourcesSet.size;
+    if ($('log-stat-recent')) $('log-stat-recent').textContent = recentCount;
+    
     let filtered = currentLogsData.filter(entry => {
         if (levelFilter !== 'all') {
             const lv = getAutoLevel(entry);
@@ -804,6 +925,14 @@ function applyLogFilters() {
         const div = document.createElement('div'); 
         const level = getAutoLevel(entry);
         div.className = `log-entry log-row-${level}`;
+        div.style.cursor = 'pointer';
+        div.title = 'Нажмите для просмотра подробностей события';
+        div.onclick = (e) => {
+            if (e.target.classList.contains('ip-chip') || e.target.tagName === 'BUTTON') {
+                return;
+            }
+            showLogDetailModal(entry);
+        };
         const t = (entry.timestamp||'').slice(0,19).replace('T',' ');
         div.innerHTML = `<span class="log-time">${t}</span><span class="log-level ${level}">${level.toUpperCase()}</span><span class="log-msg">${window.formatLogMessageWithIpActions(entry.message)}</span>`;
         fragment.appendChild(div);
@@ -818,6 +947,55 @@ function clearLogFilters() {
     const dt = $('log-date-to'); if (dt) dt.value = '';
     const ls = $('log-search'); if (ls) ls.value = '';
     applyLogFilters();
+}
+
+let activeDetailLog = null;
+
+function showLogDetailModal(entry) {
+    activeDetailLog = entry;
+    const modal = $('modal-log-detail');
+    if (!modal) return;
+    
+    const level = getAutoLevel(entry);
+    const t = (entry.timestamp || '').slice(0, 19).replace('T', ' ');
+    const msg = entry.message || '';
+    const match = msg.match(/^\[([^\]]+)\]/);
+    const src = match ? match[1] : 'Система';
+    
+    if ($('ld-time')) $('ld-time').textContent = t;
+    if ($('ld-level')) {
+        $('ld-level').textContent = level.toUpperCase();
+        $('ld-level').className = `log-level ${level}`;
+    }
+    if ($('ld-source')) $('ld-source').textContent = src;
+    if ($('ld-type')) $('ld-type').textContent = entry.type || 'server';
+    if ($('ld-message')) $('ld-message').textContent = msg;
+    
+    const aiBtn = $('btn-ld-ai');
+    if (aiBtn) {
+        aiBtn.onclick = () => {
+            closeLogDetailModal();
+            if (window.analyzeLog) window.analyzeLog(msg);
+        };
+    }
+    
+    modal.classList.remove('hidden');
+}
+
+function closeLogDetailModal() {
+    const modal = $('modal-log-detail');
+    if (modal) modal.classList.add('hidden');
+    activeDetailLog = null;
+}
+
+function copyLogMessageToClipboard() {
+    if (!activeDetailLog) return;
+    const msg = activeDetailLog.message || '';
+    navigator.clipboard.writeText(msg).then(() => {
+        showToast('Буфер обмена', 'Событие скопировано в буфер обмена', 'info');
+    }).catch(err => {
+        showToast('Ошибка', 'Не удалось скопировать: ' + err.message, 'warn');
+    });
 }
 
 function exportLogsToFile() {
