@@ -687,7 +687,7 @@
                             <button class="model-btn active" onclick="selectModel('deepseek-v4-pro',this)">DeepSeek V4 Pro</button>
                             <button class="model-btn" onclick="selectModel('kimi-k2.6',this)">Kimi K2.6</button>
                             <button class="model-btn" onclick="selectModel('claude-sonnet-4.6',this)">Claude Sonnet 4.6</button>
-                            <button class="model-btn" onclick="promptCustomModel()" style="border: 1px dashed var(--border); background: rgba(255,255,255,0.05); color: var(--cyan);">+ Add Custom</button>
+                            <button class="model-btn" onclick="openCustomModelsModal()" style="border: 1px dashed var(--border); background: rgba(255,255,255,0.05); color: var(--cyan);">+ Add Custom</button>
                         </div>
                     </div>
 
@@ -1112,6 +1112,56 @@
     </div> <!-- closes .content -->
 </div> <!-- closes #main-area -->
 </div> <!-- closes #app -->
+
+<!-- ═══ CUSTOM MODELS MODAL ═══ -->
+<div id="modal-custom-models" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); display:flex; justify-content:center; align-items:center; z-index:99999; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);">
+    <div class="login-box" style="width:550px; max-height:90%; padding:24px; border:1px solid rgba(255,255,255,0.08); background:rgba(10,14,25,0.95); box-shadow: 0 10px 40px rgba(0,0,0,0.8); display:flex; flex-direction:column; gap:16px;">
+        <div style="font-weight:900; font-size:14px; color:#fff; display:flex; justify-content:space-between; font-family:'JetBrains Mono',monospace;">
+            <span style="color:var(--cyan);">Настройка ИИ-моделей (Custom APIs)</span>
+            <span onclick="closeCustomModelsModal()" style="cursor:pointer; color:var(--dim)">✕</span>
+        </div>
+        
+        <div style="display:flex; flex-direction:column; gap:12px; background:rgba(255,255,255,0.02); padding:16px; border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
+            <input type="hidden" id="custom-model-edit-id">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                <div class="field-group" style="gap:4px; margin-bottom:0;">
+                    <label style="font-size:9px; color:var(--muted); text-transform:uppercase;">Название (Отображение)</label>
+                    <input type="text" id="custom-model-name" placeholder="например, Local Llama 3" style="background:rgba(0,0,0,0.4); border:1px solid var(--border); color:#fff; padding:8px; border-radius:6px; font-family:'JetBrains Mono',monospace;">
+                </div>
+                <div class="field-group" style="gap:4px; margin-bottom:0;">
+                    <label style="font-size:9px; color:var(--muted); text-transform:uppercase;">Имя модели (API ID)</label>
+                    <input type="text" id="custom-model-api-name" placeholder="например, llama3" style="background:rgba(0,0,0,0.4); border:1px solid var(--border); color:#fff; padding:8px; border-radius:6px; font-family:'JetBrains Mono',monospace;">
+                </div>
+            </div>
+            
+            <div class="field-group" style="gap:4px; margin-bottom:0;">
+                <label style="font-size:9px; color:var(--muted); text-transform:uppercase;">API Base URL</label>
+                <input type="text" id="custom-model-base-url" placeholder="например, http://localhost:11434/v1" style="background:rgba(0,0,0,0.4); border:1px solid var(--border); color:#fff; padding:8px; border-radius:6px; font-family:'JetBrains Mono',monospace;">
+            </div>
+            
+            <div class="field-group" style="gap:4px; margin-bottom:0;">
+                <label style="font-size:9px; color:var(--muted); text-transform:uppercase;">API Key (Ключ авторизации)</label>
+                <input type="password" id="custom-model-api-key" placeholder="Не требуется для локальных API" style="background:rgba(0,0,0,0.4); border:1px solid var(--border); color:#fff; padding:8px; border-radius:6px; font-family:'JetBrains Mono',monospace;">
+            </div>
+            
+            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:4px;">
+                <button onclick="clearCustomModelForm()" style="background:transparent; border:1px solid var(--border); color:#fff; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:11px;">Очистить</button>
+                <button onclick="saveCustomModelFromUI()" style="background:var(--cyan); border:none; color:#000; font-weight:700; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:11px;">Сохранить модель</button>
+            </div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:8px;">
+            <label style="font-size:10px; color:var(--muted); text-transform:uppercase; font-weight:700;">Сохраненные пользовательские модели</label>
+            <div id="custom-models-list-container" style="max-height:180px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; border:1px solid var(--border); padding:8px; border-radius:6px; background:rgba(0,0,0,0.3);">
+                <div style="color:var(--dim); font-size:11px; padding:8px 0; text-align:center;">Загрузка списка моделей...</div>
+            </div>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end;">
+            <button onclick="closeCustomModelsModal()" style="background:transparent; border:1px solid var(--border); color:#fff; padding:8px 16px; border-radius:6px; cursor:pointer; font-size:11px;">Закрыть</button>
+        </div>
+    </div>
+</div>
 
 <!-- ═══ MD REPORT VIEWER MODAL ═══ -->
 <div id="modal-md-viewer" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); display:flex; justify-content:center; align-items:center; z-index:99999; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);">

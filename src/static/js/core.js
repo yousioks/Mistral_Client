@@ -354,6 +354,14 @@ function handleMessage(msg) {
             if (msg.data) {
                 window.soarSettings = msg.data;
                 updateSoarCheckboxes(msg.data);
+                if (window.renderAIModels && window.customModelsList) {
+                    window.renderAIModels(window.customModelsList);
+                }
+            }
+            break;
+        case 'custom_models_updated':
+            if (msg.data && typeof window.renderAIModels === 'function') {
+                window.renderAIModels(msg.data);
             }
             break;
         case 'model_changed':

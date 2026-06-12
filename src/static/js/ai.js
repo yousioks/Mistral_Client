@@ -158,22 +158,6 @@ window.selectModel = function(model, btn) {
     }
 };
 
-window.promptCustomModel = function() {
-    const modelName = prompt('Enter custom neural network model ID (e.g., gpt-4o, llama-3):');
-    if (!modelName || !modelName.trim()) return;
-    
-    const container = document.getElementById('ai-models-container');
-    if (container) {
-        const btn = document.createElement('button');
-        btn.className = 'model-btn active';
-        btn.textContent = modelName.trim();
-        btn.onclick = function() { window.selectModel(modelName.trim(), this); };
-        
-        container.insertBefore(btn, container.lastElementChild);
-        window.selectModel(modelName.trim(), btn);
-    }
-};
-
 function populateAIIncidentDropdown() {
     const select = $("ai-incident-select");
     if (!select) return;
@@ -308,4 +292,161 @@ window.downloadLastAIResponse = function() {
     link.click();
     document.body.removeChild(link);
     showToast('ИИ-Агент', 'Отчёт загружен в формате Markdown', 'green');
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CUSTOM MODELS MANAGEMENT
+// ══════════════════════════════════════════════════════════════════════════════
+
+window.customModelsList = [];
+
+window.openCustomModelsModal = function() {
+    const modal = $('modal-custom-models');
+    if (modal) {
+        modal.classList.remove('hidden');
+        window.renderCustomModelsListModal();
+    }
+};
+
+window.closeCustomModelsModal = function() {
+    const modal = $('modal-custom-models');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+};
+
+window.clearCustomModelForm = function() {
+    $('custom-model-edit-id').value = '';
+    $('custom-model-name').value = '';
+    $('custom-model-api-name').value = '';
+    $('custom-model-base-url').value = '';
+    $('custom-model-api-key').value = '';
+};
+
+window.renderCustomModelsListModal = function() {
+    const container = $('custom-models-list-container');
+    if (!container) return;
+    
+    if (!window.customModelsList || window.customModelsList.length === 0) {
+        container.innerHTML = '<div style="color:var(--dim); font-size:11px; padding:8px 0; text-align:center;">Нет сохраненных моделей</div>';
+        return;
+    }
+    
+    let html = '';
+    window.customModelsList.forEach(m => {
+        html += `
+            <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); padding:8px; border-radius:6px; gap: 8px;">
+                <div style="display:flex; flex-direction:column; gap:2px; overflow:hidden;">
+                    <strong style="font-size:11px; color:#fff;">${esc(m.name)}</strong>
+                    <span style="font-size:10px; color:var(--muted); font-family:monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">API ID: ${esc(m.model_name)}</span>
+                    <span style="font-size:9px; color:var(--dim); font-family:monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${esc(m.base_url)}">${esc(m.base_url)}</span>
+                </div>
+                <div style="display:flex; gap:6px; flex-shrink:0;">
+                    <button class="btn-sm" onclick="window.editCustomModel('${esc(m.id)}')" style="padding:4px 8px; font-size:10px; background:rgba(6,182,212,0.1); border:1px solid rgba(6,182,212,0.2); color:var(--cyan); font-family:'JetBrains Mono',monospace;">Изм.</button>
+                    <button class="btn-sm" onclick="window.deleteCustomModel('${esc(m.id)}')" style="padding:4px 8px; font-size:10px; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.2); color:var(--red); font-family:'JetBrains Mono',monospace;">Уд.</button>
+                </div>
+            </div>
+        `;
+    });
+    container.innerHTML = html;
+};
+
+window.editCustomModel = function(id) {
+    const m = window.customModelsList.find(x => x.id === id);
+    if (!m) return;
+    $('custom-model-edit-id').value = m.id;
+    $('custom-model-name').value = m.name;
+    $('custom-model-api-name').value = m.model_name;
+    $('custom-model-base-url').value = m.base_url;
+    $('custom-model-api-key').value = m.api_key || '********';
+};
+
+window.saveCustomModelFromUI = function() {
+    const id = $('custom-model-edit-id').value || 'cm_' + Math.random().toString(36).slice(2, 11);
+    const name = $('custom-model-name').value.trim();
+    const model_name = $('custom-model-api-name').value.trim();
+    const base_url = $('custom-model-base-url').value.trim();
+    const api_key = $('custom-model-api-key').value;
+    
+    if (!name || !model_name || !base_url) {
+        showToast('Ошибка', 'Заполните Название, Имя модели и Base URL', 'warn');
+        return;
+    }
+    
+    const body = { id, name, model_name, base_url, api_key };
+    
+    if (window.electronAPI) {
+        window.electronAPI.sendApiRequest('/api/custom-models', 'POST', body)
+            .then(res => {
+                if (res && res.success) {
+                    showToast('ИИ-Модели', 'Модель успешно сохранена', 'green');
+                    window.clearCustomModelForm();
+                } else {
+                    showToast('Ошибка', (res && res.error) || 'Не удалось сохранить модель', 'warn');
+                }
+            })
+            .catch(err => {
+                showToast('Ошибка', 'Ошибка сохранения: ' + err.message, 'warn');
+            });
+    }
+};
+
+window.deleteCustomModel = function(id) {
+    if (!confirm('Вы уверены, что хотите удалить эту модель?')) return;
+    
+    if (window.electronAPI) {
+        window.electronAPI.sendApiRequest(`/api/custom-models/${id}`, 'DELETE')
+            .then(res => {
+                if (res && res.success) {
+                    showToast('ИИ-Модели', 'Модель успешно удалена', 'green');
+                    if ($('custom-model-edit-id').value === id) {
+                        window.clearCustomModelForm();
+                    }
+                } else {
+                    showToast('Ошибка', (res && res.error) || 'Не удалось удалить модель', 'warn');
+                }
+            })
+            .catch(err => {
+                showToast('Ошибка', 'Ошибка удаления: ' + err.message, 'warn');
+            });
+    }
+};
+
+window.renderAIModels = function(customModels) {
+    window.customModelsList = customModels || [];
+    const container = $('ai-models-container');
+    if (!container) return;
+    
+    let html = `
+        <button class="model-btn ${window.currentModel === 'deepseek-v4-pro' ? 'active' : ''}" onclick="selectModel('deepseek-v4-pro',this)">DeepSeek V4 Pro</button>
+        <button class="model-btn ${window.currentModel === 'kimi-k2.6' ? 'active' : ''}" onclick="selectModel('kimi-k2.6',this)">Kimi K2.6</button>
+        <button class="model-btn ${window.currentModel === 'claude-sonnet-4.6' ? 'active' : ''}" onclick="selectModel('claude-sonnet-4.6',this)">Claude Sonnet 4.6</button>
+    `;
+    
+    window.customModelsList.forEach(m => {
+        html += `<button class="model-btn ${window.currentModel === m.id ? 'active' : ''}" onclick="selectModel('${esc(m.id)}',this)">${esc(m.name)}</button>`;
+    });
+    
+    html += `
+        <button class="model-btn" onclick="openCustomModelsModal()" style="border: 1px dashed var(--border); background: rgba(255,255,255,0.05); color: var(--cyan);">+ Настроить модели</button>
+    `;
+    
+    container.innerHTML = html;
+    
+    // Also update settings dropdown soar-ai-model
+    const dropdown = $('soar-ai-model');
+    if (dropdown) {
+        let selectHtml = `
+            <option value="deepseek-v4-pro" ${window.soarSettings?.aiModel === 'deepseek-v4-pro' ? 'selected' : ''}>DeepSeek V4 Pro</option>
+            <option value="kimi-k2.6" ${window.soarSettings?.aiModel === 'kimi-k2.6' ? 'selected' : ''}>Kimi K2.6</option>
+            <option value="claude-sonnet-4.6" ${window.soarSettings?.aiModel === 'claude-sonnet-4.6' ? 'selected' : ''}>Claude Sonnet 4.6</option>
+        `;
+        window.customModelsList.forEach(m => {
+            selectHtml += `<option value="${esc(m.id)}" ${window.soarSettings?.aiModel === m.id ? 'selected' : ''}>${esc(m.name)}</option>`;
+        });
+        dropdown.innerHTML = selectHtml;
+    }
+
+    // Refresh the list inside modal if open
+    window.renderCustomModelsListModal();
 };

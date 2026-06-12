@@ -39,10 +39,10 @@ function doLogout() {
     token = null; serverBase = '';
     $('login-screen').classList.remove('hidden');
     $('app').classList.add('hidden');
-    $('running-logs').innerHTML = '';
-    $('incidents-list').innerHTML = '';
-    $('logs-feed').innerHTML = '';
-    $('dangerous-list').innerHTML = '';
+    if ($('running-logs')) $('running-logs').innerHTML = '';
+    if ($('incidents-list')) $('incidents-list').innerHTML = '';
+    if ($('logs-feed')) $('logs-feed').innerHTML = '';
+    if ($('dangerous-list')) $('dangerous-list').innerHTML = '';
     allIncidents = [];
     currentLogsData = [];
     updateRlogCount(0);
