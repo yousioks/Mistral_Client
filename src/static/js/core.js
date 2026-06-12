@@ -624,6 +624,17 @@ window.addEventListener('DOMContentLoaded', () => {
         document.body.classList.add('glow-active');
     }
 
+    // Prefill login config from Store if available
+    if (window.electronAPI && typeof window.electronAPI.getSavedConfig === 'function') {
+        window.electronAPI.getSavedConfig().then(config => {
+            if (config) {
+                if (config.host && $('inp-host')) $('inp-host').value = config.host;
+                if (config.port && $('inp-port')) $('inp-port').value = config.port;
+                if (config.username && $('inp-user')) $('inp-user').value = config.username;
+            }
+        }).catch(err => console.error("Failed to load saved server config:", err));
+    }
+
     // MITRE cells event bindings
     document.querySelectorAll('.mitre-cell').forEach(cell => {
         cell.onclick = () => {
@@ -742,6 +753,7 @@ function getMitreTechId(inc) {
 function updateSoarCheckboxes(settings) {
     const ddosCheckbox = $('soar-autoban-ddos');
     const bruteCheckbox = $('soar-autoban-bruteforce');
+    const honeypotCheckbox = $('soar-honeypot-enabled');
     
     const aiEnabled = $('soar-ai-enabled');
     const aiMakeChanges = $('soar-ai-make-changes');
@@ -752,6 +764,7 @@ function updateSoarCheckboxes(settings) {
     
     if (ddosCheckbox) ddosCheckbox.checked = !!settings.autoBanDdos;
     if (bruteCheckbox) bruteCheckbox.checked = !!settings.autoBanBruteForce;
+    if (honeypotCheckbox) honeypotCheckbox.checked = !!settings.honeypotEnabled;
     
     if (aiEnabled) aiEnabled.checked = !!settings.aiDefenseEnabled;
     if (aiMakeChanges) aiMakeChanges.checked = settings.aiMakeChanges !== false;
@@ -890,6 +903,7 @@ window.removeWhitelistIpUI = function(ip) {
 window.saveSoarSettingsUI = function() {
     const ddosCheckbox = $('soar-autoban-ddos');
     const bruteCheckbox = $('soar-autoban-bruteforce');
+    const honeypotCheckbox = $('soar-honeypot-enabled');
     
     const aiEnabled = $('soar-ai-enabled');
     const aiMakeChanges = $('soar-ai-make-changes');
@@ -901,6 +915,7 @@ window.saveSoarSettingsUI = function() {
     const settings = {
         autoBanDdos: ddosCheckbox ? ddosCheckbox.checked : false,
         autoBanBruteForce: bruteCheckbox ? bruteCheckbox.checked : false,
+        honeypotEnabled: honeypotCheckbox ? honeypotCheckbox.checked : false,
         aiDefenseEnabled: aiEnabled ? aiEnabled.checked : false,
         aiMakeChanges: aiMakeChanges ? aiMakeChanges.checked : false,
         aiModel: aiModel ? aiModel.value : 'deepseek-v4-pro',

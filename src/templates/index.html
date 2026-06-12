@@ -881,6 +881,13 @@
                                 <span style="font-size:10px; color:var(--muted);">Авто-бан IP при фиксации множественных попыток входа (SSH/Web).</span>
                             </div>
                         </label>
+                        <label style="display:flex; align-items:center; gap:10px; cursor:pointer; color:#fff; font-size:12px; background:rgba(255,255,255,0.03); padding:10px; border-radius:6px; border:1px solid var(--border);">
+                            <input type="checkbox" id="soar-honeypot-enabled" style="width:16px; height:16px; accent-color:var(--orange);" onchange="saveSoarSettingsUI()">
+                            <div>
+                                <strong style="display:block; color:var(--orange);">Активная приманка (Honeypot Decoy)</strong>
+                                <span style="font-size:10px; color:var(--muted);">Запустить имитацию платежного шлюза remon_payment_gateway на порту 8081.</span>
+                            </div>
+                        </label>
                     </div>
 
                     <div style="margin-top:16px; border-top:1px dashed var(--border); padding-top:16px;">

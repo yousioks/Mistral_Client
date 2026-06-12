@@ -6,6 +6,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  getSavedConfig: () => ipcRenderer.invoke('get-saved-config'),
   platform: process.platform,
   
   // IPC for Mistral Backend communication

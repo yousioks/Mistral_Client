@@ -5,6 +5,7 @@ const WebSocket = require('ws');
 const winston = require('winston');
 const DailyRotateFile = require('winston-daily-rotate-file');
 let notificationsEnabled = true;
+let store = null;
 
 // Allow self-signed SSL certificates for secure HTTPS/WSS localhost developer connections
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
@@ -293,6 +294,13 @@ setInterval(() => {
 // --- IPC Handlers ---
 ipcMain.handle('get-app-version', () => app.getVersion());
 
+ipcMain.handle('get-saved-config', () => {
+  if (store) {
+    return store.get('serverConfig') || null;
+  }
+  return null;
+});
+
 ipcMain.handle('set-notifications-enabled', (event, enabled) => {
   notificationsEnabled = !!enabled;
   if (store) {
@@ -323,7 +331,9 @@ ipcMain.handle('connect-server', async (event, { host, port, username, password 
     }
     const data = await res.json();
     if (data.success) {
-      store.set('serverConfig', { host, port }); // Store config
+      if (store) {
+        store.set('serverConfig', { host, port, username }); // Store config with username
+      }
       connectToServer(host, port, data.token);
       setTimeout(() => {
         if (mainWindow) mainWindow.webContents.send('initial-cache', cache);
