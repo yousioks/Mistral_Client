@@ -469,7 +469,7 @@ function renderIncidents(list) {
 function addIncidentRow(inc, prepend, container) {
     if(!container) container = $('incidents-tbody');
     // Remove "empty-td" if it exists
-    if(container.firstChild && container.firstChild.querySelector('.empty-td')) {
+    if(container.querySelector('.empty-td')) {
         container.innerHTML = '';
     }
     
