@@ -4,7 +4,12 @@
 let ws = null, token = null, serverBase = '';
 window.currentModel = 'deepseek-v4-pro';
 let reconnectTimer = null, reconnectAttempts = 0;
-let allIncidents = [];
+let allIncidentsVal = [];
+Object.defineProperty(window, 'allIncidents', {
+    get() { return allIncidentsVal; },
+    set(val) { allIncidentsVal = val; },
+    configurable: true
+});
 let chartRisk = null, chartNet = null, chartType = null;
 let autoDefenseTriggered = false;
 let threatCount = 0;
@@ -1257,3 +1262,43 @@ window.renderScanResultsInTerminal = function(r) {
     }
     scanOutput.textContent = text;
 };
+
+window.selectAllAiTriggerTypes = function() {
+    const triggerContainer = $('soar-ai-trigger-types');
+    if (triggerContainer) {
+        const checkboxes = triggerContainer.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(cb => cb.checked = true);
+        window.saveSoarSettingsUI();
+    }
+};
+
+window.clearAllAiTriggerTypes = function() {
+    const triggerContainer = $('soar-ai-trigger-types');
+    if (triggerContainer) {
+        const checkboxes = triggerContainer.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(cb => cb.checked = false);
+        window.saveSoarSettingsUI();
+    }
+};
+
+window.resetDefaultAiTriggerTypes = function() {
+    const triggerContainer = $('soar-ai-trigger-types');
+    if (triggerContainer) {
+        const defaults = [
+            'SQL_INJECTION',
+            'SSH_BRUTE_FORCE_SUCCESS',
+            'PRIVILEGE_ESCALATION',
+            'RANSOMWARE_ENCRYPTION',
+            'HONEYPOT_TRIGGERED',
+            'COMMAND_INJECTION',
+            'PATH_TRAVERSAL',
+            'MALICIOUS_C2_CONNECTION_DETECTED'
+        ];
+        const checkboxes = triggerContainer.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(cb => {
+            cb.checked = defaults.includes(cb.value);
+        });
+        window.saveSoarSettingsUI();
+    }
+};
+

@@ -1202,9 +1202,12 @@ ${contextText}
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// LOGS — with filters
-// ══════════════════════════════════════════════════════════════════════════════
-let currentLogsData = [];
+let currentLogsDataVal = [];
+Object.defineProperty(window, 'currentLogsData', {
+    get() { return currentLogsDataVal; },
+    set(val) { currentLogsDataVal = val; },
+    configurable: true
+});
 let lastUniqueSourcesStr = "";
 
 function updateSourceDropdown(logs) {
@@ -3611,7 +3614,11 @@ window.bulkDeleteLogsUI = function() {
     }
 };
 
-
-
-
-
+window.quarantineIp = quarantineIp;
+window.unquarantineIp = unquarantineIp;
+window.exportReport = exportReport;
+window.exportReportDocx = exportReportDocx;
+window.openIncidentDrawer = openIncidentDrawer;
+window.closeIncidentDrawer = closeIncidentDrawer;
+window.patchIncident = patchIncident;
+window.exportReportToDocx = exportReportToDocx;
