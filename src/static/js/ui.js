@@ -1667,35 +1667,17 @@ function submitManualBan() {
 const alertCooldowns = new Map();
 
 function showAlert(data) {
-    const type = data.type || '';
-    const desc = data.description || '';
-    const isDdos = type.includes('DDOS') || type.includes('DDoS') || desc.includes('DDoS') || desc.includes('SYN-RECV') || desc.includes('ESTABLISHED');
-    if (isDdos) return; // Suppress all DDoS notifications/toasts
-    
-    const suppressCheckbox = $('chk-suppress-ddos');
-    const shouldSuppress = suppressCheckbox ? suppressCheckbox.checked : true;
-    
-    if (isDdos && shouldSuppress) {
-        let key = type;
-        const ipMatch = desc.match(/\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/);
-        if (ipMatch) {
-            key += '_' + ipMatch[0];
-        } else if (data.details?.sourceIp || data.details?.ip) {
-            key += '_' + (data.details.sourceIp || data.details.ip);
-        }
-        
-        const now = Date.now();
-        const lastTime = alertCooldowns.get(key) || 0;
-        const cooldownMs = 180000; // 3 minutes cooldown
-        
-        if (now - lastTime < cooldownMs) {
-            console.log(`[SOC Alert Suppressed] DDoS notification rate-limited for key: ${key}`);
-            return;
-        }
-        alertCooldowns.set(key, now);
+    // Check if inside-app toasts are enabled
+    const uiToastsEnabled = localStorage.getItem('ui_toasts_enabled') !== 'false';
+    if (!uiToastsEnabled) {
+        console.log(`[SOC Alert] UI Toast suppressed (disabled in settings)`);
+        return;
     }
 
-    // Extract IP from incident for action buttons
+    const type = data.type || '';
+    const desc = data.description || '';
+    
+    // Extract IP from incident for action buttons and cooldown tracking
     let alertIp = data.ip || data.target || '';
     if (!alertIp) {
         const ipMatch = desc.match(/\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/);
@@ -1703,6 +1685,40 @@ function showAlert(data) {
     }
     if (!alertIp && data.details) {
         alertIp = data.details.sourceIp || data.details.ip || '';
+    }
+
+    const isDdos = type.includes('DDOS') || type.includes('DDoS') || desc.includes('DDoS') || desc.includes('SYN-RECV') || desc.includes('ESTABLISHED');
+    const isHoneypot = type.includes('HONEYPOT') || desc.toUpperCase().includes('HONEYPOT') || desc.toUpperCase().includes('ХАНИПОТ') || desc.includes('8081');
+
+    // Anti-flood / Cooldown filter
+    const antiFloodEnabled = localStorage.getItem('ui_notifications_antiflood') !== 'false';
+    if (antiFloodEnabled) {
+        let key = type;
+        if (alertIp) {
+            key += '_' + alertIp;
+        } else if (data.details?.sourceIp || data.details?.ip) {
+            key += '_' + (data.details.sourceIp || data.details.ip);
+        }
+
+        const now = Date.now();
+        const lastTime = alertCooldowns.get(key) || 0;
+        
+        let cooldownMs = 15000; // default 15 seconds
+        if (isHoneypot) {
+            cooldownMs = 30000; // 30 seconds for honeypots
+        } else if (isDdos) {
+            const suppressCheckbox = $('chk-suppress-ddos');
+            const shouldSuppressDdos = suppressCheckbox ? suppressCheckbox.checked : true;
+            if (shouldSuppressDdos) {
+                cooldownMs = 180000; // 3 minutes for ddos
+            }
+        }
+
+        if (now - lastTime < cooldownMs) {
+            console.log(`[SOC Alert Suppressed] Rate-limited key: ${key}`);
+            return;
+        }
+        alertCooldowns.set(key, now);
     }
 
     const sev = (data.severity || data.type || 'ALERT').toUpperCase();
@@ -1719,6 +1735,12 @@ function showAlert(data) {
 function showToast(title, message, type='info', ip='') {
     const container = $('toast-container');
     if (!container) return;
+
+    // Keep at most 3 toasts in DOM to avoid performance lag and screen spam
+    while (container.children.length >= 3) {
+        container.removeChild(container.firstChild);
+    }
+
     const t = document.createElement('div');
     t.className = `toast t-${type}`;
     const time = new Date().toLocaleTimeString();
@@ -1993,6 +2015,20 @@ window.toggleOSNotificationsSetting = function(checked) {
         window.electronAPI.setNotificationsEnabled(checked);
     }
     showToast('Настройки уведомлений', checked ? 'Системные уведомления включены' : 'Системные уведомления отключены', 'info');
+};
+
+window.toggleUIToastsSetting = function(checked) {
+    localStorage.setItem('ui_toasts_enabled', checked ? 'true' : 'false');
+    if (!checked) {
+        const container = $('toast-container');
+        if (container) container.innerHTML = '';
+    }
+    showToast('Настройки уведомлений', checked ? 'Всплывающие уведомления включены' : 'Всплывающие уведомления отключены', 'info');
+};
+
+window.toggleAntiFloodSetting = function(checked) {
+    localStorage.setItem('ui_notifications_antiflood', checked ? 'true' : 'false');
+    showToast('Настройки уведомлений', checked ? 'Защита от флуда включена' : 'Защита от флуда отключена', 'info');
 };
 
 window.toggleGlowEffectsSetting = function(checked) {

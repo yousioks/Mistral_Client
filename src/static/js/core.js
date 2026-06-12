@@ -602,6 +602,18 @@ window.addEventListener('DOMContentLoaded', () => {
     if (window.electronAPI && window.electronAPI.setNotificationsEnabled) {
         window.electronAPI.setNotificationsEnabled(osNotificationsEnabled);
     }
+
+    const toastsEnabled = localStorage.getItem('ui_toasts_enabled') !== 'false';
+    const uiToastsCheckbox = $('ui-toasts-enabled');
+    if (uiToastsCheckbox) {
+        uiToastsCheckbox.checked = toastsEnabled;
+    }
+
+    const antiFloodEnabled = localStorage.getItem('ui_notifications_antiflood') !== 'false';
+    const uiAntiFloodCheckbox = $('ui-notifications-antiflood');
+    if (uiAntiFloodCheckbox) {
+        uiAntiFloodCheckbox.checked = antiFloodEnabled;
+    }
     
     const glowEnabled = localStorage.getItem('glow_effects_enabled') === 'true';
     const uiGlowCheckbox = $('ui-glow-effects');

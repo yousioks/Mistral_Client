@@ -934,6 +934,20 @@
                             </div>
                         </label>
                         <label style="display:flex; align-items:center; gap:10px; cursor:pointer; color:#fff; font-size:12px; background:rgba(255,255,255,0.03); padding:10px; border-radius:6px; border:1px solid var(--border);">
+                            <input type="checkbox" id="ui-toasts-enabled" style="width:16px; height:16px; accent-color:var(--cyan);" onchange="toggleUIToastsSetting(this.checked)">
+                            <div>
+                                <strong style="display:block; color:var(--cyan);">Внутриинтерфейсные всплывающие уведомления (Toasts)</strong>
+                                <span style="font-size:10px; color:var(--muted);">Показывать всплывающие плашки уведомлений в правом верхнем углу интерфейса приложения.</span>
+                            </div>
+                        </label>
+                        <label style="display:flex; align-items:center; gap:10px; cursor:pointer; color:#fff; font-size:12px; background:rgba(255,255,255,0.03); padding:10px; border-radius:6px; border:1px solid var(--border);">
+                            <input type="checkbox" id="ui-notifications-antiflood" style="width:16px; height:16px; accent-color:var(--cyan);" onchange="toggleAntiFloodSetting(this.checked)">
+                            <div>
+                                <strong style="display:block; color:var(--cyan);">Режим защиты от флуда уведомлений (Anti-Flood Cooldown)</strong>
+                                <span style="font-size:10px; color:var(--muted);">Ограничивать частоту уведомлений для повторяющихся угроз с одного IP-адреса (кулдаун 15-30 сек).</span>
+                            </div>
+                        </label>
+                        <label style="display:flex; align-items:center; gap:10px; cursor:pointer; color:#fff; font-size:12px; background:rgba(255,255,255,0.03); padding:10px; border-radius:6px; border:1px solid var(--border);">
                             <input type="checkbox" id="ui-glow-effects" style="width:16px; height:16px; accent-color:var(--cyan);" onchange="toggleGlowEffectsSetting(this.checked)">
                             <div>
                                 <strong style="display:block; color:var(--cyan);">Футуристический неоновый глоу-эффект</strong>
