@@ -1201,6 +1201,8 @@ function updateSourceDropdown(logs) {
         const match = msg.match(/^\[([^\]]+)\]/);
         if (match) {
             sources.add(match[1]);
+        } else {
+            sources.add('Система');
         }
     });
     
@@ -1298,6 +1300,29 @@ function applyLogFilters() {
         return true;
     });
     
+    // Dynamic Sorting logic
+    const sortBy = $('log-sort-by')?.value || 'timestamp_desc';
+    filtered.sort((a, b) => {
+        if (sortBy === 'timestamp_asc') {
+            return new Date(a.timestamp || 0) - new Date(b.timestamp || 0);
+        } else if (sortBy === 'timestamp_desc') {
+            return new Date(b.timestamp || 0) - new Date(a.timestamp || 0);
+        } else if (sortBy === 'source_asc' || sortBy === 'source_desc') {
+            const matchA = (a.message || '').match(/^\[([^\]]+)\]/);
+            const srcA = matchA ? matchA[1] : 'Система';
+            const matchB = (b.message || '').match(/^\[([^\]]+)\]/);
+            const srcB = matchB ? matchB[1] : 'Система';
+            return sortBy === 'source_asc' ? srcA.localeCompare(srcB) : srcB.localeCompare(srcA);
+        } else if (sortBy === 'level_desc') {
+            const levels = { 'error': 4, 'warn': 3, 'info': 2, 'debug': 1 };
+            const lvA = levels[getAutoLevel(a)] || 0;
+            const lvB = levels[getAutoLevel(b)] || 0;
+            if (lvA !== lvB) return lvB - lvA;
+            return new Date(b.timestamp || 0) - new Date(a.timestamp || 0);
+        }
+        return 0;
+    });
+    
     window.currentFilteredLogs = filtered;
     
     const badge = $('logs-count-badge');
@@ -1338,6 +1363,7 @@ function clearLogFilters() {
     const df = $('log-date-from'); if (df) df.value = '';
     const dt = $('log-date-to'); if (dt) dt.value = '';
     const ls = $('log-search'); if (ls) ls.value = '';
+    const sb = $('log-sort-by'); if (sb) sb.value = 'timestamp_desc';
     applyLogFilters();
 }
 
@@ -1885,6 +1911,7 @@ function switchTab(name) {
             if (window.loadHardeningCompliance) window.loadHardeningCompliance(); 
         }
         if (name === 'apps') { if (window.loadApplicationsInfo) window.loadApplicationsInfo(); }
+        if (name === 'scanners') { if (window.updateDiscoveredScanTargets) window.updateDiscoveredScanTargets(); }
         if (name === 'incidents' && window.electronAPI) { window.electronAPI.sendWsMessage({event:'get_incidents'}); }
         if (name === 'map') {
             if (cyberMap) cyberMap.resize();
@@ -2281,6 +2308,8 @@ window.loadApplicationsInfo = function() {
     const data = window.lastMetricsData;
     if (!data) return;
     
+    if (window.updateDiscoveredScanTargets) window.updateDiscoveredScanTargets();
+    
     const dockerContainer = $('apps-docker-tbody');
     if (dockerContainer) {
         dockerContainer.innerHTML = '';
@@ -2483,6 +2512,92 @@ window.runSemgrepScan = function(rootPath) {
         $('btn-run-semgrep').disabled = false;
         $('btn-run-trivy').disabled = false;
         $('scan-output').textContent = `❌ Ошибка сканирования: ${err.message}`;
+    });
+};
+window.updateDiscoveredScanTargets = function() {
+    const data = window.lastMetricsData;
+    const container = $('discovered-scan-targets');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    const targets = [];
+    
+    // Add default target
+    targets.push({
+        type: 'DIRECTORY',
+        name: 'MISTRAL SOC Core',
+        path: '.',
+        scanner: 'semgrep',
+        badge: 'Система'
+    });
+    
+    if (data) {
+        // Nginx sites
+        const hasNginx = data.nginx && data.nginx.active;
+        const sites = (data.nginx_sites && data.nginx_sites.length > 0) ? data.nginx_sites : (hasNginx ? [
+            { domain: 'demo.mistral.local', port: '80', root: '/var/www/mistral-demo' },
+            { domain: 'waf.mistral.local', port: '443', root: '/var/www/remon-waf' }
+        ] : []);
+        
+        sites.forEach(s => {
+            targets.push({
+                type: 'DIRECTORY',
+                name: `Nginx: ${s.domain}`,
+                path: s.root,
+                scanner: 'semgrep',
+                badge: 'Веб-сервер'
+            });
+        });
+        
+        // Docker containers
+        const containers = (data.docker && data.docker.containers) || [];
+        containers.forEach(c => {
+            targets.push({
+                type: 'CONTAINER',
+                name: `Docker: ${c.name}`,
+                path: c.id,
+                scanner: 'trivy',
+                badge: c.image
+            });
+        });
+    }
+    
+    if (targets.length === 0) {
+        container.innerHTML = '<div style="color:var(--dim); font-style:italic; font-size:11px; padding:10px;">Нет обнаруженных целей</div>';
+        return;
+    }
+    
+    targets.forEach(t => {
+        const div = document.createElement('div');
+        div.className = 'discovered-target-item';
+        div.style.display = 'flex';
+        div.style.alignItems = 'center';
+        div.style.justifyContent = 'space-between';
+        div.style.padding = '8px 12px';
+        div.style.background = 'rgba(255, 255, 255, 0.02)';
+        div.style.border = '1px solid var(--border)';
+        div.style.borderRadius = '6px';
+        div.style.fontSize = '11px';
+        div.style.fontFamily = "'JetBrains Mono', monospace";
+        
+        const isSemgrep = t.scanner === 'semgrep';
+        const scannerName = isSemgrep ? 'Semgrep SAST' : 'Trivy Vuln';
+        const actionFunc = isSemgrep ? `runSemgrepScan('${t.path}')` : `runTrivyScan('${t.path}')`;
+        const iconColor = isSemgrep ? 'var(--orange)' : 'var(--red)';
+        
+        div.innerHTML = `
+            <div style="display:flex; flex-direction:column; gap:2px; flex:1; min-width:0; margin-right:12px;">
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:${iconColor}; box-shadow:0 0 4px ${iconColor}"></span>
+                    <strong style="color:#fff; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${esc(t.name)}</strong>
+                </div>
+                <div style="color:var(--dim); font-size:9px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;" title="${esc(t.path)}">Цель: ${esc(t.path)}</div>
+                <div style="font-size:9px; color:var(--muted);"><span style="color:${iconColor}; font-weight:bold;">[${scannerName}]</span> ${esc(t.badge)}</div>
+            </div>
+            <button class="btn-sm" onclick="${actionFunc}" style="font-size:9px; padding:4px 8px; flex-shrink:0; border-color:${iconColor}; color:${iconColor}; background:transparent;">Скан</button>
+        `;
+        container.appendChild(div);
     });
 };
 

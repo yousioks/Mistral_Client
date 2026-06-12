@@ -526,6 +526,7 @@
                         <label>Поиск:</label>
                         <input type="text" id="inc-search" placeholder="Поиск IP, типа, описания..." oninput="applyIncidentFilters()" style="background:rgba(0,0,0,0.4);border:1px solid var(--border);color:#fff;padding:6px 10px;border-radius:6px;font-size:11px;outline:none;width:180px;font-family:'JetBrains Mono',monospace">
                         <button class="btn-sm-clear" onclick="clearIncidentFilters()">Сбросить</button>
+                    </div>
                     <!-- Bulk Actions Bar for Incidents -->
                     <div id="incidents-bulk-bar" class="bulk-action-bar" style="display:none; align-items:center; gap:10px; background:rgba(245,158,11,0.06); border:1px solid rgba(245,158,11,0.2); border-radius:8px; padding:10px 16px; margin-bottom:12px; font-family:'JetBrains Mono', monospace; font-size:11px; animation: slideUp 0.3s ease;">
                         <span style="color:#fff; font-weight:bold;">Выбрано: <span id="incidents-selected-count">0</span></span>
@@ -617,6 +618,14 @@
                         <input type="date" id="log-date-to" onchange="applyLogFilters()">
                         <label>Поиск:</label>
                         <input type="text" id="log-search" placeholder="Фильтр по тексту..." oninput="applyLogFilters()" style="background:rgba(0,0,0,0.4);border:1px solid var(--border);color:#fff;padding:6px 10px;border-radius:6px;font-size:11px;outline:none;width:160px;font-family:'JetBrains Mono',monospace">
+                        <label>Сортировка:</label>
+                        <select id="log-sort-by" onchange="applyLogFilters()" style="background:rgba(0,0,0,0.5);border:1px solid var(--border);color:#fff;padding:4px 6px;border-radius:6px;font-size:11px;outline:none;color:#fff;font-family:'JetBrains Mono',monospace">
+                            <option value="timestamp_desc">Время (Новые сначала)</option>
+                            <option value="timestamp_asc">Время (Старые сначала)</option>
+                            <option value="source_asc">Источник (А-Я)</option>
+                            <option value="source_desc">Источник (Я-А)</option>
+                            <option value="level_desc">Критичность (Высокая-Низкая)</option>
+                        </select>
                         <button class="btn-sm-clear" onclick="clearLogFilters()">Сбросить</button>
                         <button class="btn-sm" style="border-color:var(--cyan); color:var(--cyan); background:rgba(6,182,212,0.05); font-family:'JetBrains Mono',monospace;" onclick="exportLogsToFile()">📥 Экспорт</button>
                         <button class="btn-send-ai" onclick="sendLogsToAI()">🧠 Отправить в ИИ</button>
@@ -727,30 +736,53 @@
         </div>
 
         <!-- ═══ SECURITY SCANNERS ═══ -->
-        <div class="panel" id="panel-scanners">
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px">
-                <!-- Semgrep Card -->
-                <div class="card" style="display:flex; flex-direction:column; gap:12px">
-                    <div class="card-hdr"><div class="cd" style="background:var(--orange)"></div>Semgrep SAST Scan</div>
-                    <div class="field-group" style="margin-top:0">
-                        <label style="font-size:9px; margin-bottom:4px">Целевая директория</label>
-                        <input id="semgrep-target" type="text" value="." placeholder="/path/to/project">
+        <div class="panel" id="panel-scanners" style="height:100%; overflow:hidden;">
+            <div style="display:grid; grid-template-columns:1fr 1.2fr; gap:16px; height:100%;">
+                <!-- LEFT COLUMN: Scanners controls -->
+                <div style="display:flex; flex-direction:column; gap:16px; min-height:0; height:100%;">
+                    <!-- Semgrep Card -->
+                    <div class="card" style="display:flex; flex-direction:column; gap:10px; margin-bottom:0; flex-shrink:0; border:1px solid rgba(245,158,11,0.2);">
+                        <div class="card-hdr"><div class="cd" style="background:var(--orange)"></div>Semgrep SAST Scan</div>
+                        <div class="field-group" style="margin-top:0; margin-bottom:6px;">
+                            <label style="font-size:9px; margin-bottom:4px">Целевая директория</label>
+                            <input id="semgrep-target" type="text" value="." placeholder="/path/to/project">
+                        </div>
+                        <button class="btn-login" id="btn-run-semgrep" onclick="runSecurityScan('semgrep')" style="padding:8px; font-size:11px; margin-top:2px">ЗАПУСТИТЬ SEMGREP</button>
                     </div>
-                    <button class="btn-login" id="btn-run-semgrep" onclick="runSecurityScan('semgrep')" style="padding:10px; font-size:12px; margin-top:4px">ЗАПУСТИТЬ SEMGREP</button>
-                </div>
-                <!-- Trivy Card -->
-                <div class="card" style="display:flex; flex-direction:column; gap:12px">
-                    <div class="card-hdr"><div class="cd" style="background:var(--red)"></div>Trivy Vulnerability Scan</div>
-                    <div class="field-group" style="margin-top:0">
-                        <label style="font-size:9px; margin-bottom:4px">Цель сканирования (Образ / Папка)</label>
-                        <input id="trivy-target" type="text" value="." placeholder="image_name or directory">
+                    <!-- Trivy Card -->
+                    <div class="card" style="display:flex; flex-direction:column; gap:10px; margin-bottom:0; flex-shrink:0; border:1px solid rgba(239,68,68,0.2);">
+                        <div class="card-hdr"><div class="cd" style="background:var(--red)"></div>Trivy Vulnerability Scan</div>
+                        <div class="field-group" style="margin-top:0; margin-bottom:6px;">
+                            <label style="font-size:9px; margin-bottom:4px">Цель сканирования (Образ / Папка)</label>
+                            <input id="trivy-target" type="text" value="." placeholder="image_name or directory">
+                        </div>
+                        <button class="btn-login" id="btn-run-trivy" onclick="runSecurityScan('trivy')" style="padding:8px; font-size:11px; margin-top:2px">ЗАПУСТИТЬ TRIVY</button>
                     </div>
-                    <button class="btn-login" id="btn-run-trivy" onclick="runSecurityScan('trivy')" style="padding:10px; font-size:12px; margin-top:4px">ЗАПУСТИТЬ TRIVY</button>
+                    <!-- Discovered scan targets Card -->
+                    <div class="card" style="display:flex; flex-direction:column; gap:10px; flex:1; min-height:0; margin-bottom:0; border:1px solid rgba(34,197,94,0.25);">
+                        <div class="card-hdr" style="margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <div class="cd" style="background:var(--green)"></div>
+                                <span>Обнаруженные цели для сканирования</span>
+                            </div>
+                            <button class="btn-sm" onclick="updateDiscoveredScanTargets()" style="font-size:9px; padding:2px 6px; border-color:var(--green); color:var(--green); background:transparent;">Обновить</button>
+                        </div>
+                        <div id="discovered-scan-targets" style="flex:1; overflow-y:auto; padding-right:4px; display:flex; flex-direction:column; gap:6px;">
+                            <div style="color:var(--dim); font-style:italic; font-size:11px; padding:10px;">Загрузка целей...</div>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <div class="card" style="display:flex; flex-direction:column; height:calc(100% - 170px)">
-                <div class="card-hdr"><div class="cd" style="background:var(--blue)"></div>Scan Terminal Output</div>
-                <pre id="scan-output" style="flex:1; background:#000; border:1px solid var(--border); padding:16px; border-radius:8px; font-family:'JetBrains Mono', monospace; font-size:11px; color:#fff; overflow:auto; white-space:pre-wrap; margin-top:4px">// Выберите сканер и нажмите кнопку запуска. Результаты проверки отобразятся здесь.</pre>
+                <!-- RIGHT COLUMN: Output terminal -->
+                <div class="card" style="display:flex; flex-direction:column; height:100%; margin-bottom:0; border:1px solid rgba(59,130,246,0.2);">
+                    <div class="card-hdr" style="display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <div class="cd" style="background:var(--blue)"></div>
+                            <span>Scan Terminal Output</span>
+                        </div>
+                        <button class="btn-sm" onclick="$('scan-output').textContent = '// Выберите сканер и нажмите кнопку запуска. Результаты проверки отобразятся здесь.';" style="font-size:9px; padding:2px 6px;">Очистить терминал</button>
+                    </div>
+                    <pre id="scan-output" style="flex:1; background:#000; border:1px solid var(--border); padding:16px; border-radius:8px; font-family:'JetBrains Mono', monospace; font-size:11px; color:#fff; overflow:auto; white-space:pre-wrap; margin-top:4px;">// Выберите сканер и нажмите кнопку запуска. Результаты проверки отобразятся здесь.</pre>
+                </div>
             </div>
         </div>
 

@@ -172,20 +172,26 @@ function connectToServer(host, port, token) {
     wsOptions.rejectUnauthorized = false;
   }
 
-  try { wsClient = new WebSocket(wsUrl, wsOptions); } 
+  let ws;
+  try {
+    ws = new WebSocket(wsUrl, wsOptions);
+    wsClient = ws;
+  } 
   catch (err) { logger.error('WS Error: ' + err.message); scheduleReconnect(); return; }
 
-  wsClient.on('open', () => {
+  ws.on('open', () => {
     logger.info('Connected to Mistral Server');
     reconnectAttempts = 0;
     if (mainWindow) mainWindow.webContents.send('conn-status', 'connected', 'Подключён');
-    wsClient.send(JSON.stringify({ event: 'auth', data: { token, nonce: Date.now().toString(36) } }));
-    wsClient.send(JSON.stringify({ event: 'get_stats' }));
-    wsClient.send(JSON.stringify({ event: 'get_incidents' }));
-    wsClient.send(JSON.stringify({ event: 'get_logs', data: { type: 'server', limit: 200 } }));
+    if (wsClient === ws) {
+      ws.send(JSON.stringify({ event: 'auth', data: { token, nonce: Date.now().toString(36) } }));
+      ws.send(JSON.stringify({ event: 'get_stats' }));
+      ws.send(JSON.stringify({ event: 'get_incidents' }));
+      ws.send(JSON.stringify({ event: 'get_logs', data: { type: 'server', limit: 200 } }));
+    }
   });
 
-  wsClient.on('message', (raw) => {
+  ws.on('message', (raw) => {
     try {
       const msg = JSON.parse(raw.toString());
       if (mainWindow) mainWindow.webContents.send('ws-message', msg);
@@ -252,9 +258,11 @@ function connectToServer(host, port, token) {
     }
   });
 
-  wsClient.on('close', (code, reason) => {
+  ws.on('close', (code, reason) => {
     logger.warn(`WS closed: ${code}`);
-    wsClient = null;
+    if (wsClient === ws) {
+      wsClient = null;
+    }
 
     // Auth-failure codes emitted by the server:
     //   4001 = Auth timeout (never sent auth within 10s)
@@ -279,9 +287,11 @@ function connectToServer(host, port, token) {
     scheduleReconnect();
   });
 
-  wsClient.on('error', (err) => {
+  ws.on('error', (err) => {
     logger.error('WS error: ' + err.message);
-    wsClient = null;
+    if (wsClient === ws) {
+      wsClient = null;
+    }
     if (mainWindow) mainWindow.webContents.send('conn-status', 'error', 'Ошибка сети');
     scheduleReconnect();
   });
