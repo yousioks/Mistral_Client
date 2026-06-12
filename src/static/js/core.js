@@ -301,24 +301,57 @@ function handleMessage(msg) {
                     if (window.playAlertSound) window.playAlertSound(msg.data.severity);
                     
                     const settings = window.soarSettings || {};
-                    if (settings.aiDefenseEnabled && !msg.data.aiMitigated) {
-                        threatCount++;
-                        
+                    
+                    const CRITICAL_DEMO_TYPES = [
+                        'SSH_BRUTE_FORCE_SUCCESS',
+                        'SQL_INJECTION',
+                        'PRIVILEGE_ESCALATION',
+                        'RANSOMWARE_ENCRYPTION',
+                        'HONEYPOT_TRIGGERED',
+                        'COMMAND_INJECTION',
+                        'PATH_TRAVERSAL',
+                        'MALICIOUS_C2_CONNECTION_DETECTED'
+                    ];
+                    
+                    // Filter out background noise from automatic AI agent triggering
+                    const isBypassedType = (type) => {
+                        const t = (type || '').toUpperCase();
+                        return t.includes('DDOS') || 
+                               t.includes('FLOOD') || 
+                               t.includes('PROCESS') || 
+                               t.includes('PORT') || 
+                               t.includes('UNKNOWN') || 
+                               t === 'SSH_BRUTE_FORCE_ATTEMPT' || 
+                               t === 'SYSTEM_ERROR' || 
+                               t === 'ANOMALY';
+                    };
+
+                    const isCriticalDemo = CRITICAL_DEMO_TYPES.includes(msg.data.type);
+                    const activeTriggerTypes = settings.aiTriggerTypes || [];
+                    const isSelectedInSettings = activeTriggerTypes.includes(msg.data.type);
+
+                    if ((settings.aiDefenseEnabled || isCriticalDemo || isSelectedInSettings) && !msg.data.aiMitigated) {
                         let shouldTrigger = false;
                         
-                        // Condition 1: Incident frequency threshold
-                        if (threatCount >= (settings.aiThreatThreshold || 3)) {
+                        if (isCriticalDemo || isSelectedInSettings) {
                             shouldTrigger = true;
-                        }
-                        
-                        // Condition 2: Data leak trigger
-                        if (settings.aiTriggerOnLeaks && (msg.data.type === 'DATA_LEAK' || msg.data.type === 'anomaly')) {
-                            shouldTrigger = true;
-                        }
-                        
-                        // Condition 3: Critical vulnerability trigger
-                        if (settings.aiTriggerOnCritical && msg.data.severity === 'CRITICAL') {
-                            shouldTrigger = true;
+                        } else if (!isBypassedType(msg.data.type)) {
+                            threatCount++;
+                            
+                            // Condition 1: Incident frequency threshold
+                            if (threatCount >= (settings.aiThreatThreshold || 3)) {
+                                shouldTrigger = true;
+                            }
+                            
+                            // Condition 2: Data leak trigger
+                            if (settings.aiTriggerOnLeaks && (msg.data.type === 'DATA_LEAK' || msg.data.type === 'anomaly')) {
+                                shouldTrigger = true;
+                            }
+                            
+                            // Condition 3: Critical vulnerability trigger
+                            if (settings.aiTriggerOnCritical && msg.data.severity === 'CRITICAL') {
+                                shouldTrigger = true;
+                            }
                         }
                         
                         if (shouldTrigger) {
@@ -403,14 +436,88 @@ function handleMessage(msg) {
                 }
             }
 
+            let incId = msg.data?.incidentId;
+            if (!incId && incMatch) {
+                incId = incMatch[1].trim();
+            }
+
+            if (incId) {
+                const inc = allIncidents.find(i => i.id === incId);
+                
+                // Show completion toast in Russian
+                if (banMatch && makeChanges) {
+                    showToast('ИИ-АГЕНТ MISTRAL', `Угроза ${inc ? inc.type : 'Безопасности'} успешно нейтрализована.<br>Атакующий IP заблокирован. Все угрозы закрыты!`, 'green');
+                } else if (isAutoDefense) {
+                    showToast('ИИ-АГЕНТ MISTRAL', `Анализ завершен по угрозе ${inc ? inc.type : 'Безопасности'}.<br>Информационная справка сформирована.`, 'green');
+                }
+
+                // Update activity log entry
+                const entryId = 'ai-action-' + incId;
+                const item = document.getElementById(entryId);
+                if (item) {
+                    item.style.background = 'rgba(34,197,94,0.05)';
+                    item.style.borderColor = 'rgba(34,197,94,0.3)';
+                    item.style.borderLeftColor = 'var(--green)';
+                    
+                    let statusText = 'РЕКОМЕНДОВАНО';
+                    let statusColor = 'var(--cyan)';
+                    let actionDesc = 'Выданы рекомендации для ручного ввода. Статус инцидента изменен на ADVISORY.';
+                    
+                    if (banMatch && makeChanges) {
+                        statusText = 'НЕЙТРАЛИЗОВАНО';
+                        statusColor = 'var(--green)';
+                        actionDesc = `Атакующий IP ${banMatch[1]} заблокирован через UFW/Fail2ban. Статус инцидента изменен на RESOLVED.`;
+                    }
+                    
+                    const statusEl = item.querySelector('.ai-action-status');
+                    if (statusEl) {
+                        statusEl.textContent = statusText;
+                        statusEl.style.color = statusColor;
+                    }
+                    
+                    const titleEl = item.querySelector('strong');
+                    if (titleEl) {
+                        titleEl.textContent = `УГРОЗА ЗАКРЫТА: ${titleEl.textContent.replace('АКТИВАЦИЯ ИИ:', '').replace('УГРОЗА ЗАКРЫТА:', '').trim()}`;
+                    }
+                    
+                    const stepsBlock = item.querySelector('.ai-action-mitigation-steps');
+                    const stepsList = item.querySelector('.ai-action-steps-list');
+                    if (stepsBlock && stepsList) {
+                        stepsBlock.style.display = 'block';
+                        stepsList.textContent = actionDesc;
+                    }
+                    
+                    const viewBtn = item.querySelector('.ai-action-btn-view');
+                    if (viewBtn) {
+                        viewBtn.style.display = 'inline-block';
+                    }
+                    
+                    const dot = item.querySelector('summary span');
+                    if (dot) {
+                        dot.style.color = statusColor;
+                        dot.style.animation = 'none';
+                    }
+                }
+                
+                // Check if all threats are closed
+                setTimeout(() => {
+                    const activeThreatsCount = allIncidents.filter(i => 
+                        (i.severity === 'CRITICAL' || i.severity === 'HIGH') && 
+                        i.status !== 'resolved' && 
+                        i.status !== 'advisory'
+                    ).length;
+                    
+                    if (activeThreatsCount === 0) {
+                        showToast('СИСТЕМА БЕЗОПАСНОСТИ MISTRAL', 'Все обнаруженные угрозы закрыты! Защита объекта полностью обеспечена.', 'green');
+                    }
+                }, 1000);
+            }
+
             if(banMatch) {
                 const ip = banMatch[1];
                 if (makeChanges) {
                     quarantineIp(ip, 'AI Autonomous Mitigation');
-                    showToast('AI AGENT', `Threat neutralized. IP Banned: ${ip}`, 'green');
-                    
-                    if (incMatch) {
-                        const incId = incMatch[1].trim();
+                    if (incId) {
                         const inc = allIncidents.find(i => i.id === incId);
                         if (inc) {
                             inc.aiAudit = ans;
@@ -422,9 +529,7 @@ function handleMessage(msg) {
                         }
                     }
                 } else {
-                    showToast('AI AGENT', 'Автономные изменения запрещены. Сформирована справка.', 'warn');
-                    if (incMatch) {
-                        const incId = incMatch[1].trim();
+                    if (incId) {
                         const inc = allIncidents.find(i => i.id === incId);
                         if (inc) {
                             inc.aiAudit = ans;
@@ -439,13 +544,15 @@ function handleMessage(msg) {
                 if(window.updateDefensePosture) updateDefensePosture();
                 if(window.updateMitreMatrix) updateMitreMatrix();
             } else {
-                if (isAutoDefense && incMatch) {
-                    const incId = incMatch[1].trim();
+                if (incId) {
                     const inc = allIncidents.find(i => i.id === incId);
                     if (inc) {
                         inc.aiAudit = ans;
                         inc.status = makeChanges ? 'resolved' : 'advisory';
                         patchIncident(incId, { status: inc.status });
+                        if($('incident-drawer').classList.contains('open')) {
+                            openIncidentDrawer(incId);
+                        }
                     }
                 }
             }
@@ -465,6 +572,42 @@ function handleMessage(msg) {
             const errB = $('ai-typing-bubble');
             if (errB) { errB.removeAttribute('id'); errB.innerHTML = '❌ Ошибка: ' + (msg.data?.error || 'unknown'); }
             if($('btn-ai-send')) $('btn-ai-send').disabled = false;
+            
+            // Update activity log entry with error
+            if (msg.data && msg.data.incidentId) {
+                const entryId = 'ai-action-' + msg.data.incidentId;
+                const item = document.getElementById(entryId);
+                if (item) {
+                    item.style.background = 'rgba(239,68,68,0.05)';
+                    item.style.borderColor = 'rgba(239,68,68,0.3)';
+                    item.style.borderLeftColor = 'var(--red)';
+                    
+                    const statusEl = item.querySelector('.ai-action-status');
+                    if (statusEl) {
+                        statusEl.textContent = 'СБОЙ';
+                        statusEl.style.color = 'var(--red)';
+                    }
+                    
+                    const titleEl = item.querySelector('strong');
+                    if (titleEl) {
+                        titleEl.textContent = `СБОЙ АНАЛИЗА: ${titleEl.textContent.replace('АКТИВАЦИЯ ИИ:', '').replace('СБОЙ АНАЛИЗА:', '').trim()}`;
+                    }
+                    
+                    const stepsBlock = item.querySelector('.ai-action-mitigation-steps');
+                    const stepsList = item.querySelector('.ai-action-steps-list');
+                    if (stepsBlock && stepsList) {
+                        stepsBlock.style.display = 'block';
+                        stepsList.textContent = `Анализ прерван из-за ошибки: ${msg.data.error || 'Сбой API'}`;
+                        stepsList.style.color = 'var(--red)';
+                    }
+                    
+                    const dot = item.querySelector('summary span');
+                    if (dot) {
+                        dot.style.color = 'var(--red)';
+                        dot.style.animation = 'none';
+                    }
+                }
+            }
             break;
         case 'bot_notify': if(msg.data) showAlert(msg.data); break;
         case 'scan_result':
@@ -517,12 +660,79 @@ function triggerSilentAIResponse(incident) {
     if (lastConnState !== 'connected' || !window.electronAPI) return;
     
     const makeChanges = (window.soarSettings && window.soarSettings.aiMakeChanges) !== false;
+    const settings = window.soarSettings || {};
     
-    // Show silent Toast
-    if (makeChanges) {
-        showToast('AI AGENT', 'AUTONOMOUS MITIGATION STARTED (AUTOPILOT)', 'critical');
+    const CRITICAL_DEMO_TYPES = [
+        'SSH_BRUTE_FORCE_SUCCESS',
+        'SQL_INJECTION',
+        'PRIVILEGE_ESCALATION',
+        'RANSOMWARE_ENCRYPTION',
+        'HONEYPOT_TRIGGERED',
+        'COMMAND_INJECTION',
+        'PATH_TRAVERSAL',
+        'MALICIOUS_C2_CONNECTION_DETECTED'
+    ];
+    const isCriticalDemo = CRITICAL_DEMO_TYPES.includes(incident.type);
+    const isForced = !settings.aiDefenseEnabled && isCriticalDemo;
+    
+    // Show premium toast notification in Russian
+    const modeText = makeChanges ? 'АВТОНОМНАЯ НЕЙТРАЛИЗАЦИЯ (АВТОПИЛОТ)' : 'ИНФОРМАЦИОННЫЙ АНАЛИЗ (РЕКОМЕНДАЦИИ)';
+    let toastMsg = '';
+    if (isForced) {
+        toastMsg = `Принудительная активация ИИ-защиты: обнаружена критическая угроза Mistral Demo [${incident.type}]!<br>Анализ запущен в обход выключенной защиты.<br>Режим: ${modeText}`;
     } else {
-        showToast('AI AGENT', 'ADVISORY MITIGATION TRIGGERED (READ-ONLY)', 'info');
+        toastMsg = `Активирована ИИ-защита: запущен анализ и нейтрализация угрозы [${incident.type}]<br>Режим: ${modeText}`;
+    }
+    showToast('ИИ-АГЕНТ MISTRAL', toastMsg, 'critical');
+    
+    // Add to AI activity log
+    const logContainer = document.getElementById('ai-actions-log');
+    if (logContainer) {
+        if (logContainer.innerHTML.includes('История действий пуста')) {
+            logContainer.innerHTML = '';
+        }
+        const entryId = 'ai-action-' + incident.id;
+        const existing = document.getElementById(entryId);
+        if (existing) existing.remove();
+        
+        const triggerReasonText = isForced 
+            ? 'Принудительно (Критическая атака Mistral Demo)' 
+            : (settings.aiDefenseEnabled ? 'Автоматически (Включен режим автозащиты)' : 'Ручной запрос оператора');
+            
+        const item = document.createElement('details');
+        item.id = entryId;
+        item.style.cssText = 'background:rgba(239,68,68,0.05); border:1px solid rgba(239,68,68,0.25); border-left:3px solid var(--red); padding:8px; border-radius:6px; font-size:11px; font-family:\'JetBrains Mono\',monospace; margin-bottom:6px; transition: all 0.3s ease; display: block;';
+        item.open = true; // start open so operator sees it
+        item.innerHTML = `
+            <summary style="display:flex; justify-content:space-between; align-items:center; cursor:pointer; outline:none; user-select:none; list-style:none;">
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <span style="color:var(--red); font-size:10px; animation: pulse 1s infinite;">●</span>
+                    <strong style="color:#fff; font-size:10px;">АКТИВАЦИЯ ИИ: ${incident.type}</strong>
+                </div>
+                <span class="ai-action-status" style="color:var(--red); font-size:9px; font-weight:bold;">АНАЛИЗ...</span>
+            </summary>
+            <div style="margin-top:8px; border-top:1px solid rgba(255,255,255,0.05); padding-top:8px; display:flex; flex-direction:column; gap:6px;">
+                <div><span style="color:var(--dim);">Причина запуска:</span> <span class="ai-action-reason" style="color:var(--orange); font-weight:bold;">${triggerReasonText}</span></div>
+                <div><span style="color:var(--dim);">Инцидент ID:</span> <span style="color:#e2e8f0; font-size:10px;">${incident.id}</span></div>
+                <div><span style="color:var(--dim);">Источник IP:</span> <span style="color:#f43f5e; font-weight:bold;">${incident.ip || 'Неизвестен'}</span></div>
+                <div><span style="color:var(--dim);">Описание:</span> <span style="color:var(--muted);">${incident.description || ''}</span></div>
+                <div>
+                    <span style="color:var(--dim);">Ход анализа:</span>
+                    <div class="ai-action-progress-log" style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.05); border-radius:4px; padding:4px 6px; margin-top:4px; color:var(--muted); font-size:9px; max-height:80px; overflow-y:auto; display:flex; flex-direction:column; gap:2px;">
+                        <div style="color:var(--cyan);">${new Date().toLocaleTimeString()} - Инициализация анализа...</div>
+                    </div>
+                </div>
+                <div class="ai-action-mitigation-steps" style="display:none; border-top:1px dashed rgba(255,255,255,0.05); padding-top:4px;">
+                    <span style="color:var(--dim);">Принятые меры:</span>
+                    <div class="ai-action-steps-list" style="color:var(--green); font-size:10px; margin-top:2px; font-weight:bold;"></div>
+                </div>
+                <div class="ai-action-footer" style="display:flex; gap:10px; margin-top:4px; border-top:1px solid rgba(255,255,255,0.05); padding-top:6px;">
+                    <button class="ai-action-btn-view" onclick="viewMdReport('${incident.id}')" style="display:none; background:rgba(6,182,212,0.15); border:1px solid var(--cyan); color:var(--cyan); border-radius:4px; padding:2px 6px; font-size:9px; cursor:pointer; font-family:'JetBrains Mono';">ОТКРЫТЬ ОТЧЕТ</button>
+                    <button onclick="switchTab('ai')" style="background:rgba(255,255,255,0.05); border:1px solid var(--border); color:#fff; border-radius:4px; padding:2px 6px; font-size:9px; cursor:pointer; font-family:'JetBrains Mono';">ПЕРЕЙТИ В ЧАТ</button>
+                </div>
+            </div>
+        `;
+        logContainer.insertBefore(item, logContainer.firstChild);
     }
     
     // Append to AI chat history so it shows progress visually in the tab
@@ -812,6 +1022,16 @@ function updateSoarCheckboxes(settings) {
     if (aiLeaks) aiLeaks.checked = settings.aiTriggerOnLeaks !== false;
     if (aiCritical) aiCritical.checked = settings.aiTriggerOnCritical !== false;
 
+    // Update AI trigger types checkboxes
+    const triggerContainer = $('soar-ai-trigger-types');
+    if (triggerContainer) {
+        const checkboxes = triggerContainer.querySelectorAll('input[type="checkbox"]');
+        const activeTypes = settings.aiTriggerTypes || [];
+        checkboxes.forEach(cb => {
+            cb.checked = activeTypes.includes(cb.value);
+        });
+    }
+
     // Render Whitelist
     const listEl = $('whitelist-ips-list');
     if (listEl) {
@@ -951,6 +1171,17 @@ window.saveSoarSettingsUI = function() {
     const aiLeaks = $('soar-ai-leaks');
     const aiCritical = $('soar-ai-critical');
     
+    const aiTriggerTypes = [];
+    const triggerContainer = $('soar-ai-trigger-types');
+    if (triggerContainer) {
+        const checkboxes = triggerContainer.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(cb => {
+            if (cb.checked) {
+                aiTriggerTypes.push(cb.value);
+            }
+        });
+    }
+    
     const settings = {
         autoBanDdos: ddosCheckbox ? ddosCheckbox.checked : false,
         autoBanBruteForce: bruteCheckbox ? bruteCheckbox.checked : false,
@@ -960,7 +1191,8 @@ window.saveSoarSettingsUI = function() {
         aiModel: aiModel ? aiModel.value : 'deepseek-v4-pro',
         aiThreatThreshold: aiThreshold ? parseInt(aiThreshold.value, 10) : 3,
         aiTriggerOnLeaks: aiLeaks ? aiLeaks.checked : false,
-        aiTriggerOnCritical: aiCritical ? aiCritical.checked : false
+        aiTriggerOnCritical: aiCritical ? aiCritical.checked : false,
+        aiTriggerTypes: aiTriggerTypes
     };
     
     if (window.electronAPI) {

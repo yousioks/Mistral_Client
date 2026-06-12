@@ -1155,7 +1155,25 @@ function ctxAction(action) {
             window.filterLogsByIp(ip);
         }
     } else if(action === 'analyze') {
-        askAI(`Проанализируй активность с IP адреса ${ip}. Выведи рекомендации по реагированию.`);
+        const logList = window.currentLogsData || currentLogsData || [];
+        const ipLogs = logList.filter(l => l.message && l.message.includes(ip)).slice(0, 10).reverse();
+        let promptText = `Проанализируй активность с IP адреса ${ip}. Выведи рекомендации по реагированию.`;
+        if (ipLogs.length > 0) {
+            const contextText = ipLogs.map(l => `[${(l.timestamp||'').slice(11, 19)}] [${l.type || 'server'}] [${getAutoLevel(l).toUpperCase()}] ${l.message}`).join('\n');
+            promptText = `ПРОТОКОЛ АНАЛИЗА АКТИВНОСТИ IP MISTRAL SOC.
+
+Требуется провести анализ подозрительной активности для узла:
+IP-адрес: ${ip}
+
+ЖУРНАЛ СВЯЗАННЫХ СОБЫТИЙ БЕЗОПАСНОСТИ (последние ${ipLogs.length} логов):
+${contextText}
+
+ИНСТРУКЦИИ ДЛЯ ИИ-АНАЛИЗА:
+1. Выдели паттерн сетевой активности (сканирование, брутфорс, DDoS, попытки эксплуатации веб-уязвимостей).
+2. Оцени уровень риска и критичность угрозы от данного IP.
+3. Разработай подробный план митигации для администратора (ufw-правила, конфигурации сервисов).`;
+        }
+        askAI(promptText);
         showToast('AI Analysis', `Запрос на ИИ-анализ IP ${ip} отправлен`, 'info');
     } else if(action === 'lookup') {
         openThreatIntelModal(ip);
@@ -1393,7 +1411,7 @@ function showLogDetailModal(entry) {
     if (aiBtn) {
         aiBtn.onclick = () => {
             closeLogDetailModal();
-            if (window.analyzeLog) window.analyzeLog(msg);
+            if (window.analyzeLog) window.analyzeLog(entry);
         };
     }
     
@@ -1451,22 +1469,72 @@ function sendLogsToAI() {
     const dateTo = $('log-date-to')?.value;
     const searchText = $('log-search')?.value;
     
-    let filtered = currentLogsData.filter(entry => {
-        if (levelFilter !== 'all') { const lv = getAutoLevel(entry); if (lv !== levelFilter) return false; }
-        if (dateFrom) { const ed = (entry.timestamp||'').slice(0,10); if (ed < dateFrom) return false; }
-        if (dateTo) { const ed = (entry.timestamp||'').slice(0,10); if (ed > dateTo) return false; }
-        if (searchText) { const msg = (entry.message||'').toLowerCase(); if (!msg.includes(searchText.toLowerCase())) return false; }
-        return true;
-    });
+    let filtered = [];
+    let isSelectedOnly = false;
     
-    if (!filtered.length) { showToast('Нет данных', 'Нет логов для отправки в ИИ', 'warn'); return; }
+    if (window.selectedLogs && window.selectedLogs.size > 0) {
+        filtered = currentLogsData.filter(l => window.selectedLogs.has(l.id));
+        isSelectedOnly = true;
+    } else {
+        filtered = currentLogsData.filter(entry => {
+            if (levelFilter !== 'all') { const lv = getAutoLevel(entry); if (lv !== levelFilter) return false; }
+            if (dateFrom) { const ed = (entry.timestamp||'').slice(0,10); if (ed < dateFrom) return false; }
+            if (dateTo) { const ed = (entry.timestamp||'').slice(0,10); if (ed > dateTo) return false; }
+            if (searchText) { const msg = (entry.message||'').toLowerCase(); if (!msg.includes(searchText.toLowerCase())) return false; }
+            return true;
+        });
+    }
     
-    const logText = filtered.slice(0, 50).map(e => `[${(e.timestamp||'').slice(0,19).replace('T',' ')}] [${getAutoLevel(e).toUpperCase()}] ${e.message}`).join('\n');
-    const filterDesc = [levelFilter !== 'all' ? `Уровень: ${levelFilter}` : '', dateFrom ? `С: ${dateFrom}` : '', dateTo ? `По: ${dateTo}` : '', searchText ? `Поиск: "${searchText}"` : ''].filter(Boolean).join(', ');
+    if (!filtered.length) { 
+        showToast('Нет данных', isSelectedOnly ? 'Нет выбранных логов для анализа' : 'Нет логов для отправки в ИИ', 'warn'); 
+        return; 
+    }
     
-    switchTab('ai');
-    $('ai-task').value = `Проанализируй следующие системные логи${filterDesc ? ' (фильтр: '+filterDesc+')' : ''} и выяви аномалии, угрозы и паттерны атак:\n\n${logText}\n\nДай краткое резюме угроз и рекомендации по устранению.`;
-    showToast('Логи отправлены', `${filtered.length > 50 ? 50 : filtered.length} записей отправлено в ИИ`, 'info');
+    // Sort chronological: oldest logs first for LLM to see order
+    const ordered = filtered.slice(0, 50).reverse();
+    
+    const logText = ordered.map((e, index) => {
+        const marker = isSelectedOnly ? `[Событие #${index+1}]` : `[Лог #${index+1}]`;
+        const time = (e.timestamp || '').slice(0, 19).replace('T', ' ');
+        const lv = getAutoLevel(e).toUpperCase();
+        return `${marker} [${time}] [${e.type || 'server'}] [${lv}] ${e.message}`;
+    }).join('\n');
+    
+    let filterDesc = '';
+    if (isSelectedOnly) {
+        filterDesc = `выбранные вручную оператором (${filtered.length} шт.)`;
+    } else {
+        const parts = [
+            levelFilter !== 'all' ? `Уровень: ${levelFilter}` : '',
+            dateFrom ? `С: ${dateFrom}` : '',
+            dateTo ? `По: ${dateTo}` : '',
+            searchText ? `Поиск: "${searchText}"` : ''
+        ].filter(Boolean);
+        filterDesc = parts.length > 0 ? `отфильтрованные по правилам: ${parts.join(', ')}` : 'последние доступные в системе';
+    }
+    
+    const promptText = `ПРОТОКОЛ АНАЛИЗА СИСТЕМНОЙ ТЕЛЕМЕТРИИ MISTRAL SOC.
+
+Оператор SOC-центра направил на ИИ-анализ логи, ${filterDesc}.
+Пожалуйста, проведи исследование предоставленной последовательности событий.
+
+СПИСОК СОБЫТИЙ ДЛЯ АНАЛИЗА:
+${logText}
+
+ТРЕБОВАНИЯ К ОТЧЕТУ:
+1. Выяви наличие признаков вредоносной активности, аномалий или целенаправленных атак (таких как DDoS, брутфорс, сканирование портов, SQL-инъекции, XSS).
+2. Объясни технический смысл обнаруженных событий (что означают коды ответов, системные сообщения, ошибки).
+3. Восстанови логическую хронологию (если есть несколько событий, покажи их взаимосвязь).
+4. Предоставь конкретный и практичный план митигации угроз для администратора.`;
+    
+    if (window.askAI) {
+        window.askAI(promptText);
+        showToast('Анализ запущен', `${filtered.length > 50 ? 50 : filtered.length} записей отправлено на анализ`, 'green');
+    } else {
+        switchTab('ai');
+        if ($('ai-task')) $('ai-task').value = promptText;
+        showToast('Логи скопированы', 'Логи скопированы в окно ввода ИИ-задачи', 'info');
+    }
 }
 
 function updateRlogCount(n) {
@@ -2514,6 +2582,14 @@ window.runSemgrepScan = function(rootPath) {
         $('scan-output').textContent = `❌ Ошибка сканирования: ${err.message}`;
     });
 };
+window.triggerMetricsRefresh = function() {
+    if (window.electronAPI && lastConnState === 'connected') {
+        window.electronAPI.sendWsMessage({ event: 'get_metrics' });
+        showToast('Обновление', 'Запрос свежих метрик и целей...', 'info');
+    } else {
+        showToast('Ошибка', 'Нет соединения с сервером', 'warn');
+    }
+};
 window.updateDiscoveredScanTargets = function() {
     const data = window.lastMetricsData;
     const container = $('discovered-scan-targets');
@@ -2899,45 +2975,118 @@ window.deleteVulnerability = function(id) {
 window.loadAiReportsList = function() {
     const container = $('ai-reports-list-container');
     if (!container) return;
-    container.innerHTML = '<div style="color:var(--dim); font-size:11px; padding:8px 0;">Загрузка отчетов...</div>';
+    container.innerHTML = '<div style="color:var(--dim); font-size:11px; padding:8px 0; text-align:center;">Загрузка архива...</div>';
     
     if (window.electronAPI) {
         window.electronAPI.sendApiRequest('/api/ai-reports', 'GET')
             .then(list => {
-                container.innerHTML = '';
                 if (list && list.error) {
-                    container.innerHTML = `<div style="color:var(--red); font-size:11px; padding:8px 0;">Ошибка: ${esc(list.error)}</div>`;
+                    container.innerHTML = `<div style="color:var(--red); font-size:11px; padding:8px 0; text-align:center;">Ошибка: ${esc(list.error)}</div>`;
                     return;
                 }
                 if (!Array.isArray(list)) {
-                    container.innerHTML = '<div style="color:var(--red); font-size:11px; padding:8px 0;">Ошибка: неверный формат данных от сервера</div>';
+                    container.innerHTML = '<div style="color:var(--red); font-size:11px; padding:8px 0; text-align:center;">Ошибка: неверный формат данных</div>';
                     return;
                 }
-                if (list.length === 0) {
-                    container.innerHTML = '<div style="color:var(--dim); font-size:11px; padding:8px 0;">Архив пуст</div>';
-                    return;
-                }
-                list.forEach(r => {
-                    const row = document.createElement('div');
-                    row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.02); border:1px solid var(--border); padding:8px 12px; border-radius:6px; font-size:11px;';
-                    
-                    const dateStr = new Date(r.createdAt).toLocaleString();
-                    const displayName = r.incidentId ? `Инцидент: ${r.incidentId.substring(0,8)}...` : `Задача: ${r.taskId.substring(0,8)}...`;
-                    
-                    row.innerHTML = `
-                        <div style="font-family:'JetBrains Mono',monospace;">
-                            <strong style="color:#fff; display:block;">${displayName}</strong>
-                            <span style="color:var(--dim); font-size:9px;">${dateStr} | ${(r.size/1024).toFixed(1)} KB</span>
-                        </div>
-                        <button class="btn-sm" onclick="viewMdReport('${esc(r.incidentId || r.taskId)}')" style="padding:4px 10px; font-size:9px; border-color:var(--cyan); color:var(--cyan); background:rgba(6,182,212,0.05);">ОТКРЫТЬ</button>
-                    `;
-                    container.appendChild(row);
-                });
+                window.loadedAiReports = list;
+                window.filterAiReportsList();
             })
             .catch(err => {
-                container.innerHTML = `<div style="color:var(--red); font-size:11px; padding:8px 0;">Ошибка: ${esc(err.message)}</div>`;
+                container.innerHTML = `<div style="color:var(--red); font-size:11px; padding:8px 0; text-align:center;">Ошибка: ${esc(err.message)}</div>`;
             });
     }
+};
+
+window.filterAiReportsList = function() {
+    const container = $('ai-reports-list-container');
+    if (!container || !window.loadedAiReports) return;
+    
+    const query = ($('ai-reports-search')?.value || '').toLowerCase().trim();
+    const typeFilter = $('ai-reports-type-filter')?.value || 'all';
+    const sortVal = $('ai-reports-sort')?.value || 'newest';
+    
+    let filtered = [...window.loadedAiReports];
+    
+    // Filter by type
+    if (typeFilter === 'incident') {
+        filtered = filtered.filter(r => r.incidentId);
+    } else if (typeFilter === 'task') {
+        filtered = filtered.filter(r => r.taskId);
+    }
+    
+    // Filter by query (incidentId, taskId, filename)
+    if (query) {
+        filtered = filtered.filter(r => {
+            const incMatch = r.incidentId ? r.incidentId.toLowerCase().includes(query) : false;
+            const taskMatch = r.taskId ? r.taskId.toLowerCase().includes(query) : false;
+            const fileMatch = r.filename ? r.filename.toLowerCase().includes(query) : false;
+            return incMatch || taskMatch || fileMatch;
+        });
+    }
+    
+    // Sort
+    if (sortVal === 'newest') {
+        filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    } else if (sortVal === 'oldest') {
+        filtered.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    } else if (sortVal === 'size-desc') {
+        filtered.sort((a, b) => b.size - a.size);
+    } else if (sortVal === 'size-asc') {
+        filtered.sort((a, b) => a.size - b.size);
+    }
+    
+    // Update count display
+    const countEl = $('ai-reports-count');
+    if (countEl) {
+        countEl.textContent = `Найдено: ${filtered.length} из ${window.loadedAiReports.length}`;
+    }
+    
+    // Render list
+    container.innerHTML = '';
+    if (filtered.length === 0) {
+        container.innerHTML = '<div style="color:var(--dim); font-size:11px; padding:12px 0; text-align:center; font-style:italic;">Отчеты не найдены</div>';
+        return;
+    }
+    
+    filtered.forEach(r => {
+        const row = document.createElement('div');
+        row.className = 'ai-report-item-card';
+        row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.02); border:1px solid var(--border); padding:8px 12px; border-radius:6px; font-size:11px; transition: all 0.2s ease;';
+        
+        // Add hover effects dynamically
+        row.onmouseenter = () => {
+            row.style.background = 'rgba(255,255,255,0.05)';
+            row.style.borderColor = 'var(--cyan)';
+        };
+        row.onmouseleave = () => {
+            row.style.background = 'rgba(255,255,255,0.02)';
+            row.style.borderColor = 'var(--border)';
+        };
+        
+        const dateStr = new Date(r.createdAt).toLocaleString();
+        let displayName = '';
+        let badge = '';
+        
+        if (r.incidentId) {
+            displayName = `Инцидент: ${r.incidentId.substring(0,8)}...`;
+            badge = `<span style="background:rgba(6,182,212,0.1); border:1px solid rgba(6,182,212,0.3); color:var(--cyan); font-size:8px; font-weight:800; padding:1px 4px; border-radius:4px; margin-left:6px; text-transform:uppercase;">INCIDENT</span>`;
+        } else {
+            displayName = `Задача: ${r.taskId.substring(0,8)}...`;
+            badge = `<span style="background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3); color:var(--green); font-size:8px; font-weight:800; padding:1px 4px; border-radius:4px; margin-left:6px; text-transform:uppercase;">TASK</span>`;
+        }
+        
+        row.innerHTML = `
+            <div style="font-family:'JetBrains Mono',monospace; min-width:0; flex:1; margin-right:10px;">
+                <div style="display:flex; align-items:center; margin-bottom:2px;">
+                    <strong style="color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px;" title="${r.incidentId || r.taskId}">${displayName}</strong>
+                    ${badge}
+                </div>
+                <span style="color:var(--dim); font-size:9px; display:block;">${dateStr} | ${(r.size/1024).toFixed(1)} KB</span>
+            </div>
+            <button class="btn-sm" onclick="viewMdReport('${esc(r.incidentId || r.taskId)}')" style="padding:4px 10px; font-size:9px; border-color:var(--cyan); color:var(--cyan); background:rgba(6,182,212,0.05); flex-shrink:0; cursor:pointer;">ОТКРЫТЬ</button>
+        `;
+        container.appendChild(row);
+    });
 };
 
 window.viewMdReport = function(id) {

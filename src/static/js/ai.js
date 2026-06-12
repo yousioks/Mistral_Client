@@ -1,9 +1,64 @@
 // ══════════════════════════════════════════════════════════════════════════════
 // ANALYZE (from original)
 // ══════════════════════════════════════════════════════════════════════════════
-window.analyzeLog = function(msgText) {
-    const prompt = `Проанализируй следующую строку логов с сервера. Скажи, нормальное ли это поведение или атака, и что она означает:\n\n${msgText}\n\nУчти строгие правила: ничего не ломать, не отключать.`;
-    $('ai-task').value = prompt; switchTab('ai'); sendAITask();
+window.analyzeLog = function(entryOrText) {
+    let msgText = '';
+    let logContext = '';
+    
+    if (entryOrText && typeof entryOrText === 'object') {
+        msgText = entryOrText.message || '';
+        
+        // Find surrounding logs in currentLogsData for richer context
+        const logList = window.currentLogsData || currentLogsData || [];
+        if (logList.length > 0) {
+            const idx = logList.findIndex(l => l.timestamp === entryOrText.timestamp && l.message === entryOrText.message);
+            if (idx !== -1) {
+                // Get 5 preceding logs (older) and 5 succeeding logs (newer)
+                const start = Math.max(0, idx - 5);
+                const end = Math.min(logList.length - 1, idx + 5);
+                const surrounding = logList.slice(start, end + 1).reverse(); // chronological order
+                
+                logContext = surrounding.map(l => {
+                    const marker = l.timestamp === entryOrText.timestamp && l.message === entryOrText.message ? '==> ' : '    ';
+                    const time = (l.timestamp || '').slice(11, 19);
+                    const lvl = typeof getAutoLevel === 'function' ? getAutoLevel(l) : (l.level || 'info');
+                    return `${marker}[${time}] [${l.type || 'server'}] [${lvl.toUpperCase()}] ${l.message}`;
+                }).join('\n');
+            }
+        }
+    } else {
+        msgText = entryOrText || '';
+    }
+    
+    let prompt = '';
+    if (logContext) {
+        prompt = `ПРОТОКОЛ АНАЛИЗА ЛОГОВ MISTRAL SOC.
+
+В системе безопасности зафиксировано подозрительное событие.
+Пожалуйста, проведи расследование инцидента на основе этой строки лога и окружающего контекста событий.
+
+СТРОКА ЛОГА ДЛЯ АНАЛИЗА:
+==> ${msgText}
+
+КОНТЕКСТ ОКРУЖАЮЩИХ СОБЫТИЙ (Хронологический порядок):
+${logContext}
+
+ТРЕБОВАНИЯ К ОТЧЕТУ:
+1. Выдели ключевой вектор угрозы и определи, является ли это легитимным действием или атакой.
+2. Проанализируй хронологическую последовательность событий из контекста (что привело к событию, каковы последствия).
+3. Дай техническое объяснение кодов ответов, IP-адресов, портов и сигнатур.
+4. Разработай конкретные, пошаговые рекомендации для оператора по реагированию и предотвращению (команды брандмауэра, настройки систем, правила WAF).`;
+    } else {
+        prompt = `Проанализируй следующую строку логов с сервера. Скажи, нормальное ли это поведение или атака, и что она означает:\n\n${msgText}\n\nУчти строгие правила: ничего не ломать, не отключать.`;
+    }
+    
+    if (window.askAI) {
+        window.askAI(prompt);
+    } else {
+        $('ai-task').value = prompt; 
+        switchTab('ai'); 
+        sendAITask();
+    }
 };
 window.analyzeContext = function(id) {
     const inc = allIncidents.find(i => i.id === id);
@@ -66,19 +121,46 @@ window.appendChatMsg = function(role, text, isHtml = false) {
     return bubble;
 };
 function parseMarkdown(md) {
-    let html = md.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    html = html.replace(/\[ \] (.*?)(<br>|\n|$)/g, '<label style="display:flex;align-items:center;gap:6px;margin:4px 0;"><input type="checkbox"> $1</label>$2');
-    html = html.replace(/\[x\] (.*?)(<br>|\n|$)/gi, '<label style="display:flex;align-items:center;gap:6px;margin:4px 0;"><input type="checkbox" checked> $1</label>$2');
+    if (!md) return '';
+    let html = md;
+    
+    // Convert code blocks first so we don't accidentally match content inside them
     const codeRegex = /```(bash|sh|shell)?\n([\s\S]*?)```/g;
     html = html.replace(codeRegex, (match, lang, code) => {
         const encCode = btoa(unescape(encodeURIComponent(code.trim())));
-        return `<div style="background:#0a0a0a; border:1px solid #333; border-radius:6px; margin:10px 0; overflow:hidden;">
-            <div style="background:#1a1a1a; padding:6px 12px; font-size:10px; font-family:monospace; color:#aaa; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center;">
-                ${lang||'bash'} <button onclick="executeAIScript('${encCode}')" style="background:var(--green); border:none; border-radius:4px; color:#000; font-weight:bold; font-size:9px; padding:4px 8px; cursor:pointer;">ВЫПОЛНИТЬ</button>
-            </div><pre style="padding:12px; margin:0; font-family:monospace; font-size:11px; overflow-x:auto; color:#fff;">${esc(code.trim())}</pre></div>`;
+        return `<div style="background:#0a0a0a; border:1px solid #333; border-radius:6px; margin:12px 0; overflow:hidden; font-family:var(--font-mono, monospace);">
+            <div style="background:#1a1a1a; padding:6px 12px; font-size:10px; color:#aaa; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-weight:700; text-transform:uppercase;">${lang||'script'}</span>
+                <button onclick="executeAIScript('${encCode}')" style="background:var(--green); border:none; border-radius:4px; color:#000; font-weight:bold; font-size:9px; padding:4px 8px; cursor:pointer; font-family:inherit;">ВЫПОЛНИТЬ</button>
+            </div><pre style="padding:12px; margin:0; font-family:inherit; font-size:11px; overflow-x:auto; color:#fff; white-space:pre;">${esc(code.trim())}</pre></div>`;
     });
-    html = html.replace(/`(.*?)`/g, '<code style="background:rgba(255,255,255,0.1); padding:2px 4px; border-radius:4px; font-family:monospace;">$1</code>');
-    return html.replace(/\n/g, '<br>');
+    
+    // Checkboxes [ ] and [x]
+    html = html.replace(/\[ \] (.*?)(?=\n|$)/g, '<label style="display:flex;align-items:center;gap:6px;margin:4px 0;"><input type="checkbox"> $1</label>');
+    html = html.replace(/\[x\] (.*?)(?=\n|$)/gi, '<label style="display:flex;align-items:center;gap:6px;margin:4px 0;"><input type="checkbox" checked> $1</label>');
+    
+    // Headings: #, ##, ###, ####
+    html = html.replace(/^#### (.*?)(?=\n|$)/gm, '<h5 style="margin:12px 0 6px 0; color:#fff; font-size:12px; font-weight:700; font-family:\'Inter\', sans-serif;">$1</h5>');
+    html = html.replace(/^### (.*?)(?=\n|$)/gm, '<h4 style="margin:14px 0 8px 0; color:#fff; font-size:13px; font-weight:700; font-family:\'Inter\', sans-serif; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom:4px;">$1</h4>');
+    html = html.replace(/^## (.*?)(?=\n|$)/gm, '<h3 style="margin:16px 0 10px 0; color:var(--cyan); font-size:14px; font-weight:800; font-family:\'Inter\', sans-serif; border-bottom: 1px solid rgba(6,182,212,0.15); padding-bottom:6px;">$1</h3>');
+    html = html.replace(/^# (.*?)(?=\n|$)/gm, '<h2 style="margin:18px 0 12px 0; color:var(--green); font-size:16px; font-weight:900; font-family:\'Inter\', sans-serif; border-bottom: 1px solid rgba(34,197,94,0.25); padding-bottom:8px;">$1</h2>');
+
+    // Bullet lists starting with - or *
+    html = html.replace(/^[-\*]\s+(.*?)(?=\n|$)/gm, '<li style="margin-left:16px; margin-bottom:4px; list-style-type:square;">$1</li>');
+
+    // Bold text **text**
+    html = html.replace(/\*\*(.*?)\*\*/g, '<strong style="color:#fff; font-weight:700;">$1</strong>');
+    
+    // Inline code `code`
+    html = html.replace(/`(.*?)`/g, '<code style="background:rgba(255,255,255,0.1); padding:2px 4px; border-radius:4px; font-family:monospace; color:var(--orange);">$1</code>');
+    
+    // Horizontal rule ---
+    html = html.replace(/^---$/gm, '<hr style="border:0; border-top:1px solid var(--border); margin:16px 0;">');
+
+    // Handle line breaks (only single newlines)
+    html = html.replace(/\n/g, '<br>');
+    
+    return html;
 }
 function executeAIScript(base64code) {
     const code = decodeURIComponent(escape(atob(base64code)));
@@ -258,6 +340,38 @@ window.updateAIProgressUI = function(data) {
             setTimeout(() => {
                 lastAction.style.color = 'var(--cyan)';
             }, 3000);
+        }
+    }
+
+    // 3. Update the Mitigation Log widget collapsible card
+    if (data.incidentId) {
+        const card = document.getElementById('ai-action-' + data.incidentId);
+        if (card) {
+            const pct = Math.round((data.step / data.total) * 100);
+            const statusEl = card.querySelector('.ai-action-status');
+            if (statusEl && statusEl.textContent.includes('АНАЛИЗ')) {
+                statusEl.textContent = `АНАЛИЗ (${pct}%)`;
+                statusEl.style.color = 'var(--orange)';
+            }
+            
+            const progLog = card.querySelector('.ai-action-progress-log');
+            if (progLog && data.message) {
+                if (!progLog.innerHTML.includes(data.message)) {
+                    const time = new Date().toLocaleTimeString();
+                    const div = document.createElement('div');
+                    div.innerHTML = `<span style="color:var(--dim);">${time}</span> - ${esc(data.message)}`;
+                    progLog.appendChild(div);
+                    progLog.scrollTop = progLog.scrollHeight;
+                }
+            }
+            
+            if (data.done) {
+                const statusEl = card.querySelector('.ai-action-status');
+                if (statusEl && statusEl.textContent.includes('АНАЛИЗ')) {
+                    statusEl.textContent = 'ЗАКВЕРЖДЕНО';
+                    statusEl.style.color = 'var(--green)';
+                }
+            }
         }
     }
 };

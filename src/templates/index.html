@@ -727,8 +727,42 @@
 
                     <details style="background:rgba(0,0,0,0.5); border:1px solid var(--border); border-radius:6px; margin-top:8px;" ontoggle="if(this.open) loadAiReportsList()">
                         <summary style="padding:10px; cursor:pointer; font-size:11px; font-weight:700; color:var(--muted); outline:none; user-select:none">Архив отчётов (.md)</summary>
-                        <div style="padding:10px; border-top:1px solid var(--border); max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;" id="ai-reports-list-container">
-                            <div style="color:var(--dim); font-size:11px; padding:8px 0;">Загрузка отчетов...</div>
+                        <div style="padding:10px; border-top:1px solid var(--border); display:flex; flex-direction:column;">
+                            <!-- Search Input -->
+                            <input type="text" id="ai-reports-search" placeholder="Поиск по ID или имени..." oninput="filterAiReportsList()" style="width:100%; padding:6px 10px; background:rgba(0,0,0,0.4); border:1px solid var(--border); border-radius:6px; color:#fff; font-size:11px; outline:none; margin-bottom:8px; font-family:'Inter', sans-serif;">
+                            
+                            <!-- Filter & Sort Dropdowns -->
+                            <div style="display:flex; gap:6px; margin-bottom:10px;">
+                                <select id="ai-reports-type-filter" onchange="filterAiReportsList()" style="flex:1; background:rgba(0,0,0,0.4); border:1px solid var(--border); color:#fff; padding:4px 8px; border-radius:6px; font-size:10px; outline:none; cursor:pointer;">
+                                    <option value="all">Все типы</option>
+                                    <option value="incident">Инциденты</option>
+                                    <option value="task">Задачи</option>
+                                </select>
+                                <select id="ai-reports-sort" onchange="filterAiReportsList()" style="flex:1; background:rgba(0,0,0,0.4); border:1px solid var(--border); color:#fff; padding:4px 8px; border-radius:6px; font-size:10px; outline:none; cursor:pointer;">
+                                    <option value="newest">Сначала новые</option>
+                                    <option value="oldest">Сначала старые</option>
+                                    <option value="size-desc">Размер (убыв)</option>
+                                    <option value="size-asc">Размер (возр)</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Stats & Refresh -->
+                            <div style="font-size:9px; color:var(--dim); margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                                <span id="ai-reports-count">Всего отчетов: 0</span>
+                                <a href="#" onclick="loadAiReportsList(); return false;" style="color:var(--cyan); text-decoration:none; font-weight:700;">Обновить</a>
+                            </div>
+
+                            <!-- List Container -->
+                            <div style="max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; border-top:1px solid rgba(255,255,255,0.05); padding-top:8px;" id="ai-reports-list-container">
+                                <div style="color:var(--dim); font-size:11px; padding:8px 0; text-align:center;">Загрузка отчетов...</div>
+                            </div>
+                        </div>
+                    </details>
+
+                    <details style="background:rgba(0,0,0,0.5); border:1px solid var(--border); border-radius:6px; margin-top:8px;" open>
+                        <summary style="padding:10px; cursor:pointer; font-size:11px; font-weight:700; color:var(--muted); outline:none; user-select:none">Действия ИИ-Агента (Mitigation Log)</summary>
+                        <div style="padding:10px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:6px; max-height:200px; overflow-y:auto;" id="ai-actions-log">
+                            <div style="color:var(--dim); font-size:11px; padding:8px 0; text-align:center; font-style:italic;">История действий пуста</div>
                         </div>
                     </details>
                 </div>
@@ -765,7 +799,7 @@
                                 <div class="cd" style="background:var(--green)"></div>
                                 <span>Обнаруженные цели для сканирования</span>
                             </div>
-                            <button class="btn-sm" onclick="updateDiscoveredScanTargets()" style="font-size:9px; padding:2px 6px; border-color:var(--green); color:var(--green); background:transparent;">Обновить</button>
+                            <button class="btn-sm" onclick="triggerMetricsRefresh()" style="font-size:9px; padding:2px 6px; border-color:var(--green); color:var(--green); background:transparent;">Обновить</button>
                         </div>
                         <div id="discovered-scan-targets" style="flex:1; overflow-y:auto; padding-right:4px; display:flex; flex-direction:column; gap:6px;">
                             <div style="color:var(--dim); font-style:italic; font-size:11px; padding:10px;">Загрузка целей...</div>
@@ -964,6 +998,52 @@
                                 <input type="checkbox" id="soar-ai-critical" style="width:14px; height:14px; accent-color:var(--purple);" onchange="saveSoarSettingsUI()">
                                 <span>Срабатывать при критических уязвимостях (CRITICAL)</span>
                             </label>
+                        </div>
+                        
+                        <div style="margin-top:12px; border-top:1px dashed rgba(255,255,255,0.05); padding-top:12px;">
+                            <strong style="font-size:9px; color:var(--muted); display:block; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">Запуск ИИ по конкретным типам инцидентов:</strong>
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; background:rgba(0,0,0,0.2); border:1px solid var(--border); border-radius:6px; padding:10px;" id="soar-ai-trigger-types">
+                                <label style="display:flex; align-items:center; gap:6px; font-size:10px; color:#fff; cursor:pointer;">
+                                    <input type="checkbox" value="SQL_INJECTION" onchange="saveSoarSettingsUI()" style="width:12px; height:12px; accent-color:var(--purple);">
+                                    <span>SQL Injection</span>
+                                </label>
+                                <label style="display:flex; align-items:center; gap:6px; font-size:10px; color:#fff; cursor:pointer;">
+                                    <input type="checkbox" value="SSH_BRUTE_FORCE_SUCCESS" onchange="saveSoarSettingsUI()" style="width:12px; height:12px; accent-color:var(--purple);">
+                                    <span>SSH Crack (Success)</span>
+                                </label>
+                                <label style="display:flex; align-items:center; gap:6px; font-size:10px; color:#fff; cursor:pointer;">
+                                    <input type="checkbox" value="PRIVILEGE_ESCALATION" onchange="saveSoarSettingsUI()" style="width:12px; height:12px; accent-color:var(--purple);">
+                                    <span>Privilege Escalation</span>
+                                </label>
+                                <label style="display:flex; align-items:center; gap:6px; font-size:10px; color:#fff; cursor:pointer;">
+                                    <input type="checkbox" value="RANSOMWARE_ENCRYPTION" onchange="saveSoarSettingsUI()" style="width:12px; height:12px; accent-color:var(--purple);">
+                                    <span>Ransomware Activity</span>
+                                </label>
+                                <label style="display:flex; align-items:center; gap:6px; font-size:10px; color:#fff; cursor:pointer;">
+                                    <input type="checkbox" value="HONEYPOT_TRIGGERED" onchange="saveSoarSettingsUI()" style="width:12px; height:12px; accent-color:var(--purple);">
+                                    <span>Honeypot Decoy Hit</span>
+                                </label>
+                                <label style="display:flex; align-items:center; gap:6px; font-size:10px; color:#fff; cursor:pointer;">
+                                    <input type="checkbox" value="COMMAND_INJECTION" onchange="saveSoarSettingsUI()" style="width:12px; height:12px; accent-color:var(--purple);">
+                                    <span>Command Injection</span>
+                                </label>
+                                <label style="display:flex; align-items:center; gap:6px; font-size:10px; color:#fff; cursor:pointer;">
+                                    <input type="checkbox" value="PATH_TRAVERSAL" onchange="saveSoarSettingsUI()" style="width:12px; height:12px; accent-color:var(--purple);">
+                                    <span>Path Traversal</span>
+                                </label>
+                                <label style="display:flex; align-items:center; gap:6px; font-size:10px; color:#fff; cursor:pointer;">
+                                    <input type="checkbox" value="MALICIOUS_C2_CONNECTION_DETECTED" onchange="saveSoarSettingsUI()" style="width:12px; height:12px; accent-color:var(--purple);">
+                                    <span>C2 Botnet Connection</span>
+                                </label>
+                                <label style="display:flex; align-items:center; gap:6px; font-size:10px; color:#fff; cursor:pointer;">
+                                    <input type="checkbox" value="PORT_SCAN" onchange="saveSoarSettingsUI()" style="width:12px; height:12px; accent-color:var(--purple);">
+                                    <span>Port Scan (Nmap)</span>
+                                </label>
+                                <label style="display:flex; align-items:center; gap:6px; font-size:10px; color:#fff; cursor:pointer;">
+                                    <input type="checkbox" value="DDOS_FLOOD_ACTIVE" onchange="saveSoarSettingsUI()" style="width:12px; height:12px; accent-color:var(--purple);">
+                                    <span>DDoS Flood Storm</span>
+                                </label>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1170,7 +1250,7 @@
             <span id="md-viewer-title">Отчет ИИ-Агента MISTRAL (.md)</span>
             <span onclick="closeMdViewerModal()" style="cursor:pointer; color:var(--dim)">✕</span>
         </div>
-        <div id="md-viewer-content" style="flex:1; overflow-y:auto; font-family:'JetBrains Mono', monospace; font-size:11px; line-height:1.6; color:#e2e8f0; background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:6px; padding:16px; white-space:pre-wrap; margin-bottom:14px;"></div>
+        <div id="md-viewer-content" style="flex:1; overflow-y:auto; font-family:'JetBrains Mono', monospace; font-size:11px; line-height:1.6; color:#e2e8f0; background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:6px; padding:16px; margin-bottom:14px;"></div>
         <div style="display:flex; justify-content:space-between; flex:0; align-items:center;">
             <button onclick="window.exportCurrentReportToDocx()" style="background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.4); color:var(--green); padding:8px 16px; border-radius:6px; cursor:pointer; font-weight:700; font-family:'JetBrains Mono',monospace;">📄 ЭКСПОРТ В DOCX</button>
             <button onclick="closeMdViewerModal()" style="background:var(--blue); color:#fff; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; font-weight:700; font-family:'JetBrains Mono',monospace;">ЗАКРЫТЬ</button>

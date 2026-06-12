@@ -152,7 +152,7 @@ function createMainWindow() {
 }
 
 // --- WebSocket logic ---
-function connectToServer(host, port, token) {
+function connectToServer(host, port, token, username) {
   userDisconnected = false;
   if (wsClient) { try { wsClient.terminate(); } catch(_) {} wsClient = null; }
   if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
@@ -160,7 +160,7 @@ function connectToServer(host, port, token) {
   const isSecure = port === '8443' || port === 8443 || String(port) === '8443';
   const protocol = isSecure ? 'https' : 'http';
   const wsProtocol = isSecure ? 'wss' : 'ws';
-  serverConfig = { host, port, token, url: `${protocol}://${host}:${port}` };
+  serverConfig = { host, port, token, username: username || serverConfig.username || 'admin', url: `${protocol}://${host}:${port}` };
 
   const wsUrl = `${wsProtocol}://${host}:${port}/ws`;
   logger.info(`Connecting to ${wsUrl}`);
@@ -184,7 +184,7 @@ function connectToServer(host, port, token) {
     reconnectAttempts = 0;
     if (mainWindow) mainWindow.webContents.send('conn-status', 'connected', 'Подключён');
     if (wsClient === ws) {
-      ws.send(JSON.stringify({ event: 'auth', data: { token, nonce: Date.now().toString(36) } }));
+      ws.send(JSON.stringify({ event: 'auth', data: { token, nonce: Date.now().toString(36), username: serverConfig.username || 'admin' } }));
       ws.send(JSON.stringify({ event: 'get_stats' }));
       ws.send(JSON.stringify({ event: 'get_incidents' }));
       ws.send(JSON.stringify({ event: 'get_logs', data: { type: 'server', limit: 200 } }));
@@ -317,6 +317,10 @@ setInterval(() => {
 
 // --- IPC Handlers ---
 ipcMain.handle('get-app-version', () => app.getVersion());
+ipcMain.handle('get-ws-state', () => {
+  if (!wsClient) return 'CLOSED';
+  return ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'][wsClient.readyState] || 'CLOSED';
+});
 
 ipcMain.handle('get-saved-config', () => {
   if (store) {
@@ -358,7 +362,7 @@ ipcMain.handle('connect-server', async (event, { host, port, username, password 
       if (store) {
         store.set('serverConfig', { host, port, username }); // Store config with username
       }
-      connectToServer(host, port, data.token);
+      connectToServer(host, port, data.token, username);
       setTimeout(() => {
         if (mainWindow) mainWindow.webContents.send('initial-cache', cache);
       }, 500);
