@@ -5,6 +5,13 @@ import time
 import urllib.request
 import urllib.error
 
+# Reconfigure stdout to support UTF-8 characters (like emojis) on Windows command prompt
+try:
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8')
+except Exception:
+    pass
+
 BASE_URL = ""
 WEBSITE_URL = ""
 ATTACKER_IP = "103.45.2.19"
@@ -40,20 +47,20 @@ def print_header():
 
 def api_request(path, data=None, method='POST'):
     url = BASE_URL + path
-    req = urllib.request.Request(url, method=method)
-    
-    jsondata = None
-    if data is not None:
-        req.add_header('Content-Type', 'application/json')
-        jsondata = json.dumps(data).encode('utf-8')
-        
     try:
+        req = urllib.request.Request(url, method=method)
+        
+        jsondata = None
+        if data is not None:
+            req.add_header('Content-Type', 'application/json')
+            jsondata = json.dumps(data).encode('utf-8')
+            
         if jsondata is not None:
             response = urllib.request.urlopen(req, data=jsondata)
         else:
             response = urllib.request.urlopen(req)
         return response.read().decode('utf-8')
-    except urllib.error.URLError:
+    except Exception:
         return None
 
 def website_request(path, method='GET', data=None):
@@ -125,14 +132,40 @@ def check_ddos_blocked():
     except:
         return False
 
-def wait_for_ai_mitigation(incident_id):
+def wait_for_ai_mitigation(incident_id, ip_to_check=None):
     print_color("\n [*] Ожидание реакции ИИ-Агента (Mistral SOAR)...", "yellow")
     print(" (Система опрашивает сервер на наличие отчета ИИ по этому инциденту...)")
     
     start_time = time.time()
-    timeout = 45 # 45 seconds timeout
+    timeout = 25 # 25 seconds timeout
     while time.time() - start_time < timeout:
         time.sleep(1.5)
+        if ip_to_check and is_ip_quarantined(ip_to_check):
+            print_color("\n[🛡️ ДЕТЕРМИНИРОВАННЫЙ РЕЗЕРВНЫЙ КОНТУР АКТИВНОЙ ЗАЩИТЫ СРАБОТАЛ!]", "green")
+            print_color(f"  -> IP-адрес атакующего {ip_to_check} БЫСТРО И БЕЗУСЛОВНО ЗАБЛОКИРОВАН в UFW/Fail2ban!", "green")
+            print_color("  -> Защита объекта REMON и хоста обеспечена в автоматическом fail-safe режиме.", "cyan")
+            try:
+                res_str = api_request('/api/incidents', method='GET')
+                if res_str:
+                    res_json = json.loads(res_str)
+                    incidents_list = res_json.get('data', [])
+                    target_inc = next((inc for inc in incidents_list if inc['id'] == incident_id), None)
+                    if target_inc:
+                        audit = target_inc.get('aiAudit')
+                        if not audit:
+                            report_res = api_request(f'/api/ai-reports/{incident_id}', method='GET')
+                            if report_res:
+                                try:
+                                    audit = json.loads(report_res).get('markdown')
+                                except:
+                                    pass
+                        if audit:
+                            print_color("\n[🤖 ТАКЖЕ ДОСТУПЕН ОТЧЕТ ИИ-АГЕНТА]:", "green")
+                            print(audit)
+            except:
+                pass
+            return True
+            
         res_str = api_request('/api/incidents', method='GET')
         if not res_str:
             continue
@@ -145,6 +178,13 @@ def wait_for_ai_mitigation(incident_id):
                 if status in ['resolved', 'advisory', 'ai_mitigation', 'ai_advisory']:
                     # Incident is being handled or handled. Let's see if aiAudit is populated
                     audit = target_inc.get('aiAudit')
+                    if not audit:
+                        report_res = api_request(f'/api/ai-reports/{incident_id}', method='GET')
+                        if report_res:
+                            try:
+                                audit = json.loads(report_res).get('markdown')
+                            except:
+                                pass
                     if audit:
                         print_color("\n[🤖 РЕАКЦИЯ ИИ-АГЕНТА ОБНАРУЖЕНА!]", "green")
                         print_color(f"Статус защиты: {status.upper()}", "cyan")
@@ -154,6 +194,12 @@ def wait_for_ai_mitigation(incident_id):
                         return True
         except Exception as e:
             pass
+            
+    if ip_to_check and is_ip_quarantined(ip_to_check):
+        print_color("\n[🛡️ РЕЗЕРВНАЯ АКТИВНАЯ ЗАЩИТА СРАБОТАЛА ПОСЛЕ ТАЙМАУТА]", "green")
+        print_color(f"  -> IP-адрес {ip_to_check} внесен в карантин на уровне брандмауэра.", "green")
+        return True
+        
     print_color(" [!] ИИ-Агент не ответил за отведенное время (возможно, ИИ выключен в настройках SOAR).", "yellow")
     return False
 
@@ -254,7 +300,7 @@ def run_apt_attack(step_by_step=False):
         try:
             inc_id = json.loads(inc_res).get('incidentId')
             if inc_id:
-                wait_for_ai_mitigation(inc_id)
+                wait_for_ai_mitigation(inc_id, ATTACKER_IP)
         except Exception as e:
             print(f"Ошибка ожидания ответа ИИ: {e}")
             
@@ -311,7 +357,7 @@ def run_honeypot_demo():
         try:
             inc_id = json.loads(inc_res).get('incidentId')
             if inc_id:
-                wait_for_ai_mitigation(inc_id)
+                wait_for_ai_mitigation(inc_id, HONEYPOT_IP)
         except Exception as e:
             print(f"Ошибка ожидания ответа ИИ: {e}")
             
@@ -395,7 +441,7 @@ def run_ddos_flood():
         print_color("  -> Входящие пакеты от атакующей подсети успешно сбрасываются брандмауэром.", "green")
         print_color("  -> DDoS-атака успешно нейтрализована!", "green")
         if incident_id:
-            wait_for_ai_mitigation(incident_id)
+            wait_for_ai_mitigation(incident_id, '82.102.0.0')
     else:
         print_color("\n [!] Время симуляции истекло. Атака не была заблокирована.", "red")
         print_color("  -> Сетевая активность на графиках клиента показывала резкий пик.", "green")
@@ -472,7 +518,7 @@ def run_interactive_sandbox():
                 try:
                     inc_id = json.loads(inc_res).get('incidentId')
                     if inc_id:
-                        wait_for_ai_mitigation(inc_id)
+                        wait_for_ai_mitigation(inc_id, attacker_ip)
                 except:
                     pass
             input("\n Нажмите ENTER...")
@@ -491,7 +537,7 @@ def run_interactive_sandbox():
                 try:
                     inc_id = json.loads(inc_res).get('incidentId')
                     if inc_id:
-                        wait_for_ai_mitigation(inc_id)
+                        wait_for_ai_mitigation(inc_id, attacker_ip)
                 except:
                     pass
             input("\n Нажмите ENTER...")
@@ -510,7 +556,7 @@ def run_interactive_sandbox():
                 try:
                     inc_id = json.loads(inc_res).get('incidentId')
                     if inc_id:
-                        wait_for_ai_mitigation(inc_id)
+                        wait_for_ai_mitigation(inc_id, attacker_ip)
                 except:
                     pass
             input("\n Нажмите ENTER...")
@@ -530,7 +576,7 @@ def run_interactive_sandbox():
                 try:
                     inc_id = json.loads(inc_res).get('incidentId')
                     if inc_id:
-                        wait_for_ai_mitigation(inc_id)
+                        wait_for_ai_mitigation(inc_id, attacker_ip)
                 except:
                     pass
             time.sleep(1)
@@ -551,7 +597,7 @@ def run_interactive_sandbox():
                 try:
                     inc_id = json.loads(inc_res).get('incidentId')
                     if inc_id:
-                        wait_for_ai_mitigation(inc_id)
+                        wait_for_ai_mitigation(inc_id, attacker_ip)
                 except:
                     pass
             input("\n Нажмите ENTER...")
@@ -567,6 +613,13 @@ def run_interactive_sandbox():
                         print(f" Последний инцидент: {latest.get('type')} (ID: {latest.get('id')})")
                         print(f" Статус: {latest.get('status')} | Уровень: {latest.get('severity')}")
                         audit = latest.get('aiAudit')
+                        if not audit:
+                            report_res = api_request(f"/api/ai-reports/{latest.get('id')}", method='GET')
+                            if report_res:
+                                try:
+                                    audit = json.loads(report_res).get('markdown')
+                                except:
+                                    pass
                         if audit:
                             print_color("\n[Отчет ИИ-Агента]:", "green")
                             print(audit)
