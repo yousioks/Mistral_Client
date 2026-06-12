@@ -681,6 +681,17 @@ window.hideMitreTooltip = function() {
     if (t) t.style.display = 'none';
 };
 
+// Track active audio contexts to close them on unload and prevent Chromium exit crashes (ffmpeg.dll GPF)
+const activeAudioContexts = new Set();
+window.addEventListener('beforeunload', () => {
+    for (const ctx of activeAudioContexts) {
+        try {
+            ctx.close();
+        } catch (_) {}
+    }
+    activeAudioContexts.clear();
+});
+
 // Synthesizer for warning alarm sounds using Web Audio API
 window.playAlertSound = function(severity) {
     if (localStorage.getItem('mute_audio_alerts') === 'true') return;
@@ -688,6 +699,7 @@ window.playAlertSound = function(severity) {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         if (!AudioContext) return;
         const ctx = new AudioContext();
+        activeAudioContexts.add(ctx);
         
         // Base synth parameters
         const osc = ctx.createOscillator();
@@ -722,6 +734,14 @@ window.playAlertSound = function(severity) {
         osc2.start();
         osc.stop(ctx.currentTime + 0.8);
         osc2.stop(ctx.currentTime + 0.8);
+
+        // Safely close the context after sound finishes to free Chromium audio handles
+        setTimeout(() => {
+            try {
+                ctx.close();
+            } catch (_) {}
+            activeAudioContexts.delete(ctx);
+        }, 1000);
     } catch (e) {
         console.warn('Audio alert failed', e);
     }
