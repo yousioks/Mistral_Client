@@ -616,22 +616,28 @@ class DockerTopologyMap {
         
         // Sync container statuses from live system metrics
         if (window.lastMetricsData && window.lastMetricsData.docker) {
-            this.nodes.forEach(n => {
-                // Find matching docker status
-                let containerName = '';
-                if (n.id === 'web_fe') containerName = 'frontend';
-                else if (n.id === 'web_be') containerName = 'backend';
-                else if (n.id === 'pg_db') containerName = 'db';
-                else if (n.id === 'nginx') containerName = 'nginx';
-                
-                if (containerName) {
-                    const dockerInfo = window.lastMetricsData.docker.find(d => String(d.name || '').includes(containerName));
-                    if (dockerInfo) {
-                        n.status = dockerInfo.status.includes('Up') ? 'ONLINE' : 'OFFLINE';
-                        n.color = n.status === 'ONLINE' ? (n.id === 'nginx' ? '#06B6D4' : '#3B82F6') : '#ef4444';
+            const containers = Array.isArray(window.lastMetricsData.docker)
+                ? window.lastMetricsData.docker
+                : (window.lastMetricsData.docker.containers || []);
+            
+            if (Array.isArray(containers)) {
+                this.nodes.forEach(n => {
+                    // Find matching docker status
+                    let containerName = '';
+                    if (n.id === 'web_fe') containerName = 'frontend';
+                    else if (n.id === 'web_be') containerName = 'backend';
+                    else if (n.id === 'pg_db') containerName = 'db';
+                    else if (n.id === 'nginx') containerName = 'nginx';
+                    
+                    if (containerName) {
+                        const dockerInfo = containers.find(d => String(d.name || d.id || '').includes(containerName));
+                        if (dockerInfo && dockerInfo.status) {
+                            n.status = dockerInfo.status.includes('Up') ? 'ONLINE' : 'OFFLINE';
+                            n.color = n.status === 'ONLINE' ? (n.id === 'nginx' ? '#06B6D4' : '#3B82F6') : '#ef4444';
+                        }
                     }
-                }
-            });
+                });
+            }
         }
         
         // 1. Draw connections links
