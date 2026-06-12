@@ -577,7 +577,7 @@
         .inc-meta { font-size: 10px; color: var(--dim); font-family: 'JetBrains Mono', monospace; }
 
         /* ═══ METRICS ═══ */
-        .metrics-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-bottom: 16px; }
+        .metrics-grid { display: grid; grid-template-columns: repeat(5,1fr); gap: 16px; margin-bottom: 16px; }
         .m-card { background: var(--glass-bg); backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: 12px; padding: 20px; text-align: center; box-shadow: var(--glass-shadow); }
         .m-label { font-size: 14px; font-weight: 700; color: var(--muted); letter-spacing: 1px; margin-bottom: 12px; text-transform: uppercase; }
         .m-bar { height: 8px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; margin-bottom: 12px; }

@@ -1556,6 +1556,8 @@ function updateMetrics(data) {
     setMetric('cpu', data.cpu, '%');
     if(data.ram) setMetric('ram', data.ram.percent, '%');
     if(data.disk) setMetric('disk', data.disk.percent, '%');
+    if(data.temp != null) setMetric('temp', data.temp, '°C');
+    if(data.connections != null) setMetric('conns', data.connections, '');
     // Dashboard system health
     if(data.cpu != null) { $('sys-cpu').style.width=data.cpu+'%'; $('sys-cpu-val').textContent=data.cpu+'%'; }
     if(data.ram) { $('sys-ram').style.width=data.ram.percent+'%'; $('sys-ram-val').textContent=data.ram.percent+'%'; }
