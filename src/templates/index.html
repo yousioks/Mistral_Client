@@ -452,12 +452,26 @@
                         <button class="btn-sm" id="map-filter-bruteforce" onclick="setMapFilter('BRUTEFORCE')" style="font-size:9px; padding:3px 8px; background:transparent;">Брутфорс</button>
                     </div>
                 </div>
-                <div style="flex:1; background:#000; position:relative; overflow:hidden; border-radius:8px;">
-                    <canvas id="cyber-map" style="width:100%; height:100%; display:block; background:#020205;"></canvas>
-                    <div id="map-log-overlay" style="position:absolute; bottom:20px; left:20px; max-height:160px; width:340px; background:rgba(0,0,0,0.85); border:1px solid var(--border); border-radius:6px; padding:12px; font-family:'JetBrains Mono',monospace; font-size:10px; color:#fff; overflow-y:auto; display:flex; flex-direction:column; gap:4px; box-shadow:0 10px 30px rgba(0,0,0,0.7); pointer-events:none; border-left:3px solid var(--cyan);">
-                        <div style="font-weight:bold; color:var(--cyan); margin-bottom:4px; text-transform:uppercase; font-size:9px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:3px;">Live Cyber Intelligence Stream</div>
-                        <div id="map-log-feed" style="display:flex; flex-direction:column-reverse; gap:4px;">
-                            <div style="color:var(--dim)">Ожидание кибер-активности...</div>
+                <div style="flex:1; display:flex; gap:16px; min-height:0; position:relative; overflow:hidden;">
+                    <!-- LEFT COLUMN: 3D Globe Map -->
+                    <div style="flex:1.2; position:relative; background:#020205; border-radius:8px; border:1px solid rgba(255,255,255,0.05); overflow:hidden;">
+                        <canvas id="cyber-map" style="width:100%; height:100%; display:block; background:#020205;"></canvas>
+                        <div id="map-log-overlay" style="position:absolute; bottom:20px; left:20px; max-height:160px; width:300px; background:rgba(10,14,25,0.95); border:1px solid var(--border); border-radius:6px; padding:12px; font-family:'JetBrains Mono',monospace; font-size:10px; color:#fff; overflow-y:auto; display:flex; flex-direction:column; gap:4px; box-shadow:0 10px 30px rgba(0,0,0,0.7); pointer-events:none; border-left:3px solid var(--cyan);">
+                            <div style="font-weight:bold; color:var(--cyan); margin-bottom:4px; text-transform:uppercase; font-size:9px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:3px;">Live Cyber Intelligence Stream</div>
+                            <div id="map-log-feed" style="display:flex; flex-direction:column-reverse; gap:4px;">
+                                <div style="color:var(--dim)">Ожидание кибер-активности...</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- RIGHT COLUMN: Docker Network Topology Map -->
+                    <div style="flex:1; position:relative; background:#020205; border-radius:8px; border:1px solid rgba(0,255,136,0.15); display:flex; flex-direction:column; overflow:hidden;">
+                        <div style="font-family:'JetBrains Mono', monospace; font-size:11px; font-weight:700; color:var(--green); background:rgba(34,197,94,0.06); border-bottom:1px solid rgba(34,197,94,0.15); padding:8px 12px; display:flex; justify-content:space-between; align-items:center; letter-spacing:0.5px;">
+                            <span>DOCKER CONTAINERS NETWORK GRAPH</span>
+                            <span style="font-size:9px; color:var(--muted); font-weight:normal;">ACTIVE VISUALIZATION</span>
+                        </div>
+                        <div style="flex:1; position:relative; overflow:hidden; background:#020205;">
+                            <canvas id="docker-topology-map" style="width:100%; height:100%; display:block; background:#020207;"></canvas>
                         </div>
                     </div>
                 </div>
@@ -493,6 +507,19 @@
                         <label>Поиск:</label>
                         <input type="text" id="inc-search" placeholder="Поиск IP, типа, описания..." oninput="applyIncidentFilters()" style="background:rgba(0,0,0,0.4);border:1px solid var(--border);color:#fff;padding:6px 10px;border-radius:6px;font-size:11px;outline:none;width:180px;font-family:'JetBrains Mono',monospace">
                         <button class="btn-sm-clear" onclick="clearIncidentFilters()">Сбросить</button>
+                    <!-- Bulk Actions Bar for Incidents -->
+                    <div id="incidents-bulk-bar" class="bulk-action-bar" style="display:none; align-items:center; gap:10px; background:rgba(245,158,11,0.06); border:1px solid rgba(245,158,11,0.2); border-radius:8px; padding:10px 16px; margin-bottom:12px; font-family:'JetBrains Mono', monospace; font-size:11px; animation: slideUp 0.3s ease;">
+                        <span style="color:#fff; font-weight:bold;">Выбрано: <span id="incidents-selected-count">0</span></span>
+                        <div style="flex:1"></div>
+                        <span style="color:var(--muted)">Статус:</span>
+                        <button class="btn-sm" onclick="bulkUpdateIncidentStatusUI('new')">Новый</button>
+                        <button class="btn-sm" onclick="bulkUpdateIncidentStatusUI('in_review')">В работу</button>
+                        <button class="btn-sm" onclick="bulkUpdateIncidentStatusUI('resolved')">Решить</button>
+                        <button class="btn-sm btn-q" onclick="bulkDeleteIncidentsUI()">Удалить</button>
+                        <span style="color:var(--muted); margin-left:10px;">Экспорт:</span>
+                        <button class="btn-sm" style="border-color:var(--cyan); color:var(--cyan);" onclick="bulkExportIncidents('csv')">CSV</button>
+                        <button class="btn-sm" style="border-color:var(--cyan); color:var(--cyan);" onclick="bulkExportIncidents('json')">JSON</button>
+                        <button class="btn-sm" style="border-color:var(--cyan); color:var(--cyan);" onclick="bulkExportIncidents('txt')">Markdown</button>
                     </div>
                 </div>
                 
@@ -500,6 +527,7 @@
                     <table class="full-tbl" id="incidents-table" style="width:100%;">
                         <thead>
                             <tr>
+                                <th style="width:40px; text-align:center;"><input type="checkbox" id="incidents-select-all" onclick="toggleSelectAllIncidents(this.checked)" style="cursor:pointer; width:14px; height:14px;"></th>
                                 <th>Severity</th>
                                 <th>Type</th>
                                 <th>Sensor / Detector</th>
@@ -573,7 +601,18 @@
                         <button class="btn-sm-clear" onclick="clearLogFilters()">Сбросить</button>
                         <button class="btn-sm" style="border-color:var(--cyan); color:var(--cyan); background:rgba(6,182,212,0.05); font-family:'JetBrains Mono',monospace;" onclick="exportLogsToFile()">📥 Экспорт</button>
                         <button class="btn-send-ai" onclick="sendLogsToAI()">🧠 Отправить в ИИ</button>
+                        <label class="checkbox-container" title="Выбрать все отфильтрованные логи"><input type="checkbox" id="log-select-all" onclick="toggleSelectAllLogs(this.checked)" style="cursor:pointer; width:14px; height:14px; vertical-align:middle;"> Выбрать все</label>
                         <label class="checkbox-container" title="Автоматическая прокрутка при поступлении новых логов"><input type="checkbox" id="log-autoscroll" checked> Скролл</label>
+                    </div>
+                    <!-- Bulk Actions Bar for Logs -->
+                    <div id="logs-bulk-bar" class="bulk-action-bar" style="display:none; align-items:center; gap:10px; background:rgba(0,150,255,0.06); border:1px solid rgba(0,150,255,0.2); border-radius:8px; padding:10px 16px; margin-bottom:12px; font-family:'JetBrains Mono', monospace; font-size:11px; animation: slideUp 0.3s ease;">
+                        <span style="color:#fff; font-weight:bold;">Выбрано логов: <span id="logs-selected-count">0</span></span>
+                        <div style="flex:1"></div>
+                        <button class="btn-sm btn-q" onclick="bulkDeleteLogsUI()">Удалить выбранные</button>
+                        <span style="color:var(--muted); margin-left:10px;">Экспорт выбранных:</span>
+                        <button class="btn-sm" style="border-color:var(--cyan); color:var(--cyan);" onclick="bulkExportLogs('csv')">CSV</button>
+                        <button class="btn-sm" style="border-color:var(--cyan); color:var(--cyan);" onclick="bulkExportLogs('json')">JSON</button>
+                        <button class="btn-sm" style="border-color:var(--cyan); color:var(--cyan);" onclick="bulkExportLogs('txt')">TXT</button>
                     </div>
                 </div>
                 <div id="logs-feed" style="flex:1;overflow-y:auto;padding-top:10px"></div>

@@ -25,9 +25,18 @@ function formatLogMessageWithIpActions(message) {
         if (serverBase) {
             try { serverHost = new URL(serverBase).hostname; } catch(e) { serverHost = serverBase; }
         }
-        const isSafe = ip === '127.0.0.1' || ip === 'localhost' || ip === '::1' || ip === '::ffff:127.0.0.1' || ip === serverHost || ip === window.clientIp;
         
-        msgHtml = msgHtml.replace(ip, `<span class="ip-chip clickable" onclick="filterLogsByIp('${safeIp}')" title="Фильтровать логи по IP: ${safeIp}">${safeIp}</span>`);
+        const isWhitelisted = window.soarSettings && (
+            (window.soarSettings.whitelist && window.soarSettings.whitelist.includes(ip)) ||
+            (window.soarSettings.activeSshSessions && window.soarSettings.activeSshSessions.includes(ip))
+        );
+        const isSafe = ip === '127.0.0.1' || ip === 'localhost' || ip === '::1' || ip === '::ffff:127.0.0.1' || ip === serverHost || ip === window.clientIp || isWhitelisted;
+        
+        if (isWhitelisted) {
+            msgHtml = msgHtml.replace(ip, `<span class="ip-chip clickable" style="border-color:var(--green); background:rgba(34,197,94,0.1); color:var(--green);" onclick="filterLogsByIp('${safeIp}')" title="Фильтровать логи по IP (Белый список): ${safeIp}">${safeIp} 🛡️</span>`);
+        } else {
+            msgHtml = msgHtml.replace(ip, `<span class="ip-chip clickable" onclick="filterLogsByIp('${safeIp}')" title="Фильтровать логи по IP: ${safeIp}">${safeIp}</span>`);
+        }
         
         if (!isSafe) {
             const isBanned = window.quarantinedIps && window.quarantinedIps.some(q => q.ip === ip);
@@ -38,6 +47,9 @@ function formatLogMessageWithIpActions(message) {
             actionsHtml = `<button class="btn-sm ${btnClass}" style="margin-left: 10px; padding: 2px 6px; font-size: 9px; vertical-align: middle; line-height: 1;" onclick="${btnFunc}; setTimeout(loadLogs, 300);">${btnText}</button>`;
         }
     }
+
+    // Highlight CVEs
+    msgHtml = msgHtml.replace(/\b(CVE-\d{4}-\d+)\b/g, `<span class="cve-badge" onclick="searchCve('$1')" title="Найти в базе сигнатур MISTRAL">$1</span>`);
 
     // 1. Highlight bracketed source tag at the start of the message (e.g., [Docker] or [ИИ-Агент])
     msgHtml = msgHtml.replace(/^\[([^\]]+)\]/, (match, p1) => {
@@ -214,6 +226,7 @@ function handleMessage(msg) {
         case 'stats': updateStats(msg.data); break;
         case 'incidents_list':
             allIncidents = msg.data||[];
+            if (window.selectedIncidents) window.selectedIncidents.clear();
             renderIncidents(allIncidents);
             updateChartsFromIncidents(allIncidents);
             populateAIIncidentDropdown();
@@ -231,6 +244,7 @@ function handleMessage(msg) {
             break;
         case 'logs_list': 
             currentLogsData = msg.data || [];
+            if (window.selectedLogs) window.selectedLogs.clear();
             applyLogFilters();
             const rFeed = $('running-logs');
             if (rFeed) {
@@ -261,12 +275,14 @@ function handleMessage(msg) {
                 updateKillChain(msg.data);
                 
                 // Cyber Threat Map and Mini-Globe animations
-                if (msg.data.geo) {
-                    if (cyberMap) cyberMap.animateAttack(msg.data.geo, msg.data.type);
-                    if (miniGlobe) {
-                        const techId = getMitreTechId(msg.data);
-                        miniGlobe.animateThreat(msg.data.geo, techId);
-                    }
+                let mapGeo = msg.data.geo;
+                if (!mapGeo) {
+                    mapGeo = { ip: msg.data.ip || '127.0.0.1', country: 'Локальная сеть / РФ', code: 'RU', lat: 55.75, lon: 37.61, isp: 'Внутренний провайдер', reputation: 10 };
+                }
+                if (cyberMap) cyberMap.animateAttack(mapGeo, msg.data.type || 'Intrusion');
+                if (miniGlobe) {
+                    const techId = getMitreTechId(msg.data);
+                    miniGlobe.animateThreat(mapGeo, techId);
                 }
                 
                 if(msg.data.severity==='CRITICAL'||msg.data.severity==='HIGH'){
@@ -562,6 +578,10 @@ ${incident.contextBlock || ''}`;
 window.addEventListener('DOMContentLoaded', () => {
     if ($('cyber-map')) {
         cyberMap = new CyberMap('cyber-map');
+        window.cyberMap = cyberMap;
+    }
+    if ($('docker-topology-map')) {
+        window.dockerTopologyMap = new DockerTopologyMap('docker-topology-map');
     }
     if ($('mitre-mini-globe')) {
         miniGlobe = new MiniGlobeRenderer('mitre-mini-globe');
@@ -591,7 +611,52 @@ window.addEventListener('DOMContentLoaded', () => {
     if (glowEnabled) {
         document.body.classList.add('glow-active');
     }
+
+    // MITRE cells event bindings
+    document.querySelectorAll('.mitre-cell').forEach(cell => {
+        cell.onclick = () => {
+            const techId = cell.id;
+            if (techId) {
+                window.filterIncidentsByMitre(techId);
+            }
+        };
+        // Add hover tooltip bindings
+        cell.onmouseenter = (e) => {
+            const techText = cell.querySelector('.mitre-tech')?.textContent || '';
+            const desc = cell.textContent.replace(techText, '').trim();
+            showMitreTooltip(e.pageX, e.pageY, techText || cell.id, desc);
+        };
+        cell.onmouseleave = () => {
+            hideMitreTooltip();
+        };
+        cell.onmousemove = (e) => {
+            const t = $('mitre-tooltip-el');
+            if (t) {
+                t.style.left = (e.pageX + 10) + 'px';
+                t.style.top = (e.pageY + 10) + 'px';
+            }
+        };
+    });
 });
+
+window.showMitreTooltip = function(x, y, techId, desc) {
+    let t = $('mitre-tooltip-el');
+    if (!t) {
+        t = document.createElement('div');
+        t.id = 'mitre-tooltip-el';
+        t.className = 'mitre-tooltip';
+        document.body.appendChild(t);
+    }
+    t.innerHTML = `<strong style="color:var(--cyan); font-family:monospace; display:block; margin-bottom:4px;">${techId}</strong><span>${desc}</span><br><span style="font-size:9px; color:var(--dim); margin-top:4px; display:block;">Нажмите для фильтрации инцидентов</span>`;
+    t.style.left = (x + 10) + 'px';
+    t.style.top = (y + 10) + 'px';
+    t.style.display = 'block';
+};
+
+window.hideMitreTooltip = function() {
+    const t = $('mitre-tooltip-el');
+    if (t) t.style.display = 'none';
+};
 
 // Synthesizer for warning alarm sounds using Web Audio API
 window.playAlertSound = function(severity) {
@@ -682,7 +747,133 @@ function updateSoarCheckboxes(settings) {
     if (aiThreshold) aiThreshold.value = settings.aiThreatThreshold || 3;
     if (aiLeaks) aiLeaks.checked = settings.aiTriggerOnLeaks !== false;
     if (aiCritical) aiCritical.checked = settings.aiTriggerOnCritical !== false;
+
+    // Render Whitelist
+    const listEl = $('whitelist-ips-list');
+    if (listEl) {
+        listEl.innerHTML = '';
+        const staticIps = settings.whitelist || [];
+        const staticCidrs = settings.whitelistCidrs || [];
+        const sshSessions = settings.activeSshSessions || [];
+
+        // Dynamic SSH connections
+        sshSessions.forEach(ip => {
+            const row = document.createElement('div');
+            row.style = 'display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:rgba(34,197,94,0.08); border:1px solid rgba(34,197,94,0.2); border-radius:6px; margin-bottom:4px; font-family:\'JetBrains Mono\', monospace;';
+            row.innerHTML = `<span style="color:var(--green); font-weight:bold;">${ip} <span style="font-size:9px; color:var(--muted); font-weight:normal;">[SSH Session]</span></span>
+                             <span style="font-size:9px; color:var(--muted); text-transform:uppercase; font-weight:bold;">Неблокируемый</span>`;
+            listEl.appendChild(row);
+        });
+
+        // Static IPs
+        staticIps.forEach(ip => {
+            if (sshSessions.includes(ip)) return; // Avoid duplicate display
+            const isDefault = ['127.0.0.1', 'localhost', '::1', '::ffff:127.0.0.1', '172.18.32.1', '109.120.5.41'].includes(ip);
+            const row = document.createElement('div');
+            row.style = 'display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:6px; margin-bottom:4px; font-family:\'JetBrains Mono\', monospace;';
+            
+            if (isDefault) {
+                row.innerHTML = `<span style="color:#fff;">${ip} <span style="font-size:9px; color:var(--muted);">[Default]</span></span>
+                                 <span style="font-size:9px; color:var(--muted); text-transform:uppercase;">Системный</span>`;
+            } else {
+                row.innerHTML = `<span style="color:#fff;">${ip}</span>
+                                 <span style="color:var(--red); cursor:pointer; font-weight:bold; font-size:12px; padding:0 4px;" onclick="removeWhitelistIpUI('${ip}')" title="Удалить из списка">✕</span>`;
+            }
+            listEl.appendChild(row);
+        });
+
+        // Static CIDRs
+        staticCidrs.forEach(cidr => {
+            const row = document.createElement('div');
+            row.style = 'display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:rgba(6,182,212,0.05); border:1px solid rgba(6,182,212,0.15); border-radius:6px; margin-bottom:4px; font-family:\'JetBrains Mono\', monospace;';
+            row.innerHTML = `<span style="color:var(--cyan); font-weight:bold;">${cidr}</span>
+                             <span style="color:var(--red); cursor:pointer; font-weight:bold; font-size:12px; padding:0 4px;" onclick="removeWhitelistIpUI('${cidr}')" title="Удалить из списка">✕</span>`;
+            listEl.appendChild(row);
+        });
+
+        if (listEl.children.length === 0) {
+            listEl.innerHTML = '<div style="color:var(--muted); text-align:center; padding:8px; font-size:11px;">Список исключений пуст</div>';
+        }
+    }
 }
+
+window.addWhitelistIpUI = function() {
+    const input = $('new-whitelist-ip');
+    if (!input || !input.value.trim()) return;
+    const ip = input.value.trim();
+
+    const requestBody = { ip };
+
+    if (window.electronAPI) {
+        window.electronAPI.sendApiRequest('/api/whitelist/add', 'POST', requestBody)
+            .then(res => {
+                if (res && res.success) {
+                    showToast('IP Whitelist', `Адрес ${ip} успешно внесен в белый список.`, 'green');
+                    input.value = '';
+                } else {
+                    showToast('Ошибка Whitelist', (res && res.error) || 'Не удалось добавить IP в белый список', 'warn');
+                }
+            })
+            .catch(err => {
+                showToast('Ошибка Whitelist', err.message, 'warn');
+            });
+    } else {
+        fetch(`${serverBase}/api/whitelist/add`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Auth-Token': token },
+            body: JSON.stringify(requestBody)
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                showToast('IP Whitelist', `Адрес ${ip} успешно внесен в белый список.`, 'green');
+                input.value = '';
+            } else {
+                showToast('Ошибка Whitelist', res.error || 'Не удалось добавить IP', 'warn');
+            }
+        })
+        .catch(err => {
+            showToast('Ошибка Whitelist', err.message, 'warn');
+        });
+    }
+};
+
+window.removeWhitelistIpUI = function(ip) {
+    if (!confirm(`Вы действительно хотите удалить ${ip} из белого списка?`)) return;
+
+    const requestBody = { ip };
+
+    if (window.electronAPI) {
+        window.electronAPI.sendApiRequest('/api/whitelist/remove', 'POST', requestBody)
+            .then(res => {
+                if (res && res.success) {
+                    showToast('IP Whitelist', `Адрес ${ip} успешно удален из белого списка.`, 'green');
+                } else {
+                    showToast('Ошибка Whitelist', (res && res.error) || 'Не удалось удалить IP', 'warn');
+                }
+            })
+            .catch(err => {
+                showToast('Ошибка Whitelist', err.message, 'warn');
+            });
+    } else {
+        fetch(`${serverBase}/api/whitelist/remove`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Auth-Token': token },
+            body: JSON.stringify(requestBody)
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                showToast('IP Whitelist', `Адрес ${ip} успешно удален из белого списка.`, 'green');
+            } else {
+                showToast('Ошибка Whitelist', res.error || 'Не удалось удалить IP', 'warn');
+            }
+        })
+        .catch(err => {
+            showToast('Ошибка Whitelist', err.message, 'warn');
+        });
+    }
+};
 
 window.saveSoarSettingsUI = function() {
     const ddosCheckbox = $('soar-autoban-ddos');

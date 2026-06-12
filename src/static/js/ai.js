@@ -34,7 +34,7 @@ window.analyzeContext = function(id) {
     }
     
     const prompt = template
-        .replace(/\{\{type\}\}/g, inc.type || 'Unknown')
+        .replace(/\{\{type\}\}/g, inc.type || 'SECURITY_ALERT')
         .replace(/\{\{description\}\}/g, inc.description || 'No description')
         .replace(/\{\{context\}\}/g, inc.contextBlock || 'Неизвестно')
         .replace(/\{\{ip\}\}/g, inc.ip || 'N/A')
@@ -221,7 +221,7 @@ function selectIncidentForAI() {
     }
     
     const prompt = template
-        .replace(/\{\{type\}\}/g, inc.type || 'Unknown')
+        .replace(/\{\{type\}\}/g, inc.type || 'SECURITY_ALERT')
         .replace(/\{\{description\}\}/g, inc.description || 'No description')
         .replace(/\{\{context\}\}/g, inc.contextBlock || 'Неизвестно')
         .replace(/\{\{ip\}\}/g, inc.ip || 'N/A')
@@ -276,4 +276,36 @@ window.updateAIProgressUI = function(data) {
             }, 3000);
         }
     }
+};
+
+window.copyLastAIResponse = function() {
+    const history = window.chatHistory || [];
+    const botMsgs = history.filter(m => m.role === 'bot' || m.role === 'assistant');
+    if (botMsgs.length === 0) {
+        showToast('ИИ-Агент', 'Нет ответов для копирования', 'warn');
+        return;
+    }
+    const text = botMsgs[botMsgs.length - 1].content;
+    navigator.clipboard.writeText(text)
+        .then(() => showToast('ИИ-Агент', 'Ответ успешно скопирован в буфер обмена', 'green'))
+        .catch(err => showToast('Ошибка', 'Не удалось скопировать: ' + err.message, 'warn'));
+};
+
+window.downloadLastAIResponse = function() {
+    const history = window.chatHistory || [];
+    const botMsgs = history.filter(m => m.role === 'bot' || m.role === 'assistant');
+    if (botMsgs.length === 0) {
+        showToast('ИИ-Агент', 'Нет ответов для скачивания', 'warn');
+        return;
+    }
+    const text = botMsgs[botMsgs.length - 1].content;
+    const blob = new Blob([text], { type: 'text/markdown;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `mistral_ai_report_${new Date().toISOString().slice(0,10)}.md`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('ИИ-Агент', 'Отчёт загружен в формате Markdown', 'green');
 };

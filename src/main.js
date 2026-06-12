@@ -5,6 +5,9 @@ const WebSocket = require('ws');
 const winston = require('winston');
 const DailyRotateFile = require('winston-daily-rotate-file');
 let notificationsEnabled = true;
+
+// Allow self-signed SSL certificates for secure HTTPS/WSS localhost developer connections
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 import('electron-store').then((module) => {
   const Store = module.default;
   store = new Store();
@@ -45,6 +48,7 @@ let wsClient = null;
 let reconnectTimer = null;
 let reconnectAttempts = 0;
 let userDisconnected = false;
+let lastNotificationTime = 0;
 const MAX_RECONNECT_DELAY = 30000;
 let serverConfig = { host: '', port: 8080, url: '', token: '' };
 
@@ -111,6 +115,21 @@ function createMainWindow() {
   // Защита от захвата экрана и скриншотов (для Enterprise)
   mainWindow.setContentProtection(false);
 
+  // Security Hardening: Lockdown window navigation to prevent loading remote malicious pages
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    // Only allow loading local files or the initial page
+    if (!url.startsWith('file://')) {
+      logger.warn(`Blocked security-violating navigation attempt to: ${url}`);
+      event.preventDefault();
+    }
+  });
+
+  // Security Hardening: Block unauthorized popup/child window spawning
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    logger.warn(`Blocked popup/child window creation attempt to: ${url}`);
+    return { action: 'deny' };
+  });
+
   mainWindow.loadFile(path.join(__dirname, 'templates', 'index.html'));
 
   mainWindow.webContents.on('before-input-event', (event, input) => {
@@ -132,14 +151,23 @@ function connectToServer(host, port, token) {
   userDisconnected = false;
   if (wsClient) { try { wsClient.terminate(); } catch(_) {} wsClient = null; }
   if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
-  serverConfig = { host, port, token, url: `http://${host}:${port}` };
+  
+  const isSecure = port === '8443' || port === 8443 || String(port) === '8443';
+  const protocol = isSecure ? 'https' : 'http';
+  const wsProtocol = isSecure ? 'wss' : 'ws';
+  serverConfig = { host, port, token, url: `${protocol}://${host}:${port}` };
 
-  const wsUrl = `ws://${host}:${port}/ws`;
+  const wsUrl = `${wsProtocol}://${host}:${port}/ws`;
   logger.info(`Connecting to ${wsUrl}`);
   
   if (mainWindow) mainWindow.webContents.send('conn-status', 'connecting', `Подключение... (${host}:${port})`);
 
-  try { wsClient = new WebSocket(wsUrl); } 
+  const wsOptions = {};
+  if (isSecure) {
+    wsOptions.rejectUnauthorized = false;
+  }
+
+  try { wsClient = new WebSocket(wsUrl, wsOptions); } 
   catch (err) { logger.error('WS Error: ' + err.message); scheduleReconnect(); return; }
 
   wsClient.on('open', () => {
@@ -169,10 +197,10 @@ function connectToServer(host, port, token) {
          case 'incident':
           if (msg.data) {
              cache.incidents.unshift(msg.data);
-             const typeLower = (msg.data.type || "").toLowerCase();
-             const descLower = (msg.data.description || "").toLowerCase();
-             const isDdos = typeLower.includes("ddos") || typeLower.includes("flood") || descLower.includes("ddos") || descLower.includes("flood");
-             if ((msg.data.severity === 'CRITICAL' || msg.data.severity === 'HIGH') && !isDdos && Notification.isSupported() && !isAppQuitting && notificationsEnabled) {
+             const now = Date.now();
+             const timeOk = (now - lastNotificationTime) > 8000;
+             if ((msg.data.severity === 'CRITICAL' || msg.data.severity === 'HIGH') && timeOk && Notification.isSupported() && !isAppQuitting && notificationsEnabled) {
+                 lastNotificationTime = now;
                  let attackerIp = msg.data.ip;
                  if (!attackerIp && msg.data.details) {
                      const det = msg.data.details;
@@ -275,7 +303,9 @@ ipcMain.handle('get-notifications-enabled', () => {
 
 ipcMain.handle('connect-server', async (event, { host, port, username, password }) => {
   try {
-    const url = `http://${host}:${port}/api/auth/login`;
+    const isSecure = port === '8443' || port === 8443 || String(port) === '8443';
+    const protocol = isSecure ? 'https' : 'http';
+    const url = `${protocol}://${host}:${port}/api/auth/login`;
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -294,7 +324,7 @@ ipcMain.handle('connect-server', async (event, { host, port, username, password 
       setTimeout(() => {
         if (mainWindow) mainWindow.webContents.send('initial-cache', cache);
       }, 500);
-      return { success: true, base: `http://${host}:${port}`, token: data.token };
+      return { success: true, base: `${protocol}://${host}:${port}`, token: data.token };
     }
     return { success: false, error: data.error || 'Login failed' };
   } catch (err) {

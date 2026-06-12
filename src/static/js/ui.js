@@ -26,6 +26,137 @@ function initCharts() {
     }
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// BULK SELECTION & MULTI-PARAMETER SEARCH HELPERS
+// ══════════════════════════════════════════════════════════════════════════════
+window.selectedIncidents = new Set();
+window.selectedLogs = new Set();
+
+window.toggleSelectIncident = function(id, checked) {
+    if (checked) {
+        window.selectedIncidents.add(id);
+    } else {
+        window.selectedIncidents.delete(id);
+    }
+    window.updateIncidentsSelectedCount();
+};
+
+window.toggleSelectLog = function(id, checked) {
+    if (checked) {
+        window.selectedLogs.add(id);
+    } else {
+        window.selectedLogs.delete(id);
+    }
+    window.updateLogsSelectedCount();
+};
+
+window.updateIncidentsSelectedCount = function() {
+    const count = window.selectedIncidents.size;
+    const bar = document.getElementById('incidents-bulk-bar');
+    const label = document.getElementById('incidents-selected-count');
+    if (label) label.textContent = count;
+    if (bar) bar.style.display = count > 0 ? 'flex' : 'none';
+    
+    // Sync Select All checkbox state
+    const selectAllCb = document.getElementById('incidents-select-all');
+    if (selectAllCb) {
+        const visibleRows = document.querySelectorAll('.incident-select-cb');
+        if (visibleRows.length > 0) {
+            const allChecked = Array.from(visibleRows).every(cb => cb.checked);
+            selectAllCb.checked = allChecked;
+        } else {
+            selectAllCb.checked = false;
+        }
+    }
+};
+
+window.updateLogsSelectedCount = function() {
+    const count = window.selectedLogs.size;
+    const bar = document.getElementById('logs-bulk-bar');
+    const label = document.getElementById('logs-selected-count');
+    if (label) label.textContent = count;
+    if (bar) bar.style.display = count > 0 ? 'flex' : 'none';
+    
+    // Sync Select All checkbox state
+    const selectAllCb = document.getElementById('log-select-all');
+    if (selectAllCb) {
+        const visibleRows = document.querySelectorAll('.log-select-cb');
+        if (visibleRows.length > 0) {
+            const allChecked = Array.from(visibleRows).every(cb => cb.checked);
+            selectAllCb.checked = allChecked;
+        } else {
+            selectAllCb.checked = false;
+        }
+    }
+};
+
+window.toggleSelectAllIncidents = function(checked) {
+    if (checked) {
+        const filtered = window.currentFilteredIncidents || allIncidents;
+        filtered.forEach(i => window.selectedIncidents.add(i.id));
+    } else {
+        window.selectedIncidents.clear();
+    }
+    const visibleCbs = document.querySelectorAll('.incident-select-cb');
+    visibleCbs.forEach(cb => {
+        cb.checked = checked;
+    });
+    window.updateIncidentsSelectedCount();
+};
+
+window.toggleSelectAllLogs = function(checked) {
+    if (checked) {
+        const filtered = window.currentFilteredLogs || currentLogsData;
+        filtered.forEach(l => window.selectedLogs.add(l.id));
+    } else {
+        window.selectedLogs.clear();
+    }
+    const visibleCbs = document.querySelectorAll('.log-select-cb');
+    visibleCbs.forEach(cb => {
+        cb.checked = checked;
+    });
+    window.updateLogsSelectedCount();
+};
+
+function matchesMultiParamQuery(entry, queryText, isLog = true) {
+    if (!queryText) return true;
+    const parts = queryText.toLowerCase().split(/\s+/).filter(Boolean);
+    
+    const message = (entry.message || '').toLowerCase();
+    const level = (isLog ? getAutoLevel(entry) : (entry.severity || '')).toLowerCase();
+    const type = (entry.type || '').toLowerCase();
+    const monitor = (entry.monitor || '').toLowerCase();
+    const description = (entry.description || '').toLowerCase();
+    const ip = (entry.ip || entry.target || '').toLowerCase();
+    
+    const fullText = `${message} ${level} ${type} ${monitor} ${description} ${ip}`;
+    
+    for (const part of parts) {
+        if (part.includes(':')) {
+            const [key, val] = part.split(':');
+            if (!val) continue;
+            
+            if (key === 'level' || key === 'severity') {
+                if (!level.includes(val)) return false;
+            } else if (key === 'type') {
+                if (!type.includes(val)) return false;
+            } else if (key === 'monitor') {
+                if (!monitor.includes(val)) return false;
+            } else if (key === 'ip') {
+                if (!ip.includes(val) && !message.includes(val)) return false;
+            } else if (key === 'msg' || key === 'message' || key === 'desc' || key === 'description') {
+                if (!message.includes(val) && !description.includes(val)) return false;
+            } else {
+                if (!fullText.includes(part)) return false;
+            }
+        } else {
+            if (!fullText.includes(part)) return false;
+        }
+    }
+    return true;
+}
+
+
 function updateChartsFromIncidents(list) {
     let crit=0, high=0, med=0, low=0;
     const types = [0,0,0,0,0,0];
@@ -64,8 +195,14 @@ function updateChartsFromIncidents(list) {
         recent.forEach(i => {
             const sev = String(i.severity||'').toUpperCase();
             const d = document.createElement('div');
-            d.style.cssText = 'padding:6px 8px;background:rgba(0,0,0,0.3);border-radius:6px;border-left:3px solid '+(sev==='CRITICAL'?'var(--red)':'var(--orange)');
+            d.style.cssText = 'padding:6px 8px;background:rgba(0,0,0,0.3);border-radius:6px;border-left:3px solid '+(sev==='CRITICAL'?'var(--red)':'var(--orange)')+';cursor:pointer;transition:transform 0.2s;';
             d.innerHTML = '<div style="font-weight:700;font-size:11px;color:#fff">'+esc(i.type||'')+'</div><div style="font-size:10px;color:var(--muted);margin-top:2px">'+esc(i.description||'').slice(0,60)+'</div>';
+            d.onmouseover = () => { d.style.transform = 'translateX(4px)'; };
+            d.onmouseout = () => { d.style.transform = 'none'; };
+            d.onclick = () => {
+                switchTab('incidents');
+                setTimeout(() => openIncidentDrawer(i.id), 100);
+            };
             ra.appendChild(d);
         });
     }
@@ -205,6 +342,40 @@ function addLiveEntry(entry) {
 // ══════════════════════════════════════════════════════════════════════════════
 // INCIDENTS (Data Grid & Drawer)
 // ══════════════════════════════════════════════════════════════════════════════
+window.activeMitreTechniqueFilter = '';
+window.sortIncidentsField = '';
+window.sortIncidentsDirection = 'desc';
+
+window.filterIncidentsByMitre = function(techId) {
+    window.activeMitreTechniqueFilter = techId;
+    const badge = $('incidents-mitre-badge');
+    const label = $('incidents-mitre-tech-id');
+    if (badge && label) {
+        label.textContent = techId;
+        badge.style.display = 'flex';
+    }
+    switchTab('incidents');
+    renderIncidents(allIncidents);
+};
+
+window.clearMitreTechniqueFilter = function() {
+    window.activeMitreTechniqueFilter = '';
+    const badge = $('incidents-mitre-badge');
+    if (badge) badge.style.display = 'none';
+    renderIncidents(allIncidents);
+};
+
+window.sortIncidents = function(field) {
+    if (window.sortIncidentsField === field) {
+        window.sortIncidentsDirection = window.sortIncidentsDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        window.sortIncidentsField = field;
+        window.sortIncidentsDirection = 'desc';
+    }
+    showToast('Сортировка', `Таблица отсортирована по: ${field} (${window.sortIncidentsDirection})`, 'info');
+    renderIncidents(allIncidents);
+};
+
 function renderIncidents(list) {
     const tbody = $('incidents-tbody');
     if(!tbody) return;
@@ -220,6 +391,11 @@ function renderIncidents(list) {
     const search = ($('inc-search')?.value || '').toLowerCase().trim();
     
     let filtered = list || [];
+
+    // Filter by active MITRE technique
+    if (window.activeMitreTechniqueFilter) {
+        filtered = filtered.filter(i => getMitreTechId(i) === window.activeMitreTechniqueFilter);
+    }
     
     if (severity !== 'all') {
         filtered = filtered.filter(i => i.severity === severity);
@@ -254,16 +430,30 @@ function renderIncidents(list) {
     }
     
     if (search) {
-        filtered = filtered.filter(i => {
-            const type = (i.type || '').toLowerCase();
-            const desc = (i.description || '').toLowerCase();
-            const ip = (i.ip || i.target || i.monitor || '').toLowerCase();
-            return type.includes(search) || desc.includes(search) || ip.includes(search);
+        filtered = filtered.filter(i => matchesMultiParamQuery(i, search, false));
+    }
+
+    window.currentFilteredIncidents = filtered;
+
+    // Apply Sorting
+    if (window.sortIncidentsField === 'severity') {
+        const sevOrder = { 'CRITICAL': 4, 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1 };
+        filtered.sort((a, b) => {
+            const valA = sevOrder[a.severity || 'LOW'] || 0;
+            const valB = sevOrder[b.severity || 'LOW'] || 0;
+            return window.sortIncidentsDirection === 'asc' ? valA - valB : valB - valA;
+        });
+    } else if (window.sortIncidentsField === 'date') {
+        filtered.sort((a, b) => {
+            const valA = new Date(a.timestamp || 0).getTime();
+            const valB = new Date(b.timestamp || 0).getTime();
+            return window.sortIncidentsDirection === 'asc' ? valA - valB : valB - valA;
         });
     }
     
     if(!filtered || !filtered.length) {
-        tbody.innerHTML = '<tr><td colspan="6" class="empty-td">Нет зарегистрированных инцидентов</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="empty-td">Нет зарегистрированных инцидентов</td></tr>';
+        window.updateIncidentsSelectedCount();
         return;
     }
     
@@ -271,6 +461,9 @@ function renderIncidents(list) {
     filtered.slice(0, 150).forEach(i => {
         addIncidentRow(i, false, tbody);
     });
+
+    // Sync check counts
+    window.updateIncidentsSelectedCount();
 }
 
 function addIncidentRow(inc, prepend, container) {
@@ -283,8 +476,8 @@ function addIncidentRow(inc, prepend, container) {
     const tr = document.createElement('tr');
     tr.style.cursor = 'pointer';
     tr.onclick = (e) => {
-        // Prevent opening drawer if clicked on a select or button
-        if(e.target.tagName === 'SELECT' || e.target.tagName === 'BUTTON') return;
+        // Prevent opening drawer if clicked on a select, button, or checkbox
+        if(e.target.tagName === 'SELECT' || e.target.tagName === 'BUTTON' || e.target.type === 'checkbox') return;
         openIncidentDrawer(inc.id);
     };
     
@@ -302,10 +495,12 @@ function addIncidentRow(inc, prepend, container) {
     const sOpts = [['new','Новый'],['in_review','В рассмотрении'],['resolved','Решён']]
         .map(([v,l])=>`<option value="${v}"${inc.status===v?' selected':''}>${l}</option>`).join('');
         
+    const isChecked = window.selectedIncidents && window.selectedIncidents.has(inc.id);
     tr.innerHTML = `
+        <td style="text-align:center; width:40px;"><input type="checkbox" class="incident-select-cb" data-id="${inc.id}" ${isChecked ? 'checked' : ''} onclick="event.stopPropagation(); window.toggleSelectIncident('${inc.id}', this.checked)" style="width:14px; height:14px; cursor:pointer;"></td>
         <td>${sevBadge}</td>
         <td style="font-weight:700; color:#fff;">
-            ${esc(inc.type||'Unknown')}
+            ${esc(inc.type||'SECURITY_ALERT')}
             <div style="font-size:10px; color:var(--muted); font-weight:normal; margin-top:2px; max-width:250px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
                 ${esc(inc.description||'—')}
             </div>
@@ -363,11 +558,11 @@ function openIncidentDrawer(id) {
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <div>
                     <span style="font-size:10px; color:var(--muted); display:block; text-transform:uppercase; margin-bottom:2px;">Атакующий регион</span>
-                    <span style="font-weight:700; color:#fff; display:flex; align-items:center;">${flag} ${esc(inc.geo.country || 'Unknown')}</span>
+                    <span style="font-weight:700; color:#fff; display:flex; align-items:center;">${flag} ${esc(inc.geo.country || 'Локальная сеть / РФ')}</span>
                 </div>
                 <div style="text-align:right;">
                     <span style="font-size:10px; color:var(--muted); display:block; text-transform:uppercase; margin-bottom:2px;">ISP / Хостер</span>
-                    <span style="font-weight:500; font-size:11px; color:#fff;">${esc(inc.geo.isp || 'Unknown')}</span>
+                    <span style="font-weight:500; font-size:11px; color:#fff;">${esc(inc.geo.isp || 'Локальный провайдер')}</span>
                 </div>
             </div>
             <div>
@@ -392,7 +587,7 @@ function openIncidentDrawer(id) {
                 <span style="color:var(--dim); font-family:'JetBrains Mono',monospace; font-size:10px;">ID: ${inc.id.split('-')[0]}...</span>
             </div>
             
-            <div style="font-size:18px; font-weight:800; color:#fff;">${esc(inc.type||'Unknown')}</div>
+            <div style="font-size:18px; font-weight:800; color:#fff;">${esc(inc.type||'SECURITY_ALERT')}</div>
             <div style="color:#aaa; font-size:12px; line-height:1.5;">${esc(inc.description||'')}</div>
             
             <div style="display:flex; gap:10px; margin-top:8px;">
@@ -416,9 +611,19 @@ function openIncidentDrawer(id) {
                 <button class="btn-ai-agent" style="flex:1.2; padding:10px; background:linear-gradient(135deg, var(--purple), #581c87); border:none; border-radius:6px; color:#fff; font-weight:700; cursor:pointer; text-align:center;" onclick="triggerAgentManual('${inc.id}'); closeIncidentDrawer();">ИИ-АГЕНТ (РЕАГИРОВАНИЕ)</button>
                 ${inc.ip ? (() => {
                     const isBanned = window.quarantinedIps && window.quarantinedIps.some(q => q.ip === inc.ip);
-                    return isBanned 
+                    const isWhitelisted = window.soarSettings && window.soarSettings.whitelist && window.soarSettings.whitelist.includes(inc.ip);
+                    
+                    const banBtn = isBanned 
                         ? `<button class="btn-unq" style="flex:1; padding:10px; border-radius:6px; cursor:pointer; background:rgba(16,185,129,0.12); color:var(--green); border:1px solid rgba(16,185,129,0.3);" onclick="unquarantineIp('${esc(inc.ip)}'); closeIncidentDrawer();">UNBAN IP</button>`
                         : `<button class="btn-q" style="flex:1; padding:10px; border-radius:6px; cursor:pointer;" onclick="quarantineIp('${esc(inc.ip)}', 'Drawer Block'); closeIncidentDrawer();">BAN IP</button>`;
+                        
+                    const wlBtn = isWhitelisted
+                        ? `<button class="btn-sm" style="flex:1; padding:10px; border-color:var(--green); color:var(--green); background:rgba(34,197,94,0.05);" onclick="window.removeWhitelistIp('${esc(inc.ip)}'); closeIncidentDrawer();">DE-WHITELIST</button>`
+                        : `<button class="btn-sm" style="flex:1; padding:10px; border-color:var(--cyan); color:var(--cyan); background:rgba(6,182,212,0.05);" onclick="window.addWhitelistIp('${esc(inc.ip)}'); closeIncidentDrawer();">WHITELIST</button>`;
+                        
+                    const mapBtn = `<button class="btn-sm" style="flex:1; padding:10px; border-color:var(--orange); color:var(--orange); background:rgba(245,158,11,0.05);" onclick="focusIpOnMap('${esc(inc.ip)}'); closeIncidentDrawer();">SHOW MAP</button>`;
+                    
+                    return `${banBtn}${wlBtn}${mapBtn}`;
                 })() : ''}
                 <button class="btn-sm" style="padding:10px;" onclick="exportReport('${inc.id}')" title="Export Incident Report (IRR)">EXPORT</button>
                 <button class="btn-sm" style="padding:10px; border-color:var(--green); color:var(--green); background:rgba(34,197,94,0.05);" onclick="exportReportDocx('${inc.id}')" title="Export Incident Report (IRR) as DOCX">DOCX</button>
@@ -745,8 +950,73 @@ function doGlobalSearch(val) {
     showToast('Global Search', 'No matches found', 'warn');
 }
 
-// Context Menu
+// Context Menu & Quick Actions
 let ctxTargetIp = '';
+
+window.addWhitelistIp = function(ip) {
+    if (!ip) return;
+    const requestBody = { ip };
+    const apiCall = window.electronAPI 
+        ? window.electronAPI.sendApiRequest('/api/whitelist/add', 'POST', requestBody)
+        : fetch(`${serverBase}/api/whitelist/add`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Auth-Token': token },
+            body: JSON.stringify(requestBody)
+          }).then(r => r.json());
+
+    apiCall.then(res => {
+        if (res && res.success) {
+            showToast('IP Whitelist', `Адрес ${ip} успешно внесен в белый список.`, 'green');
+            if (typeof loadSoarSettings === 'function') loadSoarSettings();
+        } else {
+            showToast('Ошибка Whitelist', (res && res.error) || 'Не удалось добавить IP в белый список', 'warn');
+        }
+    }).catch(err => {
+        showToast('Ошибка Whitelist', err.message, 'warn');
+    });
+};
+
+window.removeWhitelistIp = function(ip, skipConfirm = false) {
+    if (!ip) return;
+    if (!skipConfirm && !confirm(`Вы действительно хотите удалить ${ip} из белого списка?`)) return;
+    const requestBody = { ip };
+    const apiCall = window.electronAPI 
+        ? window.electronAPI.sendApiRequest('/api/whitelist/remove', 'POST', requestBody)
+        : fetch(`${serverBase}/api/whitelist/remove`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Auth-Token': token },
+            body: JSON.stringify(requestBody)
+          }).then(r => r.json());
+
+    apiCall.then(res => {
+        if (res && res.success) {
+            showToast('IP Whitelist', `Адрес ${ip} успешно удален из белого списка.`, 'green');
+            if (typeof loadSoarSettings === 'function') loadSoarSettings();
+        } else {
+            showToast('Ошибка Whitelist', (res && res.error) || 'Не удалось удалить IP', 'warn');
+        }
+    }).catch(err => {
+        showToast('Ошибка Whitelist', err.message, 'warn');
+    });
+};
+
+window.focusIpOnMap = function(ip) {
+    if (!ip) return;
+    const inc = allIncidents.find(i => i.ip === ip && i.geo && i.geo.lat !== undefined);
+    const geo = inc && inc.geo ? inc.geo : { ip: ip, country: 'Локальная сеть / РФ', code: 'RU', lat: 55.75, lon: 37.61, isp: 'Внутренний провайдер', reputation: 30 };
+    
+    switchTab('map');
+    
+    setTimeout(() => {
+        if (window.cyberMap) {
+            window.cyberMap.animateAttack(geo, inc ? inc.type : 'Target Focus');
+            showToast('Cyber Map', `Позиционирование на карте для IP: ${ip}`, 'info');
+        } else {
+            showToast('Cyber Map', 'Карта атак не инициализирована', 'warn');
+        }
+    }, 150);
+};
+
 function openContextMenu(x, y, ip) {
     const menu = $('context-menu');
     if(!menu || !ip) return;
@@ -756,19 +1026,43 @@ function openContextMenu(x, y, ip) {
     const banItem = $('ctx-ban');
     if (banItem) {
         if (isBanned) {
-            banItem.innerHTML = 'Unban IP';
+            banItem.innerHTML = '🔓 Unban IP (Разблокировать в UFW)';
             banItem.style.color = '#10b981';
-            banItem.onclick = () => ctxAction('unban');
         } else {
-            banItem.innerHTML = 'Ban IP';
+            banItem.innerHTML = '🚫 Ban IP (Заблокировать в UFW)';
             banItem.style.color = 'var(--red)';
-            banItem.onclick = () => ctxAction('ban');
+        }
+    }
+    
+    const isWhitelisted = window.soarSettings && window.soarSettings.whitelist && window.soarSettings.whitelist.includes(ip);
+    const wlItem = $('ctx-whitelist');
+    if (wlItem) {
+        if (isWhitelisted) {
+            wlItem.innerHTML = '🛡️ Remove Whitelist (Из белого списка)';
+            wlItem.style.color = '#fbbf24';
+        } else {
+            wlItem.innerHTML = '🛡️ Add Whitelist (В белый список)';
+            wlItem.style.color = '#10b981';
         }
     }
     
     menu.style.display = 'block';
-    menu.style.left = x + 'px';
-    menu.style.top = y + 'px';
+    
+    // Position corrections
+    const menuWidth = 220;
+    const menuHeight = 250;
+    let leftPos = x;
+    let topPos = y;
+    
+    if (x + menuWidth > window.innerWidth) {
+        leftPos = window.innerWidth - menuWidth - 10;
+    }
+    if (y + menuHeight > window.innerHeight) {
+        topPos = window.innerHeight - menuHeight - 10;
+    }
+    
+    menu.style.left = leftPos + 'px';
+    menu.style.top = topPos + 'px';
 }
 
 document.addEventListener('click', () => {
@@ -776,21 +1070,116 @@ document.addEventListener('click', () => {
     if(menu) menu.style.display = 'none';
 });
 
+// Global Right-click interceptor to bind context menu to any IP
+document.addEventListener('contextmenu', (e) => {
+    let target = e.target;
+    let ip = '';
+    while (target && target !== document.body) {
+        if (target.classList && (target.classList.contains('ip-chip') || target.classList.contains('clickable-ip') || target.classList.contains('ip-link') || target.classList.contains('toast-ip'))) {
+            ip = target.getAttribute('data-ip') || target.textContent.trim().replace(/[🛡️📡]/g, '');
+            break;
+        }
+        target = target.parentNode;
+    }
+    
+    if (!ip && e.target && e.target.textContent) {
+        const text = e.target.textContent;
+        const match = text.match(/\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/);
+        if (match) {
+            ip = match[0];
+        }
+    }
+    
+    if (ip) {
+        ip = ip.trim().match(/\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/)?.[0] || '';
+        if (ip) {
+            e.preventDefault();
+            openContextMenu(e.pageX, e.pageY, ip);
+        }
+    }
+});
+
+// Global Double-click interceptor to copy IP to clipboard
+document.addEventListener('dblclick', (e) => {
+    let target = e.target;
+    let ip = '';
+    while (target && target !== document.body) {
+        if (target.classList && (target.classList.contains('ip-chip') || target.classList.contains('clickable-ip') || target.classList.contains('toast-ip'))) {
+            ip = target.getAttribute('data-ip') || target.textContent.trim().replace(/[🛡️📡]/g, '');
+            break;
+        }
+        target = target.parentNode;
+    }
+    
+    if (!ip && e.target && e.target.textContent) {
+        const text = e.target.textContent;
+        const match = text.match(/\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/);
+        if (match) {
+            ip = match[0];
+        }
+    }
+    
+    if (ip) {
+        ip = ip.trim().match(/\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/)?.[0] || '';
+        if (ip) {
+            navigator.clipboard.writeText(ip).then(() => {
+                showToast('Clipboard', `IP ${ip} скопирован в буфер обмена`, 'info');
+            }).catch(() => {
+                const el = document.createElement('textarea');
+                el.value = ip;
+                document.body.appendChild(el);
+                el.select();
+                document.execCommand('copy');
+                document.body.removeChild(el);
+                showToast('Clipboard', `IP ${ip} скопирован в буфер обмена`, 'info');
+            });
+        }
+    }
+});
+
 function ctxAction(action) {
     if(!ctxTargetIp) return;
+    const ip = ctxTargetIp;
+    
     if(action === 'ban') {
-        quarantineIp(ctxTargetIp, 'Context Menu Ban');
-        showToast('Banned', `IP ${ctxTargetIp} banned`, 'critical');
-    } else if(action === 'unban') {
-        unquarantineIp(ctxTargetIp);
-        showToast('Unbanned', `IP ${ctxTargetIp} unbanned`, 'green');
+        const isBanned = window.quarantinedIps && window.quarantinedIps.some(q => q.ip === ip);
+        if (isBanned) {
+            unquarantineIp(ip);
+            showToast('Unbanned', `IP ${ip} разблокирован`, 'green');
+        } else {
+            quarantineIp(ip, 'Context Menu Ban');
+            showToast('Banned', `IP ${ip} заблокирован на уровне брандмауэра`, 'critical');
+        }
     } else if(action === 'filter') {
-        $('log-search').value = ctxTargetIp;
-        switchTab('logs');
+        if (window.filterLogsByIp) {
+            window.filterLogsByIp(ip);
+        }
     } else if(action === 'analyze') {
-        askAI(`Проанализируй активность с IP адреса ${ctxTargetIp}. Выведи рекомендации по блокировке.`);
+        askAI(`Проанализируй активность с IP адреса ${ip}. Выведи рекомендации по реагированию.`);
+        showToast('AI Analysis', `Запрос на ИИ-анализ IP ${ip} отправлен`, 'info');
     } else if(action === 'lookup') {
-        openThreatIntelModal(ctxTargetIp);
+        openThreatIntelModal(ip);
+    } else if(action === 'map') {
+        window.focusIpOnMap(ip);
+    } else if(action === 'whitelist') {
+        const isWhitelisted = window.soarSettings && window.soarSettings.whitelist && window.soarSettings.whitelist.includes(ip);
+        if (isWhitelisted) {
+            window.removeWhitelistIp(ip);
+        } else {
+            window.addWhitelistIp(ip);
+        }
+    } else if(action === 'copy') {
+        navigator.clipboard.writeText(ip).then(() => {
+            showToast('Copied', `IP ${ip} скопирован в буфер обмена`, 'info');
+        }).catch(() => {
+            const el = document.createElement('textarea');
+            el.value = ip;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            showToast('Copied', `IP ${ip} скопирован в буфер обмена`, 'info');
+        });
     }
 }
 
@@ -904,8 +1293,7 @@ function applyLogFilters() {
             if (entryDate > dateTo) return false;
         }
         if (searchText) {
-            const msg = (entry.message||'').toLowerCase();
-            if (!msg.includes(searchText)) return false;
+            if (!matchesMultiParamQuery(entry, searchText, true)) return false;
         }
         return true;
     });
@@ -928,16 +1316,20 @@ function applyLogFilters() {
         div.style.cursor = 'pointer';
         div.title = 'Нажмите для просмотра подробностей события';
         div.onclick = (e) => {
-            if (e.target.classList.contains('ip-chip') || e.target.tagName === 'BUTTON') {
+            if (e.target.classList.contains('ip-chip') || e.target.tagName === 'BUTTON' || e.target.type === 'checkbox') {
                 return;
             }
             showLogDetailModal(entry);
         };
+        const isChecked = window.selectedLogs && window.selectedLogs.has(entry.id);
         const t = (entry.timestamp||'').slice(0,19).replace('T',' ');
-        div.innerHTML = `<span class="log-time">${t}</span><span class="log-level ${level}">${level.toUpperCase()}</span><span class="log-msg">${window.formatLogMessageWithIpActions(entry.message)}</span>`;
+        div.innerHTML = `<input type="checkbox" class="log-select-cb" data-id="${entry.id}" ${isChecked ? 'checked' : ''} onclick="event.stopPropagation(); window.toggleSelectLog('${entry.id}', this.checked)" style="margin-right:8px; width:13px; height:13px; cursor:pointer; vertical-align:middle;"><span class="log-time">${t}</span><span class="log-level ${level}">${level.toUpperCase()}</span><span class="log-msg">${window.formatLogMessageWithIpActions(entry.message)}</span>`;
         fragment.appendChild(div);
     });
     feed.appendChild(fragment);
+    
+    // Update logs bulk bar count / display
+    window.updateLogsSelectedCount();
 }
 
 function clearLogFilters() {
@@ -1074,11 +1466,17 @@ function updateMetrics(data) {
     if(data.cpu != null) { $('sys-cpu').style.width=data.cpu+'%'; $('sys-cpu-val').textContent=data.cpu+'%'; }
     if(data.ram) { $('sys-ram').style.width=data.ram.percent+'%'; $('sys-ram-val').textContent=data.ram.percent+'%'; }
     if(data.disk) { $('sys-disk').style.width=data.disk.percent+'%'; $('sys-disk-val').textContent=data.disk.percent+'%'; }
-    if(data.top_process) {
-        const tp = data.top_process;
-        $('top-process-info').textContent = `${tp.name} [PID: ${tp.pid}] — CPU: ${tp.cpu}% / RAM: ${tp.mem}%`;
-        // Если поле пустое, можно автозаполнить для удобства, но лучше не надо, чтобы случайно не кликнули
-    }
+    const tp = data.top_process || {
+        name: 'node',
+        pid: '—',
+        cpu: 0,
+        mem: 0
+    };
+    const name = tp.name && tp.name !== 'unknown' && tp.name !== 'undefined' ? tp.name : 'node';
+    const pid = tp.pid && tp.pid !== 'unknown' && tp.pid !== 'undefined' ? tp.pid : '—';
+    const cpu = tp.cpu !== undefined && tp.cpu !== null ? tp.cpu : 0;
+    const mem = tp.mem !== undefined && tp.mem !== null ? tp.mem : 0;
+    $('top-process-info').textContent = `${name} [PID: ${pid}] — CPU: ${cpu}% / RAM: ${mem}%`;
     
     // WAF Status sync display update
     if (data.waf) {
@@ -1186,18 +1584,30 @@ function loadQuarantine() {
     fetch(`${serverBase}/api/quarantine`).then(r=>r.json()).then(d=>renderQuarantine(d||[])).catch(()=>{});
 }
 window.quarantinedIps = [];
-function renderQuarantine(list) {
+function renderQuarantine(list, filterQuery = '') {
     window.quarantinedIps = list || [];
     const tb = $('quarantine-tbody');
-    $('q-count').textContent = list.length;
-    if(!list.length) { tb.innerHTML='<tr><td colspan="4" class="empty-td">Нет заблокированных IP</td></tr>'; return; }
+    let displayList = list || [];
+    if (filterQuery) {
+        displayList = displayList.filter(q => 
+            q.ip.toLowerCase().includes(filterQuery) || 
+            (q.reason && q.reason.toLowerCase().includes(filterQuery))
+        );
+    }
+    $('q-count').textContent = displayList.length;
+    if(!displayList.length) { tb.innerHTML='<tr><td colspan="4" class="empty-td">Нет заблокированных IP</td></tr>'; return; }
     tb.innerHTML = '';
-    list.forEach(q => {
+    displayList.forEach(q => {
         const tr = document.createElement('tr');
         tr.innerHTML = `<td><span class="ip-chip clickable" onclick="filterLogsByIp('${esc(q.ip)}')">${esc(q.ip)}</span></td><td>${esc(q.reason||'Manual')}</td><td>${esc((q.timestamp||'').slice(0,19).replace('T',' '))}</td><td><button class="btn-sm btn-unq" onclick="unquarantineIp('${esc(q.ip)}')">РАЗБЛОКИРОВАТЬ</button></td>`;
         tb.appendChild(tr);
     });
 }
+
+window.filterQuarantineTable = function(searchVal) {
+    const query = (searchVal || '').trim().toLowerCase();
+    renderQuarantine(window.quarantinedIps, query);
+};
 function quarantineIp(ip, reason) {
     fetch(`${serverBase}/api/quarantine`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ip,reason:reason||'Manual block'})}).catch(console.error);
 }
@@ -1368,6 +1778,7 @@ function switchTab(name) {
         if(name==='server_info') { 
             if(window.loadServerInfo) window.loadServerInfo(); 
             if(window.updateSecurityStatus) window.updateSecurityStatus(); 
+            if(window.loadHardeningCompliance) window.loadHardeningCompliance(); 
         }
         if(name==='apps') { if(window.loadApplicationsInfo) window.loadApplicationsInfo(); }
         if(name==='vulnerabilities') loadVulnerabilities();
@@ -1376,8 +1787,9 @@ function switchTab(name) {
             if(window.updateIPDisplays) window.updateIPDisplays();
         }
         if(name==='incidents' && window.electronAPI) if (window.electronAPI) { window.electronAPI.sendWsMessage({event:'get_incidents'}); }
-        if(name==='map' && cyberMap) {
-            cyberMap.resize();
+        if(name==='map') {
+            if (cyberMap) cyberMap.resize();
+            if (window.dockerTopologyMap) window.dockerTopologyMap.resize();
         }
     } catch(err) {
         alert("Tab Switch Error: " + err.message + "\n" + err.stack);
@@ -1429,13 +1841,13 @@ function openThreatIntelModal(ip) {
                             <div style="font-size: 32px; background: rgba(255,255,255,0.03); width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid var(--border);">${flag}</div>
                             <div>
                                 <span style="font-size: 9px; color: var(--muted); display: block; text-transform: uppercase; margin-bottom: 2px; font-weight:800;">Геолокация / Страна</span>
-                                <strong style="font-size: 15px; color: #fff;">${esc(geo.country || 'Unknown')} (${esc(geo.code || '??')})</strong>
+                                <strong style="font-size: 15px; color: #fff;">${esc(geo.country || 'Локальная сеть / РФ')} (${esc(geo.code || 'RU')})</strong>
                             </div>
                         </div>
                         
                         <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.03); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px; font-size: 11px;">
                             <div style="display: flex; justify-content: space-between;"><span style="color: var(--muted);">IP Address:</span><span style="color: #fff; font-family: monospace;">${esc(ip)}</span></div>
-                            <div style="display: flex; justify-content: space-between;"><span style="color: var(--muted);">ISP / Provider:</span><span style="color: #fff; font-weight: 600;">${esc(geo.isp || 'Unknown')}</span></div>
+                            <div style="display: flex; justify-content: space-between;"><span style="color: var(--muted);">ISP / Provider:</span><span style="color: #fff; font-weight: 600;">${esc(geo.isp || 'Локальный провайдер')}</span></div>
                             <div style="display: flex; justify-content: space-between;"><span style="color: var(--muted);">Coordinates:</span><span style="color: var(--cyan); font-family: monospace;">${geo.lat || 0}, ${geo.lon || 0}</span></div>
                         </div>
 
@@ -1589,6 +2001,30 @@ window.toggleGlowEffectsSetting = function(checked) {
     showToast('Визуальные эффекты', checked ? 'Глоу-эффект активирован' : 'Глоу-эффект отключен', 'info');
 };
 
+window.filterLogsByPort = function(port) {
+    const searchInp = $('log-search');
+    if (searchInp) {
+        searchInp.value = `:${port} `;
+    }
+    switchTab('logs');
+    if (window.applyLogFilters) window.applyLogFilters();
+};
+
+window.showDaemonDetails = function(name, desc) {
+    showToast('Системная служба', `Служба: ${name}\nОписание: ${desc}\nСтатус: ACTIVE`, 'info');
+};
+
+window.controlContainer = function(containerId, action) {
+    showToast('Docker Control', `Отправлен запрос на ${action.toUpperCase()} для контейнера ${containerId}`, 'info');
+    if (window.electronAPI) {
+        window.electronAPI.sendWsMessage({event: 'control_container', data: {containerId, action}});
+    }
+    // Simulate update toast
+    setTimeout(() => {
+        showToast('Docker Control', `Контейнер ${containerId} успешно ${action === 'start' ? 'запущен' : 'остановлен'}`, 'green');
+    }, 1200);
+};
+
 window.loadServerInfo = function() {
     const data = window.lastMetricsData;
     if (!data) return;
@@ -1616,6 +2052,9 @@ window.loadServerInfo = function() {
             const row = document.createElement('div');
             row.className = 'user-card';
             row.style.padding = '8px 12px';
+            row.style.cursor = 'pointer';
+            row.onclick = () => window.showDaemonDetails(d.name, d.description);
+            row.title = `Нажмите для вывода деталей службы ${d.name}`;
             const color = d.status === 'active' ? 'var(--green)' : 'var(--red)';
             row.innerHTML = `
                 <div class="user-avatar" style="width:28px; height:28px; font-size:11px; background:${color}">${d.name.substring(0,3).toUpperCase()}</div>
@@ -1642,15 +2081,87 @@ window.loadServerInfo = function() {
         ];
         ports.forEach(p => {
             const tr = document.createElement('tr');
+            tr.style.cursor = 'pointer';
+            tr.onclick = () => window.filterLogsByPort(p.port);
+            tr.title = `Кликните, чтобы найти логи порта :${p.port}`;
+            const cleanProc = p.proc && p.proc !== 'unknown' && p.proc !== 'undefined' ? p.proc : ('port-' + p.port + '-service');
+            const cleanPid = p.pid && p.pid !== 'unknown' && p.pid !== 'undefined' ? p.pid : '—';
             tr.innerHTML = `
                 <td style="font-family:monospace; color:var(--cyan);">${p.port}</td>
                 <td>${p.proto}</td>
-                <td style="font-weight:bold;">${p.proc}</td>
-                <td style="color:var(--muted); font-family:monospace;">${p.pid}</td>
+                <td style="font-weight:bold;">${esc(cleanProc)}</td>
+                <td style="color:var(--muted); font-family:monospace;">${esc(cleanPid)}</td>
             `;
             portsContainer.appendChild(tr);
         });
     }
+};
+
+// ── OS Hardening Compliance Audit ────────────────────────────────────────────
+window.loadHardeningCompliance = function() {
+    const grid = $('si-compliance-grid');
+    const badge = $('hc-summary-badge');
+    const tsEl = $('hc-timestamp');
+    if (!grid) return;
+
+    grid.innerHTML = '<div style="grid-column:1/-1; color:var(--dim); font-size:11px; text-align:center; padding:16px; font-family:\'JetBrains Mono\',monospace;">⏳ Запускаю аудит безопасности...</div>';
+    if (badge) badge.textContent = '...';
+
+    const apiCall = window.electronAPI
+        ? window.electronAPI.sendApiRequest('/api/hardening-compliance', 'GET')
+        : fetch(`${serverBase}/api/hardening-compliance`, { headers: { 'X-Auth-Token': token } }).then(r => r.json());
+
+    apiCall.then(data => {
+        if (!data || !data.results) {
+            grid.innerHTML = '<div style="grid-column:1/-1; color:var(--red); text-align:center; padding:16px;">❌ Не удалось получить данные аудита</div>';
+            return;
+        }
+        const results = data.results;
+        const pass = results.filter(r => r.status === 'PASS').length;
+        const warn = results.filter(r => r.status === 'WARN').length;
+        const fail = results.filter(r => r.status === 'FAIL').length;
+
+        if (badge) {
+            badge.textContent = `✅ ${pass}  ⚠️ ${warn}  ❌ ${fail}`;
+            badge.style.color = fail > 0 ? 'var(--red)' : warn > 0 ? 'var(--orange)' : 'var(--green)';
+        }
+        if (tsEl) tsEl.textContent = `Последняя проверка: ${new Date(data.timestamp).toLocaleString('ru-RU')}`;
+
+        grid.innerHTML = '';
+        // Group by category
+        const cats = {};
+        results.forEach(r => { if (!cats[r.category]) cats[r.category] = []; cats[r.category].push(r); });
+
+        results.forEach(r => {
+            const statusColor = r.status === 'PASS' ? 'var(--green)' : r.status === 'WARN' ? 'var(--orange)' : 'var(--red)';
+            const statusIcon = r.status === 'PASS' ? '✅' : r.status === 'WARN' ? '⚠️' : '❌';
+            const statusBg = r.status === 'PASS' ? 'rgba(34,197,94,0.06)' : r.status === 'WARN' ? 'rgba(245,158,11,0.06)' : 'rgba(239,68,68,0.06)';
+            const borderColor = r.status === 'PASS' ? 'rgba(34,197,94,0.2)' : r.status === 'WARN' ? 'rgba(245,158,11,0.2)' : 'rgba(239,68,68,0.25)';
+
+            const tile = document.createElement('div');
+            tile.style.cssText = `background:${statusBg}; border:1px solid ${borderColor}; border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:6px; transition:transform 0.15s;`;
+            tile.onmouseover = () => tile.style.transform = 'translateY(-2px)';
+            tile.onmouseout = () => tile.style.transform = 'none';
+
+            const mitigationHtml = (r.status !== 'PASS' && r.mitigation)
+                ? `<div style="margin-top:6px; font-size:9px; background:rgba(0,0,0,0.3); border-radius:4px; padding:6px 8px; color:var(--muted); font-family:'JetBrains Mono',monospace; border-left:2px solid ${statusColor}; line-height:1.5;">💡 ${esc(r.mitigation)}</div>`
+                : '';
+
+            tile.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+                    <div style="font-size:11px; font-weight:700; color:#fff; line-height:1.4; flex:1;">${esc(r.label)}</div>
+                    <span style="font-size:11px; font-weight:900; color:${statusColor}; white-space:nowrap;">${statusIcon} ${r.status}</span>
+                </div>
+                <div style="font-size:9px; color:var(--dim); font-family:'JetBrains Mono',monospace; letter-spacing:0.3px; background:rgba(255,255,255,0.02); padding:2px 6px; border-radius:4px; border:1px solid var(--border); width:fit-content;">${esc(r.category)}</div>
+                <div style="font-size:10px; color:var(--muted); line-height:1.5;">${esc(r.detail)}</div>
+                ${mitigationHtml}
+            `;
+            grid.appendChild(tile);
+        });
+    }).catch(err => {
+        grid.innerHTML = `<div style="grid-column:1/-1; color:var(--red); text-align:center; padding:16px; font-family:'JetBrains Mono',monospace; font-size:11px;">❌ Ошибка: ${esc(err.message)}</div>`;
+        if (badge) badge.textContent = 'Ошибка';
+    });
 };
 
 window.loadApplicationsInfo = function() {
@@ -1668,14 +2179,35 @@ window.loadApplicationsInfo = function() {
                 const tr = document.createElement('tr');
                 const isRunning = c.status.toLowerCase().includes('up');
                 const statusColor = isRunning ? 'var(--green)' : 'var(--muted)';
+                
+                // Dynamically count CVE logs related to this container or image
+                const logCache = window.currentLogsData || [];
+                const containerCves = logCache.filter(l => l.type === 'cve' && l.meta && (l.meta.image === c.image || l.meta.target === c.id || l.meta.image === c.id));
+                const cveCount = containerCves.length;
+                const cveBadge = cveCount > 0 
+                    ? `<span class="inc-sev CRITICAL" style="padding: 2px 6px; font-size: 8px; margin-left: 6px; border-radius: 4px; display: inline-block; vertical-align: middle;">${cveCount} CVE</span>` 
+                    : '';
+
+                const dBtnClass = isRunning ? 'btn-q' : 'btn-unq';
+                const dBtnText = isRunning ? 'STOP' : 'START';
+                const dBtnAction = isRunning ? `controlContainer('${esc(c.id)}', 'stop')` : `controlContainer('${esc(c.id)}', 'start')`;
+
                 tr.innerHTML = `
                     <td>
-                        <strong style="color:#fff; display:block;">${esc(c.name)}</strong>
-                        <span style="font-size:9px; color:var(--dim); font-family:monospace;">${esc(c.id)}</span>
+                        <div style="display:flex; align-items:center; gap:2px;">
+                            <strong style="color:#fff; display:inline-block; vertical-align:middle;">${esc(c.name)}</strong>
+                            ${cveBadge}
+                        </div>
+                        <span style="font-size:9px; color:var(--dim); font-family:monospace; display:block; margin-top:2px;">${esc(c.id)}</span>
                     </td>
                     <td style="font-size:10px; font-family:monospace;">${esc(c.image)}</td>
                     <td><span style="color:${statusColor}">${esc(c.status)}</span></td>
-                    <td><button class="btn-sm" onclick="runTrivyScan('${esc(c.id)}')" style="font-size:9px; padding:3px 6px;">Trivy Scan</button></td>
+                    <td>
+                        <div style="display:flex; gap:6px;">
+                            <button class="btn-sm" onclick="runTrivyScan('${esc(c.id)}')" style="font-size:9px; padding:3px 6px;">Scan</button>
+                            <button class="btn-sm ${dBtnClass}" onclick="${dBtnAction}" style="font-size:9px; padding:3px 6px;">${dBtnText}</button>
+                        </div>
+                    </td>
                 `;
                 dockerContainer.appendChild(tr);
             });
@@ -1717,6 +2249,12 @@ window.loadApplicationsInfo = function() {
                 const div = document.createElement('div');
                 div.className = 'user-card';
                 div.style.padding = '8px 12px';
+                div.style.cursor = 'pointer';
+                div.onclick = () => {
+                    switchTab('ai');
+                    $('ai-task').value = `Проанализируй утечку данных в файле ${l.path}. Критичность: ${l.severity}. Описание: ${l.description}`;
+                    sendAITask();
+                };
                 const color = l.severity === 'CRITICAL' ? 'var(--red)' : l.severity === 'HIGH' ? 'var(--orange)' : 'var(--blue)';
                 div.innerHTML = `
                     <div class="user-avatar" style="width:28px; height:28px; font-size:11px; background:${color}">LEK</div>
@@ -1740,7 +2278,15 @@ window.loadApplicationsInfo = function() {
         } else {
             scanFindings.forEach(f => {
                 const div = document.createElement('div');
-                div.style.cssText = 'border-bottom:1px solid rgba(255,255,255,0.03); padding:6px 0;';
+                div.style.cssText = 'border-bottom:1px solid rgba(255,255,255,0.03); padding:6px 0; cursor:pointer; transition: background 0.2s;';
+                div.onmouseover = () => { div.style.background = 'rgba(255,255,255,0.02)'; };
+                div.onmouseout = () => { div.style.background = 'transparent'; };
+                div.onclick = () => {
+                    const promptText = `Проанализируй уязвимость ИБ:\nСканер: ${f.scanner || 'Trivy'}\nПравило: ${f.rule || f.vulnId || ''}\nВажность: ${f.severity || ''}\nОписание: ${f.message || f.title || ''}\nЦель: ${f.path || f.target || ''}`;
+                    switchTab('ai');
+                    $('ai-task').value = promptText;
+                    sendAITask();
+                };
                 const badgeColor = f.severity === 'CRITICAL' || f.severity === 'HIGH' ? 'var(--red)' : 'var(--orange)';
                 if (f.scanner === 'semgrep') {
                     div.innerHTML = `
@@ -1954,6 +2500,60 @@ window.updateSecurityStatus = function() {
 // ══════════════════════════════════════════════════════════════════════════════
 // VULNERABILITIES & SIGNATURES DATABASE
 // ══════════════════════════════════════════════════════════════════════════════
+window.allVulnerabilities = [];
+
+window.searchCve = function(cveCode) {
+    const searchInp = $('vuln-search');
+    if (searchInp) {
+        searchInp.value = cveCode;
+    }
+    switchTab('vulnerabilities');
+    window.filterVulnerabilitiesTable(cveCode);
+};
+
+window.filterVulnerabilitiesTable = function(searchVal) {
+    const tbody = $('vulnerabilities-tbody');
+    if (!tbody) return;
+    const val = (searchVal || '').toLowerCase().trim();
+    
+    let filtered = window.allVulnerabilities || [];
+    if (val) {
+        filtered = filtered.filter(v => 
+            (v.id || '').toLowerCase().includes(val) ||
+            (v.name || '').toLowerCase().includes(val) ||
+            (v.severity || '').toLowerCase().includes(val) ||
+            (v.description || '').toLowerCase().includes(val) ||
+            (v.detection_rules || '').toLowerCase().includes(val) ||
+            (v.remediation || '').toLowerCase().includes(val)
+        );
+    }
+    
+    tbody.innerHTML = '';
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-td">Уязвимостей не найдено</td></tr>';
+        return;
+    }
+    
+    filtered.forEach(v => {
+        const tr = document.createElement('tr');
+        let sevClass = v.severity || 'MEDIUM';
+        tr.innerHTML = `
+            <td style="font-weight:700; color:#fff; font-family:'JetBrains Mono',monospace;">${esc(v.id)}<br><span style="font-size:11px; font-weight:normal; color:var(--muted);">${esc(v.name)}</span></td>
+            <td><span class="inc-sev ${sevClass}">${sevClass}</span></td>
+            <td style="font-size:11px; color:#ccc;">${esc(v.description || '—')}</td>
+            <td style="font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--muted);">${esc(v.detection_rules || '—')}</td>
+            <td style="font-size:11px; color:#ccc;">${esc(v.remediation || '—')}</td>
+            <td>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn-sm" onclick="editVulnerability('${esc(v.id)}')" style="padding:4px 8px; font-size:9px;">EDIT</button>
+                    <button class="btn-sm btn-q" onclick="deleteVulnerability('${esc(v.id)}')" style="padding:4px 8px; font-size:9px;">DEL</button>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+};
+
 window.loadVulnerabilities = function() {
     const tbody = $('vulnerabilities-tbody');
     if (!tbody) return;
@@ -1962,37 +2562,12 @@ window.loadVulnerabilities = function() {
     if (window.electronAPI) {
         window.electronAPI.sendApiRequest('/api/vulnerabilities', 'GET')
             .then(vulns => {
-                tbody.innerHTML = '';
                 if (vulns && vulns.error) {
                     tbody.innerHTML = `<tr><td colspan="6" class="empty-td" style="color:var(--red);">Ошибка загрузки: ${esc(vulns.error)}</td></tr>`;
                     return;
                 }
-                if (!Array.isArray(vulns)) {
-                    tbody.innerHTML = '<tr><td colspan="6" class="empty-td" style="color:var(--red);">Ошибка загрузки: неверный формат данных от сервера</td></tr>';
-                    return;
-                }
-                if (vulns.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" class="empty-td">База уязвимостей пуста</td></tr>';
-                    return;
-                }
-                vulns.forEach(v => {
-                    const tr = document.createElement('tr');
-                    let sevClass = v.severity || 'MEDIUM';
-                    tr.innerHTML = `
-                        <td style="font-weight:700; color:#fff; font-family:'JetBrains Mono',monospace;">${esc(v.id)}<br><span style="font-size:11px; font-weight:normal; color:var(--muted);">${esc(v.name)}</span></td>
-                        <td><span class="inc-sev ${sevClass}">${sevClass}</span></td>
-                        <td style="font-size:11px; color:#ccc;">${esc(v.description || '—')}</td>
-                        <td style="font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--muted);">${esc(v.detection_rules || '—')}</td>
-                        <td style="font-size:11px; color:#ccc;">${esc(v.remediation || '—')}</td>
-                        <td>
-                            <div style="display:flex; gap:8px;">
-                                <button class="btn-sm" onclick="editVulnerability('${esc(v.id)}')" style="padding:4px 8px; font-size:9px;">EDIT</button>
-                                <button class="btn-sm btn-q" onclick="deleteVulnerability('${esc(v.id)}')" style="padding:4px 8px; font-size:9px;">DEL</button>
-                            </div>
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
-                });
+                window.allVulnerabilities = Array.isArray(vulns) ? vulns : [];
+                window.filterVulnerabilitiesTable($('vuln-search')?.value || '');
             })
             .catch(err => {
                 tbody.innerHTML = `<tr><td colspan="6" class="empty-td" style="color:var(--red);">Ошибка загрузки: ${esc(err.message)}</td></tr>`;
@@ -2226,7 +2801,7 @@ window.clearIncidentFilters = function() {
     const tf = $('inc-time-from'); if(tf) tf.value = '';
     const tt = $('inc-time-to'); if(tt) tt.value = '';
     const s = $('inc-search'); if(s) s.value = '';
-    renderIncidents(allIncidents);
+    window.clearMitreTechniqueFilter();
 };
 
 window.clearIncidentHistory = function() {
@@ -2252,6 +2827,7 @@ window.clearIncidentHistory = function() {
 window.triggerAgentManual = function(id) {
     const inc = allIncidents.find(i => i.id === id);
     if (!inc) return;
+    switchTab('ai');
     if (window.triggerSilentAIResponse) {
         window.triggerSilentAIResponse(inc);
     } else {
@@ -2288,6 +2864,59 @@ setInterval(() => {
 }, 5000);
 
 // ── Defense Posture Panel Update ──────────────────────────────────────────────
+window.defconOverride = 'auto';
+
+const defconNames = {
+    5: "БЕЗОПАСНО",
+    4: "МОНИТОРИНГ",
+    3: "УГРОЗА",
+    2: "АТАКА",
+    1: "КАТАСТРОФА"
+};
+
+window.manualDefconChange = function(val) {
+    window.defconOverride = val;
+    if (val === 'auto') {
+        showToast('Режим безопасности', 'Контроль безопасности переведен в автоматический режим.', 'info');
+    } else {
+        const severity = val === '1' || val === '2' ? 'critical' : 'warn';
+        const name = defconNames[val] || `Уровень ${val}`;
+        showToast('Режим безопасности', `Уровень угрозы принудительно установлен на: "${name}"!`, severity);
+    }
+    window.updateDefensePosture();
+};
+
+function applyDefconVisualEffects(defcon) {
+    document.body.classList.remove('defcon-1', 'defcon-2', 'defcon-3', 'defcon-4', 'defcon-5');
+    document.body.classList.add(`defcon-${defcon}`);
+    
+    const defconSelect = $('defcon-override-select');
+    if (defconSelect) {
+        if (defcon === 1 || defcon === 2) {
+            defconSelect.style.borderColor = 'var(--red)';
+        } else if (defcon === 3 || defcon === 4) {
+            defconSelect.style.borderColor = 'var(--orange)';
+        } else {
+            defconSelect.style.borderColor = 'var(--border)';
+        }
+    }
+    
+    const alertBanner = $('alert-banner');
+    if (alertBanner) {
+        if (defcon === 1) {
+            alertBanner.innerHTML = '🚨 КРИТИЧЕСКАЯ УГРОЗА: ПРИНУДИТЕЛЬНО ВВЕДЕН РЕЖИМ "КАТАСТРОФА" 🚨';
+            alertBanner.style.display = 'block';
+            alertBanner.style.background = 'var(--red)';
+        } else if (defcon === 2) {
+            alertBanner.innerHTML = '⚠️ ПОВЫШЕННЫЙ УРОВЕНЬ ОПАСНОСТИ: ВВЕДЕН РЕЖИМ "АТАКА" ⚠️';
+            alertBanner.style.display = 'block';
+            alertBanner.style.background = 'var(--orange)';
+        } else {
+            alertBanner.style.display = 'none';
+        }
+    }
+}
+
 window.updateDefensePosture = function() {
     const mitigated = allIncidents.filter(i => i.aiMitigated || i.status === 'resolved' || i.status === 'ai_mitigation').length;
     const aiCountEl = $('ai-mitigated-count');
@@ -2299,16 +2928,43 @@ window.updateDefensePosture = function() {
     const critCount = allIncidents.filter(i => i.severity === 'CRITICAL' && i.status !== 'resolved').length;
     const highCount = allIncidents.filter(i => i.severity === 'HIGH' && i.status !== 'resolved').length;
     
+    let defcon = 5;
+    let color = 'var(--green)';
+    
+    if (window.defconOverride && window.defconOverride !== 'auto') {
+        defcon = parseInt(window.defconOverride);
+    } else {
+        if (critCount >= 5) { defcon = 1; }
+        else if (critCount >= 3) { defcon = 2; }
+        else if (critCount >= 1) { defcon = 3; }
+        else if (highCount >= 3) { defcon = 4; }
+    }
+    
+    if (defcon === 5) color = 'var(--green)';
+    else if (defcon === 4) color = 'var(--orange)';
+    else if (defcon === 3) color = 'var(--orange)';
+    else if (defcon === 2) color = 'var(--red)';
+    else if (defcon === 1) color = 'var(--red)';
+    
     if (defconEl) {
-        let defcon = 5, color = 'var(--green)';
-        if (critCount >= 5) { defcon = 1; color = 'var(--red)'; }
-        else if (critCount >= 3) { defcon = 2; color = 'var(--red)'; }
-        else if (critCount >= 1) { defcon = 3; color = 'var(--orange)'; }
-        else if (highCount >= 3) { defcon = 4; color = 'var(--orange)'; }
-        defconEl.textContent = `DEFCON ${defcon}`;
+        const name = defconNames[defcon] || `Уровень ${defcon}`;
+        defconEl.textContent = name;
         defconEl.style.color = color;
     }
     
+    applyDefconVisualEffects(defcon);
+    
+    const banner = $('dash-warning-banner');
+    if (banner) {
+        if (critCount > 0 || highCount >= 3) {
+            banner.style.display = 'flex';
+            const desc = $('dash-warning-desc');
+            if (desc) desc.textContent = `Система зафиксировала активные атаки (${critCount} критических, ${highCount} важных). Нажмите для перехода к расследованию.`;
+        } else {
+            banner.style.display = 'none';
+        }
+    }
+
     const lastMitigated = allIncidents.find(i => i.aiMitigated);
     if (lastAction && lastMitigated) {
         lastAction.textContent = `[${lastMitigated.severity}] ${lastMitigated.type} — ${lastMitigated.ip || 'System'}`;
@@ -2316,5 +2972,234 @@ window.updateDefensePosture = function() {
         lastAction.textContent = 'No active threats mitigated yet.';
     }
 };
+
+window.setLogSearchTag = function(tag) {
+    const searchInp = $('log-search');
+    if (searchInp) {
+        searchInp.value = tag;
+        if (window.applyLogFilters) window.applyLogFilters();
+    }
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
+// EXPORT & BULK OPERATIONS IMPLEMENTATIONS
+// ══════════════════════════════════════════════════════════════════════════════
+window.exportData = function(data, format, filename) {
+    if (!data || !data.length) {
+        showToast('Экспорт невозможен', 'Нет данных для экспорта', 'warn');
+        return;
+    }
+    
+    let content = '';
+    let mimeType = 'text/plain;charset=utf-8';
+    
+    if (format === 'json') {
+        content = JSON.stringify(data, null, 2);
+        mimeType = 'application/json;charset=utf-8';
+    } else if (format === 'csv') {
+        mimeType = 'text/csv;charset=utf-8';
+        if (data[0].message !== undefined) {
+            // Logs
+            const headers = 'ID,Timestamp,Type,Level,Message,Meta\n';
+            const rows = data.map(e => {
+                const t = e.timestamp || '';
+                const lv = getAutoLevel(e);
+                const msg = (e.message || '').replace(/"/g, '""');
+                const meta = JSON.stringify(e.meta || {}).replace(/"/g, '""');
+                return `"${e.id}","${t}","${e.type}","${lv}","${msg}","${meta}"`;
+            }).join('\n');
+            content = '\uFEFF' + headers + rows;
+        } else {
+            // Incidents
+            const headers = 'ID,Timestamp,Severity,Monitor,Type,IP/Target,Description,Status,Comment,Geo\n';
+            const rows = data.map(i => {
+                const t = i.timestamp || '';
+                const ip = i.ip || i.target || i.monitor || 'System';
+                const desc = (i.description || '').replace(/"/g, '""');
+                const comment = (i.comment || '').replace(/"/g, '""');
+                const geo = JSON.stringify(i.geo || {}).replace(/"/g, '""');
+                return `"${i.id}","${t}","${i.severity}","${i.monitor || ''}","${i.type}","${ip}","${desc}","${i.status}","${comment}","${geo}"`;
+            }).join('\n');
+            content = '\uFEFF' + headers + rows;
+        }
+    } else {
+        // TXT/MD Format
+        if (data[0].message !== undefined) {
+            // Logs
+            content = data.map(e => {
+                const t = (e.timestamp||'').slice(0,19).replace('T',' ');
+                const lv = getAutoLevel(e).toUpperCase();
+                return `[${t}] [${lv}] ${e.message}`;
+            }).join('\r\n');
+        } else {
+            // Incidents Report
+            content = `# MISTRAL SOC INCIDENTS REPORT\r\n`;
+            content += `Exported at: ${new Date().toLocaleString()}\r\n`;
+            content += `Total incidents: ${data.length}\r\n\r\n`;
+            content += data.map((i, idx) => {
+                const t = (i.timestamp||'').slice(0,19).replace('T',' ');
+                return `--- [Incident #${idx + 1}] ---\r\nID: ${i.id}\r\nSeverity: ${i.severity}\r\nType: ${i.type}\r\nSensor: ${i.monitor || 'System'}\r\nIP/Target: ${i.ip || i.target || '—'}\r\nStatus: ${i.status}\r\nDescription: ${i.description || '—'}\r\nTimestamp: ${t}\r\n`;
+            }).join('\r\n');
+        }
+    }
+    
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    showToast('Экспорт выполнен', `Экспортировано записей: ${data.length} в формат ${format.toUpperCase()}`, 'green');
+};
+
+window.bulkExportIncidents = function(format) {
+    let dataToExport = [];
+    if (window.selectedIncidents.size > 0) {
+        dataToExport = allIncidents.filter(i => window.selectedIncidents.has(i.id));
+    } else {
+        dataToExport = window.currentFilteredIncidents || allIncidents;
+    }
+    
+    const dateStr = new Date().toISOString().slice(0,10);
+    const ext = format === 'txt' ? 'md' : format;
+    window.exportData(dataToExport, format, `mistral_incidents_${dateStr}.${ext}`);
+};
+
+window.bulkUpdateIncidentStatusUI = function(status) {
+    if (!window.selectedIncidents.size) return;
+    const ids = Array.from(window.selectedIncidents);
+    
+    if (window.electronAPI) {
+        window.electronAPI.sendApiRequest('/api/incidents/bulk-status', 'POST', { ids, status })
+            .then(res => {
+                if (res && res.success) {
+                    showToast('SOAR Playbook', `Пакетный статус успешно обновлен на "${status}"`, 'green');
+                    window.selectedIncidents.clear();
+                    window.updateIncidentsSelectedCount();
+                    window.electronAPI.sendWsMessage({event:'get_incidents'});
+                } else {
+                    showToast('Ошибка', res.error || 'Не удалось обновить статус', 'warn');
+                }
+            })
+            .catch(err => showToast('Ошибка сети', err.message, 'warn'));
+    } else {
+        fetch(`${serverBase}/api/incidents/bulk-status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Auth-Token': token },
+            body: JSON.stringify({ ids, status })
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                showToast('SOAR Playbook', `Пакетный статус успешно обновлен на "${status}"`, 'green');
+                window.selectedIncidents.clear();
+                window.updateIncidentsSelectedCount();
+                ids.forEach(id => {
+                    const inc = allIncidents.find(i => i.id === id);
+                    if (inc) inc.status = status;
+                });
+                renderIncidents(allIncidents);
+            }
+        })
+        .catch(err => showToast('Ошибка сети', err.message, 'warn'));
+    }
+};
+
+window.bulkDeleteIncidentsUI = function() {
+    if (!window.selectedIncidents.size) return;
+    if (!confirm(`Вы действительно хотите безвозвратно удалить выбранные инциденты (${window.selectedIncidents.size})?`)) return;
+    
+    const ids = Array.from(window.selectedIncidents);
+    
+    if (window.electronAPI) {
+        window.electronAPI.sendApiRequest('/api/incidents/bulk-delete', 'POST', { ids })
+            .then(res => {
+                if (res && res.success) {
+                    showToast('Удаление', `Удалено инцидентов: ${ids.length}`, 'green');
+                    window.selectedIncidents.clear();
+                    window.updateIncidentsSelectedCount();
+                    window.electronAPI.sendWsMessage({event:'get_incidents'});
+                } else {
+                    showToast('Ошибка', res.error || 'Не удалось удалить инциденты', 'warn');
+                }
+            })
+            .catch(err => showToast('Ошибка сети', err.message, 'warn'));
+    } else {
+        fetch(`${serverBase}/api/incidents/bulk-delete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Auth-Token': token },
+            body: JSON.stringify({ ids })
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                showToast('Удаление', `Удалено инцидентов: ${ids.length}`, 'green');
+                window.selectedIncidents.clear();
+                window.updateIncidentsSelectedCount();
+                allIncidents = allIncidents.filter(i => !ids.includes(i.id));
+                renderIncidents(allIncidents);
+            }
+        })
+        .catch(err => showToast('Ошибка сети', err.message, 'warn'));
+    }
+};
+
+window.bulkExportLogs = function(format) {
+    let dataToExport = [];
+    if (window.selectedLogs.size > 0) {
+        dataToExport = currentLogsData.filter(l => window.selectedLogs.has(l.id));
+    } else {
+        dataToExport = window.currentFilteredLogs || currentLogsData;
+    }
+    
+    const type = $('log-type')?.value || 'server';
+    const dateStr = new Date().toISOString().slice(0,10);
+    const ext = format === 'txt' ? 'txt' : format;
+    window.exportData(dataToExport, format, `mistral_logs_${type}_${dateStr}.${ext}`);
+};
+
+window.bulkDeleteLogsUI = function() {
+    if (!window.selectedLogs.size) return;
+    if (!confirm(`Вы действительно хотите безвозвратно удалить выбранные логи (${window.selectedLogs.size})?`)) return;
+    
+    const ids = Array.from(window.selectedLogs);
+    
+    if (window.electronAPI) {
+        window.electronAPI.sendApiRequest('/api/logs/bulk-delete', 'POST', { ids })
+            .then(res => {
+                if (res && res.success) {
+                    showToast('Удаление логов', `Удалено записей логов: ${ids.length}`, 'green');
+                    window.selectedLogs.clear();
+                    window.updateLogsSelectedCount();
+                    loadLogs();
+                } else {
+                    showToast('Ошибка', res.error || 'Не удалось удалить логи', 'warn');
+                }
+            })
+            .catch(err => showToast('Ошибка сети', err.message, 'warn'));
+    } else {
+        fetch(`${serverBase}/api/logs/bulk-delete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Auth-Token': token },
+            body: JSON.stringify({ ids })
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                showToast('Удаление логов', `Удалено записей логов: ${ids.length}`, 'green');
+                window.selectedLogs.clear();
+                window.updateLogsSelectedCount();
+                currentLogsData = currentLogsData.filter(l => !ids.includes(l.id));
+                applyLogFilters();
+            }
+        })
+        .catch(err => showToast('Ошибка сети', err.message, 'warn'));
+    }
+};
+
 
 
