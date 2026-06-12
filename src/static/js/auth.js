@@ -23,6 +23,7 @@ async function doLogin() {
                 btn.disabled = false;
                 try { updateIPDisplays(); } catch(e) { console.error(e); }
                 try { initCharts(); } catch(e) { console.error(e); }
+                try { if (typeof drawNetworkSpeedGauge === 'function') drawNetworkSpeedGauge(0); } catch(e) { console.error(e); }
                 try { loadUsers(); } catch(e) { console.error(e); }
                 try { loadQuarantine(); } catch(e) { console.error(e); }
             } else {

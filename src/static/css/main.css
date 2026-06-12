@@ -172,7 +172,6 @@
         /* ═══ APP SHELL ═══ */
         #app { display: flex; flex-direction: row; height: 100vh; background: var(--defcon-bg); transition: background 0.5s ease; overflow: hidden; }
         #app.hidden { display: none !important; }
-
         /* Left Sidebar styling */
         #sidebar {
             width: 240px;
@@ -184,7 +183,7 @@
             z-index: 60;
         }
         .sidebar-logo {
-            padding: 14px 20px;
+            padding: 10px 16px;
             font-size: 18px;
             font-weight: 900;
             color: #fff;
@@ -206,20 +205,20 @@
         #sidebar .tabs {
             display: flex;
             flex-direction: column;
-            gap: 2px;
-            padding: 8px 6px;
+            gap: 1px;
+            padding: 4px 6px;
             flex: 1;
-            overflow-y: auto;
+            overflow-y: hidden;
         }
         #sidebar .tab {
-            font-size: 12px;
+            font-size: 11.5px;
             font-weight: 600;
             color: var(--muted);
             cursor: pointer;
             letter-spacing: 0.2px;
             display: flex;
             align-items: center;
-            padding: 10px 14px;
+            padding: 6px 12px;
             border-radius: 8px;
             border: 1px solid transparent;
             transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
@@ -242,6 +241,124 @@
             font-weight: 800;
             letter-spacing: 0.5px;
             text-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+        }
+        
+        /* Sidebar DEFCON block */
+        .sidebar-defcon {
+            padding: 8px 12px;
+            border-top: 1px solid var(--border);
+            background: rgba(0,0,0,0.15);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .sidebar-defcon label {
+            font-size: 8.5px;
+            font-weight: 800;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .defcon-buttons-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+        }
+        .defcon-btn {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--muted);
+            padding: 5px 2px;
+            font-size: 8px;
+            font-weight: bold;
+            font-family: 'JetBrains Mono', monospace;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            text-align: center;
+            outline: none;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .defcon-btn:hover {
+            border-color: var(--defcon-color, var(--purple));
+            color: #fff;
+            background: rgba(255, 255, 255, 0.02);
+            box-shadow: 0 0 6px var(--defcon-color, var(--purple));
+        }
+        .defcon-btn.active {
+            border-color: var(--defcon-color, var(--purple));
+            color: #fff;
+            background: rgba(255, 255, 255, 0.05);
+            box-shadow: 0 0 10px var(--defcon-color, var(--purple)), inset 0 0 4px var(--defcon-color, var(--purple));
+            text-shadow: 0 0 5px rgba(255,255,255,0.5);
+        }
+        #defcon-btn-auto {
+            --defcon-color: var(--purple);
+        }
+
+        /* Voice control mic button */
+        .ai-voice {
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--border);
+            color: var(--muted);
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            transition: all 0.2s ease;
+            outline: none;
+            flex-shrink: 0;
+        }
+        .ai-voice:hover {
+            border-color: var(--cyan);
+            color: #fff;
+            background: rgba(6, 182, 212, 0.05);
+            box-shadow: 0 0 10px rgba(6, 182, 212, 0.2);
+        }
+        .ai-voice.recording {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: var(--red);
+            color: #fff;
+            animation: pulseRecord 1.5s infinite alternate;
+        }
+        @keyframes pulseRecord {
+            0% { box-shadow: 0 0 5px var(--red); }
+            100% { box-shadow: 0 0 15px var(--red); }
+        }
+
+        /* Holographic emergency warning overlay */
+        #defcon1-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 99998;
+            pointer-events: none;
+            border: 4px solid rgba(229, 20, 0, 0.4);
+            background: radial-gradient(circle, transparent 60%, rgba(229,20,0,0.15) 100%);
+            box-shadow: inset 0 0 100px rgba(229,20,0,0.4);
+            animation: emergencyPulse 2s infinite alternate;
+        }
+        #defcon1-overlay::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.2) 50%);
+            background-size: 100% 4px;
+            opacity: 0.8;
+            animation: scanlineScroll 15s linear infinite;
+        }
+        @keyframes emergencyPulse {
+            0% { border-color: rgba(229, 20, 0, 0.2); box-shadow: inset 0 0 60px rgba(229,20,0,0.25); }
+            100% { border-color: rgba(229, 20, 0, 0.5); box-shadow: inset 0 0 120px rgba(229,20,0,0.45); }
+        }
+        @keyframes scanlineScroll {
+            0% { background-position: 0 0; }
+            100% { background-position: 0 100%; }
         }
 
         /* Right Content Area layout */

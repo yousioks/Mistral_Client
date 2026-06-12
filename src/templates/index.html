@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="../static/css/main.css">
 </head>
 <body>
+<div id="defcon1-overlay" class="hidden"></div>
 <div id="alert-banner"></div>
 <div id="toast-container"></div>
 
@@ -72,6 +73,18 @@
             <div class="tab" data-tab="vulnerabilities" onclick="switchTab('vulnerabilities')">База уязвимостей</div>
             <div class="tab" data-tab="metrics" onclick="switchTab('metrics')">Metrics</div>
             <div class="tab" data-tab="users" onclick="switchTab('users')">Users & Settings</div>
+        </div>
+        <!-- DEFCON Controls -->
+        <div class="sidebar-defcon">
+            <label>Режим безопасности</label>
+            <div class="defcon-buttons-group">
+                <button class="defcon-btn active" id="defcon-btn-auto" onclick="manualDefconChange('auto')" title="Автоматический режим безопасности">АВТО</button>
+                <button class="defcon-btn" id="defcon-btn-5" onclick="manualDefconChange('5')" style="--defcon-color:var(--green);" title="Штатный режим">ОБЫЧНЫЙ</button>
+                <button class="defcon-btn" id="defcon-btn-4" onclick="manualDefconChange('4')" style="--defcon-color:var(--blue);" title="Усиленный мониторинг">МОНИТОРИНГ</button>
+                <button class="defcon-btn" id="defcon-btn-3" onclick="manualDefconChange('3')" style="--defcon-color:var(--cyan);" title="Повышенная угроза">УГРОЗА</button>
+                <button class="defcon-btn" id="defcon-btn-2" onclick="manualDefconChange('2')" style="--defcon-color:var(--orange);" title="Активная атака">АТАКА</button>
+                <button class="defcon-btn" id="defcon-btn-1" onclick="manualDefconChange('1')" style="--defcon-color:var(--red);" title="Критическая угроза / Катастрофа">КАТАСТРОФА</button>
+            </div>
         </div>
         <div style="flex:1;"></div>
         <div class="mascot-container" style="padding: 6px 10px; text-align: center; opacity: 0.8;">
@@ -415,9 +428,15 @@
 
         <!-- ═══ NETWORK & QUARANTINE ═══ -->
         <div class="panel" id="panel-network">
-            <div class="net-status-bar" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; padding:12px; background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:8px; font-family:'JetBrains Mono', monospace; font-size:12px;">
-                <div><span class="state-dot connected" style="display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--green); margin-right:6px; box-shadow:0 0 5px var(--green)"></span> <span style="color:var(--muted)">Мой IP (Клиент):</span> <span id="client-ip-display" style="color:var(--green); font-weight:bold;">Загрузка...</span></div>
-                <div><span style="color:var(--muted)">IP сервера:</span> <span id="server-ip-display" style="color:var(--cyan); font-weight:bold;">Загрузка...</span></div>
+            <div class="net-status-bar" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; padding:8px 16px; background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:8px; font-family:'JetBrains Mono', monospace; font-size:12px; gap: 20px;">
+                <div style="display:flex; flex-direction:column; gap:4px;">
+                    <div><span class="state-dot connected" style="display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--green); margin-right:6px; box-shadow:0 0 5px var(--green)"></span> <span style="color:var(--muted)">Мой IP (Клиент):</span> <span id="client-ip-display" style="color:var(--green); font-weight:bold;">Загрузка...</span></div>
+                    <div><span class="state-dot connected" style="display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--cyan); margin-right:6px; box-shadow:0 0 5px var(--cyan)"></span> <span style="color:var(--muted)">IP сервера:</span> <span id="server-ip-display" style="color:var(--cyan); font-weight:bold;">Загрузка...</span></div>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="font-size:10px; color:var(--muted); font-weight:bold; text-transform:uppercase;">Сетевая нагрузка:</span>
+                    <canvas id="network-speed-gauge" width="180" height="50" style="width:180px; height:50px;"></canvas>
+                </div>
                 <label style="display:flex; align-items:center; cursor:pointer; color:var(--muted); font-size:11px;" title="Блокирует повторные всплывающие уведомления для одного и того же типа атаки / IP на 3 минуты">
                     <input type="checkbox" id="chk-suppress-ddos" checked style="margin-right:6px; accent-color:var(--orange);"> Подавление дубликатов DDoS
                 </label>
@@ -647,6 +666,7 @@
 
                     <div class="ai-input-row">
                         <textarea id="ai-task" placeholder="Опишите задачу или задайте вопрос ИИ..." onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendAITask()}"></textarea>
+                        <button class="ai-voice" id="btn-voice-control" onclick="toggleVoiceRecognition()" title="Голосовое управление (русский)">🎤</button>
                         <button class="ai-send" id="btn-ai-send" onclick="sendAITask()">ОТПРАВИТЬ</button>
                     </div>
                 </div>

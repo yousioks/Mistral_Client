@@ -808,6 +808,151 @@ class DockerTopologyMap {
     }
 }
 
+class MiniGlobeRenderer {
+    constructor(canvasId) {
+        this.canvas = document.getElementById(canvasId);
+        if (!this.canvas) return;
+        this.ctx = this.canvas.getContext('2d');
+        this.radius = this.canvas.width / 2 - 4;
+        this.cx = this.canvas.width / 2;
+        this.cy = this.canvas.height / 2;
+        this.angle = 0;
+        
+        this.flashes = [];
+        
+        this.animate = this.animate.bind(this);
+        requestAnimationFrame(this.animate);
+    }
+    
+    animateThreat(geoPayload, techId) {
+        if (!geoPayload) return;
+        
+        // Push a flash to the mini-globe
+        this.flashes.push({
+            phase: Math.random() * Math.PI * 2,
+            radius: 1,
+            maxRadius: 15,
+            alpha: 1
+        });
+        
+        if (techId) {
+            // Trigger beautiful tracer to cell
+            this.animateTracerToCell(techId, geoPayload);
+        }
+    }
+    
+    animateTracerToCell(techId, geoPayload) {
+        const cell = document.getElementById(techId);
+        if (!cell || !this.canvas) return;
+        
+        const globeRect = this.canvas.getBoundingClientRect();
+        const cellRect = cell.getBoundingClientRect();
+        
+        const startX = globeRect.left + globeRect.width / 2 + window.scrollX;
+        const startY = globeRect.top + globeRect.height / 2 + window.scrollY;
+        const endX = cellRect.left + cellRect.width / 2 + window.scrollX;
+        const endY = cellRect.top + cellRect.height / 2 + window.scrollY;
+        
+        // Color based on reputation
+        let color = 'var(--blue)';
+        if (geoPayload.reputation > 70) color = 'var(--red)';
+        else if (geoPayload.reputation > 40) color = 'var(--orange)';
+        
+        const tracer = document.createElement('div');
+        tracer.style.cssText = `
+            position: absolute;
+            left: ${startX}px;
+            top: ${startY}px;
+            width: 8px;
+            height: 8px;
+            background: ${color};
+            border-radius: 50%;
+            box-shadow: 0 0 10px ${color}, 0 0 20px ${color};
+            z-index: 999999;
+            pointer-events: none;
+            transition: all 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        `;
+        document.body.appendChild(tracer);
+        
+        // Trigger motion next frame
+        requestAnimationFrame(() => {
+            tracer.style.left = `${endX}px`;
+            tracer.style.top = `${endY}px`;
+            tracer.style.transform = 'scale(0.5)';
+        });
+        
+        setTimeout(() => {
+            tracer.remove();
+            
+            // Impact flash at cell
+            cell.style.background = 'rgba(255, 50, 50, 0.35)';
+            cell.style.boxShadow = '0 0 15px rgba(255, 50, 50, 0.5)';
+            cell.style.transition = 'all 0.1s';
+            
+            setTimeout(() => {
+                cell.style.background = '';
+                cell.style.boxShadow = '';
+                cell.style.transition = '';
+                cell.classList.add('active-threat');
+            }, 300);
+        }, 1200);
+    }
+    
+    animate() {
+        if (!this.canvas) return;
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        this.angle += 0.4; // rotation speed
+        
+        this.ctx.strokeStyle = 'rgba(0, 150, 255, 0.35)';
+        this.ctx.lineWidth = 1;
+        
+        // Outer circle boundary
+        this.ctx.beginPath();
+        this.ctx.arc(this.cx, this.cy, this.radius, 0, Math.PI * 2);
+        this.ctx.stroke();
+        
+        // Latitudes (horizontal slices)
+        for (let lat = -60; lat <= 60; lat += 30) {
+            const rad = lat * Math.PI / 180;
+            const h = this.radius * Math.sin(rad);
+            const w = this.radius * Math.cos(rad);
+            this.ctx.beginPath();
+            this.ctx.ellipse(this.cx, this.cy + h, w, w * 0.15, 0, 0, Math.PI * 2);
+            this.ctx.stroke();
+        }
+        
+        // Longitudes (vertical slices rotating)
+        for (let lon = 0; lon < 180; lon += 30) {
+            const rad = (lon + this.angle) * Math.PI / 180;
+            const w = this.radius * Math.cos(rad);
+            this.ctx.beginPath();
+            this.ctx.ellipse(this.cx, this.cy, Math.abs(w), this.radius, 0, 0, Math.PI * 2);
+            this.ctx.stroke();
+        }
+        
+        // Draw active threat flashes on globe core
+        for (let i = this.flashes.length - 1; i >= 0; i--) {
+            const f = this.flashes[i];
+            f.radius += (f.maxRadius - f.radius) * 0.1;
+            f.alpha -= 0.04;
+            
+            if (f.alpha <= 0) {
+                this.flashes.splice(i, 1);
+                continue;
+            }
+            
+            this.ctx.strokeStyle = 'rgba(239, 68, 68, ' + f.alpha + ')';
+            this.ctx.lineWidth = 1.5;
+            this.ctx.beginPath();
+            this.ctx.arc(this.cx, this.cy, f.radius, 0, Math.PI * 2);
+            this.ctx.stroke();
+        }
+        
+        requestAnimationFrame(this.animate);
+    }
+}
+
 // Bind to window context
 window.CyberMap = CyberMap;
 window.DockerTopologyMap = DockerTopologyMap;

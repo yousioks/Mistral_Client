@@ -1493,18 +1493,22 @@ function updateMetrics(data) {
     }
     // Network chart
     if(data.connections!=null && chartNet) { const ds=chartNet.data.datasets[0].data; ds.shift(); ds.push(data.connections); chartNet.update(); }
+    if(data.connections!=null) { drawNetworkSpeedGauge(data.connections); }
+    
     // Metrics feed
     const feed = $('metrics-feed');
-    const div = document.createElement('div'); div.className = 'log-entry';
-    const t = (data.receivedAt || data.timestamp || '').slice(11,19);
-    const parts = [];
-    if(data.cpu!=null) parts.push(`CPU:${data.cpu}%`);
-    if(data.ram) parts.push(`RAM:${data.ram.percent}%`);
-    if(data.disk) parts.push(`Disk:${data.disk.percent}%`);
-    if(data.connections!=null) parts.push(`Conn:${data.connections}`);
-    div.innerHTML = `<span class="log-time">${t}</span><span class="log-level info">METRICS</span><span class="log-msg">${esc(data.monitor||'monitor')} — ${parts.join(' | ')}</span>`;
-    feed.insertBefore(div, feed.firstChild);
-    if(feed.children.length > 100) feed.removeChild(feed.lastChild);
+    if (feed) {
+        const div = document.createElement('div'); div.className = 'log-entry';
+        const t = (data.receivedAt || data.timestamp || '').slice(11,19);
+        const parts = [];
+        if(data.cpu!=null) parts.push(`CPU:${data.cpu}%`);
+        if(data.ram) parts.push(`RAM:${data.ram.percent}%`);
+        if(data.disk) parts.push(`Disk:${data.disk.percent}%`);
+        if(data.connections!=null) parts.push(`Conn:${data.connections}`);
+        div.innerHTML = `<span class="log-time">${t}</span><span class="log-level info">METRICS</span><span class="log-msg">${esc(data.monitor||'monitor')} — ${parts.join(' | ')}</span>`;
+        feed.insertBefore(div, feed.firstChild);
+        if(feed.children.length > 100) feed.removeChild(feed.lastChild);
+    }
     
     // Check for high CPU to trigger warning
     if(data.cpu != null && data.cpu >= 90) {
@@ -1567,8 +1571,69 @@ function updateMetrics(data) {
         }
     }
 }
+
+function drawNetworkSpeedGauge(connections) {
+    const canvas = $('network-speed-gauge');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    const cx = canvas.width / 2;
+    const cy = canvas.height - 5;
+    const r = 32;
+    
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, Math.PI, 0);
+    ctx.strokeStyle = '#2d2d2d';
+    ctx.lineWidth = 6;
+    ctx.stroke();
+    
+    const val = Math.min(connections || 0, 500);
+    const ratio = val / 500;
+    const endAngle = Math.PI + ratio * Math.PI;
+    
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, Math.PI, endAngle);
+    
+    let color = '#22C55E';
+    if (val > 300) {
+        color = '#e51400';
+    } else if (val > 100) {
+        color = '#F59E0B';
+    } else if (val > 30) {
+        color = '#00bcd4';
+    }
+    
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 6;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+    
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(endAngle);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(r - 5, 0);
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+    ctx.restore();
+    
+    ctx.beginPath();
+    ctx.arc(cx, cy, 4, 0, 2 * Math.PI);
+    ctx.fillStyle = '#fff';
+    ctx.fill();
+    
+    ctx.fillStyle = color;
+    ctx.font = 'bold 9px "JetBrains Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(connections + ' conns', cx, cy - r - 4);
+}
+
 function setMetric(id, val, unit) {
-    if(val==null) return;
     const bar = $(id+'-bar'), valEl = $(id+'-val');
     if(!bar||!valEl) return;
     bar.style.width = Math.min(val,100)+'%';
@@ -1720,7 +1785,6 @@ function showAlert(data) {
         }
         alertCooldowns.set(key, now);
     }
-
     const sev = (data.severity || data.type || 'ALERT').toUpperCase();
     
     if (sev === 'CRITICAL' || sev === 'HIGH') {
@@ -1730,8 +1794,42 @@ function showAlert(data) {
     } else {
         showToast('INFO', data.description || data.type || 'New event logged.', 'info', alertIp);
     }
-}
 
+    // High tech voice assistant speech alert
+    const audioEnabled = localStorage.getItem('mute_audio_alerts') !== 'true';
+    if (audioEnabled && (sev === 'CRITICAL' || sev === 'HIGH') && window.speechSynthesis) {
+        try {
+            window.speechSynthesis.cancel();
+            
+            let speakType = type.replace(/_/g, ' ');
+            if (speakType.toUpperCase() === 'HONEYPOT_TRIGGERED') {
+                speakType = 'Срабатывание приманки ханипот';
+            } else if (speakType.toUpperCase() === 'SQL_INJECTION') {
+                speakType = 'С КЬЮ ЭЛЬ инъекция';
+            } else if (speakType.toUpperCase() === 'PORT_SCAN') {
+                speakType = 'Сканирование портов';
+            } else if (speakType.toUpperCase() === 'BRUTE_FORCE') {
+                speakType = 'Подбор пароля';
+            }
+            
+            const messageText = `Внимание! Обнаружена угроза ${speakType} с IP адреса ${alertIp || 'локальной системы'}`;
+            const utterance = new SpeechSynthesisUtterance(messageText);
+            utterance.lang = 'ru-RU';
+            utterance.volume = 1.0;
+            utterance.rate = 1.1;
+            
+            const voices = window.speechSynthesis.getVoices();
+            const ruVoice = voices.find(v => v.lang.includes('ru'));
+            if (ruVoice) {
+                utterance.voice = ruVoice;
+            }
+            
+            window.speechSynthesis.speak(utterance);
+        } catch (speechErr) {
+            console.error("Speech Synthesis error:", speechErr);
+        }
+    }
+}
 function showToast(title, message, type='info', ip='') {
     const container = $('toast-container');
     if (!container) return;
@@ -1789,32 +1887,44 @@ function showToast(title, message, type='info', ip='') {
 // ══════════════════════════════════════════════════════════════════════════════
 // TABS
 // ══════════════════════════════════════════════════════════════════════════════
-const TAB_NAMES = ['dashboard','network','incidents','dangerous','logs','metrics','scanners','ai','users','map','mitre','server_info','apps','vulnerabilities'];
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════════════════════════════════════════
+const TAB_NAMES = ['dashboard','network','incidents','logs','metrics','scanners','ai','users','map','mitre','server_info','apps','vulnerabilities'];
 function switchTab(name) {
     try {
         document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab===name));
         document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-        $('panel-'+name).classList.add('active');
-        if(name==='logs') loadLogs();
-        if(name==='users') loadUsers();
-        if(name==='server_info') { 
-            if(window.loadServerInfo) window.loadServerInfo(); 
-            if(window.updateSecurityStatus) window.updateSecurityStatus(); 
-            if(window.loadHardeningCompliance) window.loadHardeningCompliance(); 
+        
+        const targetPanel = $('panel-'+name);
+        if (targetPanel) {
+            targetPanel.classList.add('active');
+        } else {
+            console.warn(`Panel panel-${name} not found!`);
         }
-        if(name==='apps') { if(window.loadApplicationsInfo) window.loadApplicationsInfo(); }
-        if(name==='vulnerabilities') loadVulnerabilities();
-        if(name==='network') {
+        
+        if (name === 'logs' && typeof loadLogs === 'function') loadLogs();
+        if (name === 'users' && typeof loadUsers === 'function') loadUsers();
+        if (name === 'vulnerabilities' && typeof window.loadVulnerabilities === 'function') window.loadVulnerabilities();
+        if (name === 'network' && typeof loadQuarantine === 'function') {
             loadQuarantine();
-            if(window.updateIPDisplays) window.updateIPDisplays();
+            if (window.updateIPDisplays) window.updateIPDisplays();
         }
-        if(name==='incidents' && window.electronAPI) if (window.electronAPI) { window.electronAPI.sendWsMessage({event:'get_incidents'}); }
-        if(name==='map') {
+        if (name === 'server_info') { 
+            if (window.loadServerInfo) window.loadServerInfo(); 
+            if (window.updateSecurityStatus) window.updateSecurityStatus(); 
+            if (window.loadHardeningCompliance) window.loadHardeningCompliance(); 
+        }
+        if (name === 'apps') { if (window.loadApplicationsInfo) window.loadApplicationsInfo(); }
+        if (name === 'incidents' && window.electronAPI) { window.electronAPI.sendWsMessage({event:'get_incidents'}); }
+        if (name === 'map') {
             if (cyberMap) cyberMap.resize();
             if (window.dockerTopologyMap) window.dockerTopologyMap.resize();
         }
     } catch(err) {
-        alert("Tab Switch Error: " + err.message + "\n" + err.stack);
+        console.error("Tab Switch Error: ", err);
     }
 }
 
@@ -2922,19 +3032,50 @@ window.manualDefconChange = function(val) {
     window.updateDefensePosture();
 };
 
+
 function applyDefconVisualEffects(defcon) {
     document.body.classList.remove('defcon-1', 'defcon-2', 'defcon-3', 'defcon-4', 'defcon-5');
     document.body.classList.add(`defcon-${defcon}`);
     
-    const defconSelect = $('defcon-override-select');
-    if (defconSelect) {
-        if (defcon === 1 || defcon === 2) {
-            defconSelect.style.borderColor = 'var(--red)';
-        } else if (defcon === 3 || defcon === 4) {
-            defconSelect.style.borderColor = 'var(--orange)';
-        } else {
-            defconSelect.style.borderColor = 'var(--border)';
-        }
+    // Dynamically change color theme based on security posture
+    const root = document.documentElement;
+    if (defcon === 5) {
+        root.style.setProperty('--defcon-accent', '#22C55E'); // Green
+        root.style.setProperty('--defcon-glow', 'rgba(34, 197, 94, 0.08)');
+        root.style.setProperty('--defcon-border', 'rgba(34, 197, 94, 0.2)');
+        root.style.setProperty('--defcon-bg', '#070c08');
+    } else if (defcon === 4) {
+        root.style.setProperty('--defcon-accent', '#007acc'); // Blue
+        root.style.setProperty('--defcon-glow', 'rgba(0, 122, 204, 0.08)');
+        root.style.setProperty('--defcon-border', 'rgba(0, 122, 204, 0.2)');
+        root.style.setProperty('--defcon-bg', '#07090c');
+    } else if (defcon === 3) {
+        root.style.setProperty('--defcon-accent', '#00bcd4'); // Cyan
+        root.style.setProperty('--defcon-glow', 'rgba(0, 188, 212, 0.08)');
+        root.style.setProperty('--defcon-border', 'rgba(0, 188, 212, 0.2)');
+        root.style.setProperty('--defcon-bg', '#060b0c');
+    } else if (defcon === 2) {
+        root.style.setProperty('--defcon-accent', '#F59E0B'); // Orange
+        root.style.setProperty('--defcon-glow', 'rgba(245, 158, 11, 0.08)');
+        root.style.setProperty('--defcon-border', 'rgba(245, 158, 11, 0.2)');
+        root.style.setProperty('--defcon-bg', '#0c0a06');
+    } else if (defcon === 1) {
+        root.style.setProperty('--defcon-accent', '#e51400'); // Red
+        root.style.setProperty('--defcon-glow', 'rgba(229, 20, 0, 0.08)');
+        root.style.setProperty('--defcon-border', 'rgba(229, 20, 0, 0.2)');
+        root.style.setProperty('--defcon-bg', '#0c0707');
+    }
+    
+    // Sync active classes of the Russian DEFCON buttons
+    document.querySelectorAll('.defcon-btn').forEach(btn => {
+        const isActive = (btn.id === `defcon-btn-${window.defconOverride || 'auto'}`);
+        btn.classList.toggle('active', isActive);
+    });
+
+    // Toggle the full-screen emergency CRT overlay
+    const overlay = $('defcon1-overlay');
+    if (overlay) {
+        overlay.classList.toggle('hidden', defcon !== 1);
     }
     
     const alertBanner = $('alert-banner');
@@ -3234,6 +3375,158 @@ window.bulkDeleteLogsUI = function() {
             }
         })
         .catch(err => showToast('Ошибка сети', err.message, 'warn'));
+    }
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
+// VOICE COMMAND ASSISTANT (Web Speech API)
+// ══════════════════════════════════════════════════════════════════════════════
+window.isVoiceRecording = false;
+window.recognition = null;
+
+window.toggleVoiceRecognition = function() {
+    const btn = $('btn-voice-control');
+    if (!btn) return;
+    
+    // Check compatibility
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+        showToast('Голосовой ассистент', 'Ваш браузер/клиент не поддерживает распознавание речи.', 'warn');
+        return;
+    }
+    
+    if (window.recognition && window.isVoiceRecording) {
+        window.recognition.stop();
+        return;
+    }
+    
+    window.recognition = new SpeechRecognition();
+    window.recognition.lang = 'ru-RU';
+    window.recognition.interimResults = false;
+    window.recognition.maxAlternatives = 1;
+    
+    window.recognition.onstart = function() {
+        window.isVoiceRecording = true;
+        btn.classList.add('recording');
+        btn.title = 'Слушаю... Нажмите, чтобы выключить';
+        showToast('Голосовой ассистент', 'Слушаю... Произнесите команду (например: "покажи инциденты" или "заблокируй IP")', 'info');
+        if (typeof speakAlert === 'function') speakAlert('Ассистент активирован. Слушаю.');
+    };
+    
+    window.recognition.onerror = function(event) {
+        console.error('Speech recognition error:', event.error);
+        if (event.error !== 'no-speech') {
+            showToast('Голосовой ассистент', 'Ошибка распознавания: ' + event.error, 'warn');
+            if (typeof speakAlert === 'function') speakAlert('Ошибка распознавания речи.');
+        }
+    };
+    
+    window.recognition.onend = function() {
+        window.isVoiceRecording = false;
+        btn.classList.remove('recording');
+        btn.title = 'Голосовое управление (русский)';
+    };
+    
+    window.recognition.onresult = function(event) {
+        const text = event.results[0][0].transcript;
+        console.log('Voice Command recognized:', text);
+        showToast('Голосовой ассистент', 'Распознано: "' + text + '"', 'info');
+        window.processVoiceCommand(text);
+    };
+    
+    window.recognition.start();
+};
+
+window.processVoiceCommand = function(text) {
+    const cmd = text.toLowerCase().trim();
+    
+    const reply = (msg) => {
+        if (typeof speakAlert === 'function') speakAlert(msg);
+        showToast('Голосовой ассистент', msg, 'info');
+    };
+    
+    // Tab switching commands
+    if (cmd.includes('инцидент') || cmd.includes('событи')) {
+        switchTab('incidents');
+        reply('Перехожу в журнал инцидентов');
+        return;
+    }
+    if (cmd.includes('лог') || cmd.includes('журнал')) {
+        switchTab('logs');
+        reply('Открываю системные логи');
+        return;
+    }
+    if (cmd.includes('карт')) {
+        switchTab('map');
+        reply('Открываю интерактивную карту угроз');
+        return;
+    }
+    if (cmd.includes('график') || cmd.includes('нагрузк') || cmd.includes('метрики')) {
+        switchTab('metrics');
+        reply('Открываю системные метрики');
+        return;
+    }
+    if (cmd.includes('настройк') || cmd.includes('пользовател')) {
+        switchTab('users');
+        reply('Перехожу в настройки системы');
+        return;
+    }
+    if (cmd.includes('дашборд') || cmd.includes('главн') || cmd.includes('монитор')) {
+        switchTab('dashboard');
+        reply('Открываю главную панель мониторинга');
+        return;
+    }
+    if (cmd.includes('сканер') || cmd.includes('уязвим')) {
+        switchTab('scanners');
+        reply('Открываю базу уязвимостей и сканеры');
+        return;
+    }
+    
+    // Action: Ban IP
+    if (cmd.includes('заблокируй') || cmd.includes('забань')) {
+        const ipMatch = cmd.match(/\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/);
+        if (ipMatch) {
+            const ip = ipMatch[0];
+            if (typeof quarantineIp === 'function') {
+                quarantineIp(ip, 'Голосовая команда оператора');
+                reply('Блокирую ай пи адрес ' + ip);
+            } else {
+                reply('Функция блокировки недоступна');
+            }
+        } else {
+            reply('Не удалось распознать ай пи адрес для блокировки');
+        }
+        return;
+    }
+    
+    // Action: Unban IP
+    if (cmd.includes('разблокируй') || cmd.includes('разбань')) {
+        const ipMatch = cmd.match(/\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/);
+        if (ipMatch) {
+            const ip = ipMatch[0];
+            if (typeof unquarantineIp === 'function') {
+                unquarantineIp(ip);
+                reply('Разблокирую ай пи адрес ' + ip);
+            } else {
+                reply('Функция разблокировки недоступна');
+            }
+        } else {
+            reply('Не удалось распознать ай пи адрес для разблокировки');
+        }
+        return;
+    }
+
+    // Default: Input to AI Search
+    const aiInp = $('ai-task');
+    if (aiInp) {
+        switchTab('ai');
+        aiInp.value = text;
+        reply('Передаю ваш запрос искусственному интеллекту');
+        if (typeof sendAITask === 'function') {
+            setTimeout(sendAITask, 1200);
+        }
+    } else {
+        reply('Команда не распознана');
     }
 };
 

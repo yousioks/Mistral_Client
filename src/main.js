@@ -130,6 +130,10 @@ function createMainWindow() {
     return { action: 'deny' };
   });
 
+  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    logger.info(`[RENDERER CONSOLE] ${message} (${path.basename(sourceId)}:${line})`);
+  });
+
   mainWindow.loadFile(path.join(__dirname, 'templates', 'index.html'));
 
   mainWindow.webContents.on('before-input-event', (event, input) => {
