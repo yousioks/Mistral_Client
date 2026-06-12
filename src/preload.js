@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Event listeners
   onWsMessage: (callback) => ipcRenderer.on('ws-message', (_event, msg) => callback(msg)),
   onConnStatus: (callback) => ipcRenderer.on('conn-status', (_event, state, label) => callback(state, label)),
+  onAuthRequired: (callback) => ipcRenderer.on('ws-auth-required', (_event) => callback()),
   onInitialCache: (callback) => ipcRenderer.on('initial-cache', (_event, cache) => callback(cache)),
   onNotificationClickIp: (callback) => ipcRenderer.on('notification-click-ip', (_event, ip) => callback(ip)),
   

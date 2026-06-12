@@ -255,16 +255,30 @@ function connectToServer(host, port, token) {
   wsClient.on('close', (code, reason) => {
     logger.warn(`WS closed: ${code}`);
     wsClient = null;
+
+    // Auth-failure codes emitted by the server:
+    //   4001 = Auth timeout (never sent auth within 10s)
+    //   4002 = Replay detected (nonce reuse)
+    //   4003 = Invalid token (server restarted → new token)
+    const isAuthFailure = (code === 4001 || code === 4002 || code === 4003);
+
     if (mainWindow) {
       if (userDisconnected) {
         mainWindow.webContents.send('conn-status', 'error', 'Отключён пользователем');
+      } else if (isAuthFailure) {
+        logger.warn(`WS auth rejected (${code}) — clearing stale token, prompting re-login`);
+        // Clear stale credentials so reconnect loop cannot re-use bad token
+        serverConfig = { host: '', port: 8080, url: '', token: '' };
+        mainWindow.webContents.send('conn-status', 'error', 'Токен недействителен — требуется вход');
+        mainWindow.webContents.send('ws-auth-required');
+        return; // Do NOT call scheduleReconnect with a bad token
       } else {
         mainWindow.webContents.send('conn-status', 'error', `Отключён (${code})`);
       }
     }
     scheduleReconnect();
   });
-  
+
   wsClient.on('error', (err) => {
     logger.error('WS error: ' + err.message);
     wsClient = null;

@@ -125,6 +125,17 @@ if (window.electronAPI) {
             }
         }
     });
+    // Auth-required: server rejected token (e.g. server restarted → new token)
+    // Stop the reconnect loop and show the login screen so user can re-authenticate.
+    if (typeof window.electronAPI.onAuthRequired === 'function') {
+        window.electronAPI.onAuthRequired(() => {
+            console.warn('[WS] Auth required — server issued new token. Showing login screen.');
+            if (typeof doLogout === 'function') doLogout();
+            if (typeof showToast === 'function') {
+                showToast('🔑 Сессия завершена', 'Сервер был перезапущен и выдал новый токен. Пожалуйста, войдите снова.', 'warn');
+            }
+        });
+    }
 }
 
 // ── Connection diagnostics popup ──────────────────────────────────────────────
