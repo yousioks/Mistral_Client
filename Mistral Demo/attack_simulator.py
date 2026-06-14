@@ -17,6 +17,20 @@ WEBSITE_URL = ""
 ATTACKER_IP = "103.45.2.19"
 HONEYPOT_IP = "185.122.90.11"
 
+# Try to auto-discover WSS_SECRET_TOKEN from Mistral Server's .env file
+WSS_SECRET_TOKEN = ""
+try:
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    env_path = os.path.join(script_dir, "..", "Mistral Server", ".env")
+    if os.path.exists(env_path):
+        with open(env_path, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.strip().startswith("WSS_SECRET_TOKEN="):
+                    WSS_SECRET_TOKEN = line.split("=", 1)[1].strip()
+                    break
+except Exception:
+    pass
+
 def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
 
@@ -46,9 +60,13 @@ def print_header():
     print()
 
 def api_request(path, data=None, method='POST'):
+    global BASE_URL
     url = BASE_URL + path
     try:
         req = urllib.request.Request(url, method=method)
+        if WSS_SECRET_TOKEN:
+            req.add_header('X-Auth-Token', WSS_SECRET_TOKEN)
+            req.add_header('X-API-Key', WSS_SECRET_TOKEN)
         
         jsondata = None
         if data is not None:
@@ -727,20 +745,47 @@ def clear_all_quarantine():
     time.sleep(1.5)
 
 # ── MAIN MENU ────────────────────────────────────────────────────────────
+def check_local_port(port):
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(0.5)
+    try:
+        s.connect(('127.0.0.1', port))
+        s.close()
+        return True
+    except:
+        return False
+
 def main():
     global BASE_URL, WEBSITE_URL
     print_header()
     
-    target = input(" Введите адрес Mistral Server (например, http://localhost:8080 или нажмите ENTER):\n > ").strip()
+    # Auto-detect local servers
+    local_mistral = check_local_port(8080)
+    local_remon_backend = check_local_port(5000)
+    local_remon_frontend = check_local_port(3000)
+    
+    if local_mistral:
+        print_color(" [✓] Обнаружен локальный Mistral Server на порту 8080.", "green")
+    if local_remon_backend:
+        print_color(" [✓] Обнаружен локальный Remon Backend на порту 5000.", "green")
+    if local_remon_frontend:
+        print_color(" [✓] Обнаружен локальный Remon Frontend на порту 3000.", "green")
+    if local_mistral or local_remon_backend:
+        print()
+
+    target = input(" Введите адрес Mistral Server (по умолчанию http://localhost:8080):\n > ").strip()
     if not target:
         target = "http://localhost:8080"
     if not target.startswith("http"):
         target = "http://" + target
     BASE_URL = target.rstrip('/')
     
-    web_target = input(" Введите адрес защищаемого сайта Remon (например, https://raemon.ru или нажмите ENTER):\n > ").strip()
+    default_web = "http://localhost:5000" if local_remon_backend else "https://raemon.ru"
+    prompt_web = f"по умолчанию {default_web}"
+    web_target = input(f" Введите адрес защищаемого сайта Remon ({prompt_web}):\n > ").strip()
     if not web_target:
-        web_target = "https://raemon.ru"
+        web_target = default_web
     if not web_target.startswith("http"):
         web_target = "http://" + web_target
     WEBSITE_URL = web_target.rstrip('/')
