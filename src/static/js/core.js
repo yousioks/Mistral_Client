@@ -302,8 +302,21 @@ function handleMessage(msg) {
                 }
                 
                 if(msg.data.severity==='CRITICAL'||msg.data.severity==='HIGH'){
-                    showAlert(msg.data);
-                    if (window.playAlertSound) window.playAlertSound(msg.data.severity);
+                    const typeUpper = (msg.data.type || "").toUpperCase();
+                    const descUpper = (msg.data.description || "").toUpperCase();
+                    const isFiltered = 
+                        typeUpper.includes("DDOS") || 
+                        typeUpper.includes("FLOOD") || 
+                        typeUpper.includes("SSH_BRUTE") ||
+                        descUpper.includes("DDOS") || 
+                        descUpper.includes("FLOOD") || 
+                        descUpper.includes("SSH_BRUTE") ||
+                        descUpper.includes("SSH BRUTE");
+                    
+                    if (!isFiltered) {
+                        showAlert(msg.data);
+                        if (window.playAlertSound) window.playAlertSound(msg.data.severity);
+                    }
                     
                     const settings = window.soarSettings || {};
                     
@@ -372,8 +385,24 @@ function handleMessage(msg) {
             }
             break;
         case 'metrics':
-            window.lastMetricsData = msg.data;
-            updateMetrics(msg.data);
+            if (!window.lastMetricsData) window.lastMetricsData = {};
+            const mergeMetrics = (oldData, newData) => {
+                if (!oldData) return newData;
+                if (!newData) return oldData;
+                const merged = { ...oldData };
+                for (const key in newData) {
+                    if (newData[key] !== undefined && newData[key] !== null) {
+                        if (typeof newData[key] === 'object' && !Array.isArray(newData[key]) && oldData[key]) {
+                            merged[key] = { ...oldData[key], ...newData[key] };
+                        } else {
+                            merged[key] = newData[key];
+                        }
+                    }
+                }
+                return merged;
+            };
+            window.lastMetricsData = mergeMetrics(window.lastMetricsData, msg.data);
+            updateMetrics(window.lastMetricsData);
             if (typeof window.loadServerInfo === 'function' && document.getElementById('panel-server_info') && document.getElementById('panel-server_info').classList.contains('active')) {
                 window.loadServerInfo();
                 if (typeof window.updateSecurityStatus === 'function') window.updateSecurityStatus();

@@ -519,7 +519,19 @@ function addIncidentRow(inc, prepend, container) {
 }
 
 function patchIncident(id, body) {
-    fetch(`${serverBase}/api/incidents/${id}`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}).catch(console.error);
+    if (window.electronAPI) {
+        window.electronAPI.sendApiRequest(`/api/incidents/${id}`, 'PATCH', body).catch(console.error);
+    } else {
+        fetch(`${serverBase}/api/incidents/${id}`, {
+            method: 'PATCH',
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-Auth-Token': token,
+                'X-API-Key': token
+            },
+            body: JSON.stringify(body)
+        }).catch(console.error);
+    }
 }
 
 // Drawer Logic
@@ -1556,15 +1568,15 @@ function loadLogs() {
 function updateMetrics(data) {
     if (!data) return;
     // Metrics tab bars
-    setMetric('cpu', data.cpu, '%');
-    if(data.ram) setMetric('ram', data.ram.percent, '%');
-    if(data.disk) setMetric('disk', data.disk.percent, '%');
+    if(data.cpu != null) setMetric('cpu', data.cpu, '%');
+    if(data.ram && data.ram.percent != null) setMetric('ram', data.ram.percent, '%');
+    if(data.disk && data.disk.percent != null) setMetric('disk', data.disk.percent, '%');
     if(data.temp != null) setMetric('temp', data.temp, '°C');
     if(data.connections != null) setMetric('conns', data.connections, '');
     // Dashboard system health
-    if(data.cpu != null) { $('sys-cpu').style.width=data.cpu+'%'; $('sys-cpu-val').textContent=data.cpu+'%'; }
-    if(data.ram) { $('sys-ram').style.width=data.ram.percent+'%'; $('sys-ram-val').textContent=data.ram.percent+'%'; }
-    if(data.disk) { $('sys-disk').style.width=data.disk.percent+'%'; $('sys-disk-val').textContent=data.disk.percent+'%'; }
+    if(data.cpu != null && !isNaN(data.cpu)) { $('sys-cpu').style.width=data.cpu+'%'; $('sys-cpu-val').textContent=data.cpu+'%'; }
+    if(data.ram && data.ram.percent != null && !isNaN(data.ram.percent)) { $('sys-ram').style.width=data.ram.percent+'%'; $('sys-ram-val').textContent=data.ram.percent+'%'; }
+    if(data.disk && data.disk.percent != null && !isNaN(data.disk.percent)) { $('sys-disk').style.width=data.disk.percent+'%'; $('sys-disk-val').textContent=data.disk.percent+'%'; }
     const tp = data.top_process || {
         name: 'node',
         pid: '—',
@@ -1735,6 +1747,7 @@ function drawNetworkSpeedGauge(connections) {
 function setMetric(id, val, unit) {
     const bar = $(id+'-bar'), valEl = $(id+'-val');
     if(!bar||!valEl) return;
+    if (val === undefined || val === null || isNaN(val)) return;
     bar.style.width = Math.min(val,100)+'%';
     bar.className = 'm-fill'+(val>90?' danger':val>70?' warn':'');
     valEl.textContent = val + unit;
@@ -1745,7 +1758,10 @@ function setMetric(id, val, unit) {
 // ══════════════════════════════════════════════════════════════════════════════
 function loadQuarantine() {
     if(!serverBase) return;
-    fetch(`${serverBase}/api/quarantine`).then(r=>r.json()).then(d=>renderQuarantine(d||[])).catch(()=>{});
+    const apiCall = window.electronAPI 
+        ? window.electronAPI.sendApiRequest('/api/quarantine', 'GET')
+        : fetch(`${serverBase}/api/quarantine`, { headers: { 'X-Auth-Token': token } }).then(r=>r.json());
+    apiCall.then(d=>renderQuarantine(d||[])).catch(()=>{});
 }
 window.quarantinedIps = [];
 function renderQuarantine(list, filterQuery = '') {
@@ -1773,10 +1789,25 @@ window.filterQuarantineTable = function(searchVal) {
     renderQuarantine(window.quarantinedIps, query);
 };
 function quarantineIp(ip, reason) {
-    fetch(`${serverBase}/api/quarantine`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ip,reason:reason||'Manual block'})}).catch(console.error);
+    if (window.electronAPI) {
+        window.electronAPI.sendApiRequest('/api/quarantine', 'POST', {ip, reason: reason||'Manual block'}).catch(console.error);
+    } else {
+        fetch(`${serverBase}/api/quarantine`, {
+            method:'POST',
+            headers:{'Content-Type':'application/json', 'X-Auth-Token': token},
+            body:JSON.stringify({ip,reason:reason||'Manual block'})
+        }).catch(console.error);
+    }
 }
 function unquarantineIp(ip) {
-    fetch(`${serverBase}/api/quarantine/${encodeURIComponent(ip)}`, {method:'DELETE'}).catch(console.error);
+    if (window.electronAPI) {
+        window.electronAPI.sendApiRequest(`/api/quarantine/${encodeURIComponent(ip)}`, 'DELETE').catch(console.error);
+    } else {
+        fetch(`${serverBase}/api/quarantine/${encodeURIComponent(ip)}`, {
+            method:'DELETE',
+            headers:{'X-Auth-Token': token}
+        }).catch(console.error);
+    }
 }
 
 function submitManualBan() {
@@ -1840,6 +1871,22 @@ function showAlert(data) {
 
     const type = data.type || '';
     const desc = data.description || '';
+
+    // Filter out DDoS/Flood and SSH Brute Force from UI toasts
+    const typeUpper = type.toUpperCase();
+    const descUpper = desc.toUpperCase();
+    if (
+        typeUpper.includes('DDOS') || 
+        typeUpper.includes('FLOOD') || 
+        typeUpper.includes('SSH_BRUTE') ||
+        descUpper.includes('DDOS') || 
+        descUpper.includes('FLOOD') || 
+        descUpper.includes('SSH_BRUTE') ||
+        descUpper.includes('SSH BRUTE')
+    ) {
+        console.log(`[SOC Alert] DDoS/SSH_BruteForce Toast alert suppressed by policy`);
+        return;
+    }
     
     // Extract IP from incident for action buttons and cooldown tracking
     let alertIp = data.ip || data.target || '';
@@ -2002,8 +2049,11 @@ function getFlagEmojiLocal(countryCode) {
 }
 
 function openThreatIntelModal(ip) {
-    fetch(`${serverBase}/api/geoip/${encodeURIComponent(ip)}`)
-        .then(r => r.json())
+    const apiCall = window.electronAPI 
+        ? window.electronAPI.sendApiRequest(`/api/geoip/${encodeURIComponent(ip)}`, 'GET')
+        : fetch(`${serverBase}/api/geoip/${encodeURIComponent(ip)}`, { headers: { 'X-Auth-Token': token } }).then(r => r.json());
+        
+    apiCall
         .then(geo => {
             const flag = geo.code ? getFlagEmojiLocal(geo.code) : '';
             const rep = geo.reputation || 0;

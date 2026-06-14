@@ -54,8 +54,10 @@ function doLogout() {
 // ══════════════════════════════════════════════════════════════════════════════
 async function loadUsers() {
     try {
-        const r = await fetch(`${serverBase}/api/users`);
-        const users = await r.json();
+        const users = window.electronAPI 
+            ? await window.electronAPI.sendApiRequest('/api/users', 'GET')
+            : await fetch(`${serverBase}/api/users`, { headers: { 'X-Auth-Token': token } }).then(res => res.json());
+            
         const el = $('users-list'); 
         if(!el) return;
         el.innerHTML = '';
@@ -81,8 +83,14 @@ async function addUser() {
     const username=$('nu-user').value.trim(), password=$('nu-pass').value, role=$('nu-role').value;
     if(!username||!password) return;
     try {
-        const r = await fetch(`${serverBase}/api/users`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username,password,role})});
-        const data = await r.json();
+        const data = window.electronAPI 
+            ? await window.electronAPI.sendApiRequest('/api/users', 'POST', {username, password, role})
+            : await fetch(`${serverBase}/api/users`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Auth-Token': token },
+                body: JSON.stringify({username, password, role})
+              }).then(res => res.json());
+              
         if(data.success) { $('nu-user').value=''; $('nu-pass').value=''; loadUsers(); }
         else alert(data.error||'Ошибка');
     } catch(e) { alert('Ошибка соединения'); }

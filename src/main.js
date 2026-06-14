@@ -210,7 +210,18 @@ function connectToServer(host, port, token, username) {
              cache.incidents.unshift(msg.data);
              const now = Date.now();
              const timeOk = (now - lastNotificationTime) > 8000;
-             if ((msg.data.severity === 'CRITICAL' || msg.data.severity === 'HIGH') && timeOk && Notification.isSupported() && !isAppQuitting && notificationsEnabled) {
+             const typeUpper = (msg.data.type || "").toUpperCase();
+             const descUpper = (msg.data.description || "").toUpperCase();
+             const isFiltered = 
+                 typeUpper.includes("DDOS") || 
+                 typeUpper.includes("FLOOD") || 
+                 typeUpper.includes("SSH_BRUTE") ||
+                 descUpper.includes("DDOS") || 
+                 descUpper.includes("FLOOD") || 
+                 descUpper.includes("SSH_BRUTE") ||
+                 descUpper.includes("SSH BRUTE");
+
+             if ((msg.data.severity === 'CRITICAL' || msg.data.severity === 'HIGH') && !isFiltered && timeOk && Notification.isSupported() && !isAppQuitting && notificationsEnabled) {
                  lastNotificationTime = now;
                  let attackerIp = msg.data.ip;
                  if (!attackerIp && msg.data.details) {
