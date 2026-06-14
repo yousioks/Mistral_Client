@@ -160,7 +160,11 @@ function matchesMultiParamQuery(entry, queryText, isLog = true) {
 function updateChartsFromIncidents(list) {
     let crit=0, high=0, med=0, low=0;
     const types = [0,0,0,0,0,0];
-    list.forEach(i => {
+    const activeList = list.filter(i => {
+        const status = String(i.status || '').toLowerCase();
+        return status !== 'resolved' && status !== 'advisory';
+    });
+    activeList.forEach(i => {
         const sev = String(i.severity||'').toUpperCase();
         if(sev==='CRITICAL') crit++;
         else if(sev==='HIGH') high++;
