@@ -74,8 +74,11 @@ function formatLogMessageWithIpActions(message) {
         { pattern: 'ошибк[а-я]*|провал[а-я]*|fail|опасность|error|failure', cls: 'log-verb-error' }
     ];
     verbHighlights.forEach(({ pattern, cls }) => {
-        const rx = new RegExp(`(?<![а-яА-ЯёЁa-zA-Z0-9])(${pattern})(?![а-яА-ЯёЁa-zA-Z0-9])`, 'gi');
-        msgHtml = msgHtml.replace(rx, `<span class="${cls}">$1</span>`);
+        const rx = new RegExp(`(<[^>]+>)|(?<![а-яА-ЯёЁa-zA-Z0-9])(${pattern})(?![а-яА-ЯёЁa-zA-Z0-9])`, 'gi');
+        msgHtml = msgHtml.replace(rx, (m, g1, g2) => {
+            if (g1) return g1;
+            return `<span class="${cls}">${g2}</span>`;
+        });
     });
 
     return msgHtml + actionsHtml;
@@ -99,6 +102,7 @@ if (window.electronAPI) {
         setConnStatus(state, label);
     });
     window.electronAPI.onWsMessage((msg) => {
+        console.log('[WS RECEIVED]', msg);
         handleMessage(msg);
     });
     window.electronAPI.onInitialCache((cache) => {

@@ -194,6 +194,7 @@ function connectToServer(host, port, token, username) {
   ws.on('message', (raw) => {
     try {
       const msg = JSON.parse(raw.toString());
+      logger.info(`[WS RECEIVED] event=${msg.event}`);
       if (mainWindow) mainWindow.webContents.send('ws-message', msg);
       
       // Cache data
