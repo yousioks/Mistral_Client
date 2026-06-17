@@ -1561,9 +1561,13 @@ function updateRlogCount(n) {
 }
 
 function loadLogs() {
-    const type = $('log-type').value;
+    const typeSelect = $('log-type');
+    const type = typeSelect ? typeSelect.value : 'server';
     currentLogsData = [];
-    if(window.electronAPI) { window.electronAPI.sendWsMessage({event:'get_logs',data:{type,limit:500}}); }
+    if(window.electronAPI) {
+        window.electronAPI.sendWsMessage({event:'get_log_types'});
+        window.electronAPI.sendWsMessage({event:'get_logs',data:{type,limit:500}});
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -3371,11 +3375,43 @@ function applyDefconVisualEffects(defcon) {
     const alertBanner = $('alert-banner');
     if (alertBanner) {
         if (defcon === 1) {
-            alertBanner.innerHTML = '🚨 КРИТИЧЕСКАЯ УГРОЗА: ПРИНУДИТЕЛЬНО ВВЕДЕН РЕЖИМ "КАТАСТРОФА" 🚨';
+            const critIncidents = allIncidents.filter(i => i.severity === 'CRITICAL' && i.status !== 'resolved');
+            let bannerContent = '🚨 КРИТИЧЕСКАЯ УГРОЗА: РЕЖИМ "КАТАСТРОФА" (DEFCON 1) 🚨';
+            if (critIncidents.length > 0) {
+                bannerContent += ` (Активные угрозы: ${critIncidents.length})<br>`;
+                bannerContent += '<div style="font-size: 11px; font-weight: normal; margin-top: 5px; display: inline-flex; flex-direction: column; gap: 4px; text-align: left; background: rgba(0,0,0,0.6); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); max-width: 90%;">';
+                critIncidents.slice(0, 3).forEach(i => {
+                    bannerContent += `<div style="cursor: pointer; display: flex; align-items: baseline; gap: 8px;" onclick="switchTab('incidents'); openIncidentDrawer('${i.id}'); event.stopPropagation();">` + 
+                                     `<span style="color: var(--cyan); font-weight: 700; font-family: 'JetBrains Mono', monospace; text-decoration: underline;">[ПОДРОБНЕЕ]</span> ` +
+                                     `<span style="color: #fff; font-weight: 700;">${esc(i.type)}:</span> ` +
+                                     `<span style="color: #fda4af;">${esc(i.description)}</span>` + 
+                                     `</div>`;
+                });
+                bannerContent += '</div>';
+            } else {
+                bannerContent += '<br><span style="font-size: 11px; font-weight: normal; color: #fda4af;">Режим установлен принудительно оператором.</span>';
+            }
+            alertBanner.innerHTML = bannerContent;
             alertBanner.style.display = 'block';
             alertBanner.style.background = 'var(--red)';
         } else if (defcon === 2) {
-            alertBanner.innerHTML = '⚠️ ПОВЫШЕННЫЙ УРОВЕНЬ ОПАСНОСТИ: ВВЕДЕН РЕЖИМ "АТАКА" ⚠️';
+            const highIncidents = allIncidents.filter(i => (i.severity === 'CRITICAL' || i.severity === 'HIGH') && i.status !== 'resolved');
+            let bannerContent = '⚠️ ПОВЫШЕННЫЙ УРОВЕНЬ ОПАСНОСТИ: РЕЖИМ "АТАКА" (DEFCON 2) ⚠️';
+            if (highIncidents.length > 0) {
+                bannerContent += ` (Активные угрозы: ${highIncidents.length})<br>`;
+                bannerContent += '<div style="font-size: 11px; font-weight: normal; margin-top: 5px; display: inline-flex; flex-direction: column; gap: 4px; text-align: left; background: rgba(0,0,0,0.6); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); max-width: 90%;">';
+                highIncidents.slice(0, 3).forEach(i => {
+                    bannerContent += `<div style="cursor: pointer; display: flex; align-items: baseline; gap: 8px;" onclick="switchTab('incidents'); openIncidentDrawer('${i.id}'); event.stopPropagation();">` + 
+                                     `<span style="color: var(--cyan); font-weight: 700; font-family: 'JetBrains Mono', monospace; text-decoration: underline;">[ПОДРОБНЕЕ]</span> ` +
+                                     `<span style="color: #fff; font-weight: 700;">${esc(i.type)}:</span> ` +
+                                     `<span style="color: #fed7aa;">${esc(i.description)}</span>` + 
+                                     `</div>`;
+                });
+                bannerContent += '</div>';
+            } else {
+                bannerContent += '<br><span style="font-size: 11px; font-weight: normal; color: #fed7aa;">Режим установлен принудительно оператором.</span>';
+            }
+            alertBanner.innerHTML = bannerContent;
             alertBanner.style.display = 'block';
             alertBanner.style.background = 'var(--orange)';
         } else {

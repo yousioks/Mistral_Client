@@ -105,6 +105,163 @@ window.analyzeContext = function(id) {
 // ══════════════════════════════════════════════════════════════════════════════
 
 let chatHistory = window.chatHistory = [];
+let chatSessions = window.chatSessions = [];
+let currentSessionId = window.currentSessionId = null;
+
+window.initChatSessions = function() {
+    try {
+        const saved = localStorage.getItem('mistral_chat_sessions');
+        if (saved) {
+            window.chatSessions = chatSessions = JSON.parse(saved);
+        }
+        window.currentSessionId = currentSessionId = localStorage.getItem('mistral_active_session_id');
+    } catch (e) {
+        console.error("Failed to load chat sessions:", e);
+    }
+    
+    if (!chatSessions || chatSessions.length === 0) {
+        window.chatSessions = chatSessions = [];
+        window.createNewSession('Новый чат');
+    } else {
+        let active = chatSessions.find(s => s.id === currentSessionId);
+        if (!active) {
+            active = chatSessions[0];
+            window.currentSessionId = currentSessionId = active.id;
+        }
+        window.selectSession(currentSessionId, false);
+    }
+    window.renderSessionsSidebar();
+};
+
+window.createNewSession = function(title = 'Новый чат') {
+    const id = 'session_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+    const newSession = {
+        id: id,
+        title: title,
+        history: [],
+        model: window.currentModel || 'deepseek-v4-pro',
+        createdAt: Date.now()
+    };
+    chatSessions.unshift(newSession);
+    window.currentSessionId = currentSessionId = id;
+    saveSessionsToStorage();
+    window.selectSession(id);
+    window.renderSessionsSidebar();
+    return id;
+};
+
+window.selectSession = function(sessionId, shouldFocus = true) {
+    window.currentSessionId = currentSessionId = sessionId;
+    localStorage.setItem('mistral_active_session_id', currentSessionId);
+    
+    const active = chatSessions.find(s => s.id === sessionId);
+    if (!active) return;
+    
+    window.chatHistory = chatHistory = active.history;
+    
+    if (active.model) {
+        window.currentModel = active.model;
+        document.querySelectorAll('.model-btn').forEach(b => {
+            const clickAttr = b.getAttribute('onclick') || '';
+            if (clickAttr.includes(active.model) || b.textContent.trim().toLowerCase() === active.model.toLowerCase()) {
+                b.classList.add('active');
+            } else {
+                b.classList.remove('active');
+            }
+        });
+    }
+    
+    const historyEl = $('ai-chat-history');
+    if (historyEl) {
+        historyEl.innerHTML = '';
+        if (active.history.length === 0) {
+            historyEl.innerHTML = `
+                <div class="ai-msg bot">
+                    <div class="msg-avatar">AI</div>
+                    <div class="msg-bubble">
+                        Система ИИ-анализа MISTRAL инициализирована.<br>Я готов помочь с анализом инцидентов, поиском угроз и написанием защитных скриптов.
+                    </div>
+                </div>
+            `;
+        } else {
+            active.history.forEach(m => {
+                window.appendChatMsg(m.role, m.content, m.role === 'bot');
+            });
+        }
+    }
+    
+    document.querySelectorAll('.ai-session-item').forEach(item => {
+        item.classList.toggle('active', item.dataset.id === sessionId);
+    });
+    
+    if (shouldFocus) {
+        const inp = $('ai-task');
+        if (inp) inp.focus();
+    }
+};
+
+window.deleteSession = function(sessionId, event) {
+    if (event) event.stopPropagation();
+    if (chatSessions.length <= 1) {
+        showToast('ИИ-Агент', 'Должен оставаться хотя бы один чат.', 'warn');
+        return;
+    }
+    if (!confirm('Удалить эту сессию общения?')) return;
+    
+    window.chatSessions = chatSessions = chatSessions.filter(s => s.id !== sessionId);
+    if (currentSessionId === sessionId) {
+        window.currentSessionId = currentSessionId = chatSessions[0].id;
+    }
+    saveSessionsToStorage();
+    window.selectSession(currentSessionId, false);
+    window.renderSessionsSidebar();
+};
+
+window.renderSessionsSidebar = function() {
+    const container = $('ai-sessions-list');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    chatSessions.forEach(s => {
+        const item = document.createElement('div');
+        item.className = 'ai-session-item' + (s.id === currentSessionId ? ' active' : '');
+        item.dataset.id = s.id;
+        item.onclick = () => window.selectSession(s.id);
+        
+        const title = document.createElement('span');
+        title.className = 'ai-session-title';
+        title.textContent = s.title || 'Новый чат';
+        title.title = s.title;
+        
+        const delBtn = document.createElement('button');
+        delBtn.className = 'ai-session-delete-btn';
+        delBtn.innerHTML = '✕';
+        delBtn.onclick = (e) => window.deleteSession(s.id, e);
+        
+        item.appendChild(title);
+        item.appendChild(delBtn);
+        container.appendChild(item);
+    });
+};
+
+window.saveCurrentChatSession = function() {
+    const active = chatSessions.find(s => s.id === currentSessionId);
+    if (active) {
+        active.history = window.chatHistory || [];
+        active.model = window.currentModel || 'deepseek-v4-pro';
+        saveSessionsToStorage();
+    }
+};
+
+function saveSessionsToStorage() {
+    try {
+        localStorage.setItem('mistral_chat_sessions', JSON.stringify(chatSessions));
+        localStorage.setItem('mistral_active_session_id', currentSessionId);
+    } catch (e) {
+        console.error("Failed to save chat sessions:", e);
+    }
+}
+
 window.appendChatMsg = function(role, text, isHtml = false) {
     const historyEl = $('ai-chat-history');
     if(!historyEl) return null;
@@ -192,15 +349,52 @@ window.sendAITask = function(taskText = null) {
     
     if(!task) return;
     if(inp) inp.value = '';
+
+    // Auto-create session if none active
+    if (!window.currentSessionId) {
+        window.createNewSession('Новый чат');
+    }
+    
+    const active = chatSessions.find(s => s.id === window.currentSessionId);
+    if (active && (active.title === 'Новый чат' || active.title === '')) {
+        let cleanTitle = task.replace(/[^a-zA-Zа-яА-Я0-9\s]/g, '').trim();
+        active.title = cleanTitle.substring(0, 25) || 'Анализ...';
+        window.renderSessionsSidebar();
+    }
     
     appendChatMsg('user', task); 
     chatHistory.push({role:'user', content:task});
+    window.saveCurrentChatSession();
     
     const btn = $('btn-ai-send');
     if(btn) btn.disabled = true;
     
-    const bubble = appendChatMsg('bot', 'Анализ...'); 
-    if(bubble) bubble.id = 'ai-typing-bubble';
+    const bubble = appendChatMsg('bot', '', true); 
+    if(bubble) {
+        bubble.id = 'ai-typing-bubble';
+        bubble.classList.add('typing-cursor');
+        bubble.innerHTML = '<span style="color:var(--cyan); font-family:\'JetBrains Mono\', monospace; font-size:11px;">> ИНИЦИАЛИЗАЦИЯ ИИ-АНАЛИЗА...</span>';
+    }
+
+    // Dynamic cycling neural diagnostics to create an active/live console vibe
+    let neuralSteps = [
+        "ПОДКЛЮЧЕНИЕ К НЕЙРОСЕТЕВОМУ ЯДРУ MISTRAL...",
+        "КАЛИБРОВКА СИНАПТИЧЕСКИХ ВЕСОВ...",
+        "ОБРАБОТКА КОНТЕКСТА СОБЫТИЯ И ЛОГОВ...",
+        "АНАЛИЗ ВЕКТОРОВ УГРОЗ И СИГНАТУР...",
+        "СИНТЕЗ ЗАКЛЮЧЕНИЯ И СЦЕНАРИЕВ ЗАЩИТЫ..."
+    ];
+    let stepIdx = 0;
+    if (window.aiProgressInterval) clearInterval(window.aiProgressInterval);
+    window.aiProgressInterval = setInterval(() => {
+        const tb = $('ai-typing-bubble');
+        if (tb && tb.classList.contains('typing-cursor') && !tb.querySelector('.ai-progress-widget')) {
+            tb.innerHTML = `<span style="color:var(--cyan); font-family:\'JetBrains Mono\', monospace; font-size:11px;">> ${neuralSteps[stepIdx % neuralSteps.length]}</span>`;
+            stepIdx++;
+        } else {
+            clearInterval(window.aiProgressInterval);
+        }
+    }, 1500);
     
     // Safety timeout: automatically re-enable button after 120 seconds if server doesn't respond
     if (window.aiSendTimeout) clearTimeout(window.aiSendTimeout);
@@ -229,6 +423,14 @@ function generateDailyBriefing() {
 
 window.selectModel = function(model, btn) {
     window.currentModel = model;
+    
+    // Sync with active session
+    const active = chatSessions.find(s => s.id === window.currentSessionId);
+    if (active) {
+        active.model = model;
+        saveSessionsToStorage();
+    }
+    
     document.querySelectorAll('.model-btn').forEach(b => b.classList.remove('active'));
     if(btn) btn.classList.add('active');
     
@@ -312,7 +514,7 @@ window.updateAIProgressUI = function(data) {
                 </div>
                 <div style="color:#e2e8f0; font-size:10px; display:flex; align-items:center; gap:6px;">
                     <span style="color:var(--orange); font-size:8px; animation: pulse 1s infinite;">●</span>
-                    <span>${esc(data.message)}</span>
+                    <span class="typing-cursor">${esc(data.message)}</span>
                 </div>
             </div>
         `;

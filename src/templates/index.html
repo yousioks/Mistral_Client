@@ -664,7 +664,15 @@
         <!-- ═══ AI ═══ -->
         <div class="panel" id="panel-ai">
             <div class="ai-container">
-                <!-- Left: Widescreen Main Chat Area -->
+                <!-- Left: Chat Sessions Sidebar -->
+                <div class="ai-chat-sessions-sidebar">
+                    <button class="btn-new-chat" onclick="createNewSession()">+ Новый чат</button>
+                    <div class="ai-sessions-list" id="ai-sessions-list">
+                        <!-- Chat sessions list dynamically populated here -->
+                    </div>
+                </div>
+
+                <!-- Center: Widescreen Main Chat Area -->
                 <div class="ai-chat-main">
                     <div class="ai-chat-history" id="ai-chat-history">
                         <div class="ai-msg bot">

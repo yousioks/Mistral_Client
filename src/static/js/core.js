@@ -237,6 +237,7 @@ function handleMessage(msg) {
                 window.clientIp = msg.data.clientIp;
                 updateIPDisplays();
             }
+            if(window.electronAPI) { window.electronAPI.sendWsMessage({event:'get_log_types'}); }
             break;
         case 'auth_error': setConnStatus('error','Ошибка авторизации'); break;
         case 'stats': updateStats(msg.data); break;
@@ -257,6 +258,31 @@ function handleMessage(msg) {
             populateAIIncidentDropdown();
             if(window.updateDefensePosture) updateDefensePosture();
             if(window.updateMitreMatrix) updateMitreMatrix();
+            break;
+        case 'log_types_list':
+            const typeSelect = $('log-type');
+            if (typeSelect) {
+                const currentVal = typeSelect.value;
+                typeSelect.innerHTML = '';
+                (msg.data || []).forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t;
+                    const displayNames = {
+                        'server': 'Server (Система)',
+                        'bot': 'Telegram Bot',
+                        'cve': 'CVE Scanner',
+                        'docker': 'Docker Containers',
+                        'syslog': 'Syslog (journald)'
+                    };
+                    opt.textContent = displayNames[t] || t.toUpperCase();
+                    typeSelect.appendChild(opt);
+                });
+                if (currentVal && (msg.data || []).includes(currentVal)) {
+                    typeSelect.value = currentVal;
+                } else {
+                    typeSelect.value = (msg.data || []).includes('server') ? 'server' : ((msg.data || [])[0] || 'server');
+                }
+            }
             break;
         case 'logs_list': 
             currentLogsData = msg.data || [];
@@ -592,19 +618,37 @@ function handleMessage(msg) {
             }
 
             if (window.aiSendTimeout) clearTimeout(window.aiSendTimeout);
+            if (window.aiProgressInterval) {
+                clearInterval(window.aiProgressInterval);
+                window.aiProgressInterval = null;
+            }
             const bubble = $('ai-typing-bubble');
             chatHistory.push({role:'bot', content:ans});
             if (bubble) {
-                bubble.removeAttribute('id'); bubble.innerHTML = parseMarkdown(ans);
+                bubble.classList.remove('typing-cursor');
+                bubble.removeAttribute('id');
+                bubble.innerHTML = parseMarkdown(ans);
             } else {
                 const newB = appendChatMsg('bot', '', true); if(newB) newB.innerHTML = parseMarkdown(ans);
             }
+            if (window.saveCurrentChatSession) window.saveCurrentChatSession();
             if($('btn-ai-send')) $('btn-ai-send').disabled = false;
             break;
         case 'ai_error':
             if (window.aiSendTimeout) clearTimeout(window.aiSendTimeout);
+            if (window.aiProgressInterval) {
+                clearInterval(window.aiProgressInterval);
+                window.aiProgressInterval = null;
+            }
             const errB = $('ai-typing-bubble');
-            if (errB) { errB.removeAttribute('id'); errB.innerHTML = '❌ Ошибка: ' + (msg.data?.error || 'unknown'); }
+            const errText = '❌ Ошибка: ' + (msg.data?.error || 'unknown');
+            chatHistory.push({role:'bot', content:errText});
+            if (errB) {
+                errB.classList.remove('typing-cursor');
+                errB.removeAttribute('id');
+                errB.innerHTML = errText;
+            }
+            if (window.saveCurrentChatSession) window.saveCurrentChatSession();
             if($('btn-ai-send')) $('btn-ai-send').disabled = false;
             
             // Update activity log entry with error
@@ -923,6 +967,11 @@ window.addEventListener('DOMContentLoaded', () => {
             }
         };
     });
+
+    // Initialize AI Chat Sessions on boot
+    if (typeof window.initChatSessions === 'function') {
+        window.initChatSessions();
+    }
 });
 
 window.showMitreTooltip = function(x, y, techId, desc) {
