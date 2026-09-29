@@ -8,6 +8,7 @@
 ![WebSocket](https://img.shields.io/badge/WebSocket-WSS%20Client-010101?style=for-the-badge&logo=socketdotio&logoColor=white)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20x64%20Portable-0078D6?style=for-the-badge&logo=windows&logoColor=white)
 ![UI](https://img.shields.io/badge/Design-Cyberpunk%20Glassmorphism-9945FF?style=for-the-badge)
+[![Security Pipeline](https://img.shields.io/github/actions/workflow/status/yousioks/Mistral_Client/security.yml?label=DevSecOps%20Pipeline&logo=githubactions&logoColor=white&style=for-the-badge)](https://github.com/yousioks/Mistral_Client/actions/workflows/security.yml)
 
 **Кроссплатформенное десктопное приложение оператора центра мониторинга и реагирования на инциденты безопасности (SOC / Blue Team Command Center).**
 
